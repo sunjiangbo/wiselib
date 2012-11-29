@@ -3,18 +3,21 @@
 #include <external_interface/arduino/arduino_debug.h>
 #include <external_interface/arduino/arduino_clock.h>
 
+#define NR_OF_BLOCKS_TO_TEST 8
+
 typedef wiselib::OSMODEL Os;
 
 class App {
 	public:
 		
 		// NOTE: this uses up a *lot* of RAM, way too much for uno!
-		enum { TEST_BUFFER_SIZE = 512 * 3 };
+		enum { BlOCK_SIZE = 512 , BLOCKS_IN_1GB=2097152};
 		
 		void init(Os::AppMainParameter& value) {
 
 			debug_ = &wiselib::FacetProvider<Os, Os::Debug>::get_facet( value );
 			clock_ = &wiselib::FacetProvider<Os, Os::Clock>::get_facet( value );
+
 
 			debug_->debug( "Starting SD Card Benchmark" );
 			benchmark_sd();
@@ -22,46 +25,33 @@ class App {
 		
 		void benchmark_sd() {
 			// initialize test buffer
-			
-
-			for(Os::size_t i=0; i<TEST_BUFFER_SIZE; i++) {
-				test_buffer_[i] = (i & 0xff) ^ (i >> 8);
-				verify_buffer_[i] = 0;
+			for(Os::size_t i=0; i<BlOCK_SIZE*NR_OF_BLOCKS_TO_TEST; i++) {
+				test_buffer_[i] = 255;
 			}
 			
 			int r = Os::SUCCESS;
 			
+
 			sd_.init();
 			
 			debug_->debug("writing...");
-			Os::Clock::time_t start = clock_->time();
-
-			r = sd_.write(test_buffer_, 0, TEST_BUFFER_SIZE / 512);
-			if(r != Os::SUCCESS) { debug_->debug("Error %d", r); }
-			debug_->debug("writing took %d milliseconds", (clock_->time() - start));
-			debug_->debug("reading...");
-			
-			r = sd_.read(verify_buffer_, 0, TEST_BUFFER_SIZE / 512);
-			if(r != Os::SUCCESS) { debug_->debug("Error %d", r); }
-			
-			debug_->debug("verifying...");
-			
-			Os::size_t i;
-			for(i=0; i<TEST_BUFFER_SIZE; i++) {
-				if(verify_buffer_[i] != test_buffer_[i]) {
-					debug_->debug("buffers differ at position %d (orig=%d after transfer=%d).", i, test_buffer_[i], verify_buffer_[i]);
-					break;
-				}
+			for(int i = 0; i < 20000; i+=NR_OF_BLOCKS_TO_TEST)
+			{
+				Os::Clock::time_t start = clock_->time();
+				r = sd_.write(test_buffer_, i, NR_OF_BLOCKS_TO_TEST );
+				if(r != Os::SUCCESS) break;
+				Os::Clock::time_t end = clock_->time();
+				debug_->debug("%d %d",i, (end - start));
 			}
-			debug_->debug("%d elements verified.", i);
+			
+			if(r != Os::SUCCESS) { debug_->debug("Error %d", r); }
 		}
 		
 	private:
 		//static Os::Debug dbg;
 		Os::Debug::self_pointer_t debug_;
 		Os::Clock::self_pointer_t clock_;
-		Os::block_data_t test_buffer_[TEST_BUFFER_SIZE];
-		Os::block_data_t verify_buffer_[TEST_BUFFER_SIZE];
+		Os::block_data_t test_buffer_[BlOCK_SIZE*NR_OF_BLOCKS_TO_TEST];
 		wiselib::ArduinoSdCard<Os> sd_;
 };
 
