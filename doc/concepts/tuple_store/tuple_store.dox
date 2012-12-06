@@ -1,0 +1,68 @@
+
+namespace concepts {
+
+/**
+ */
+class TupleStore_concept : public Algorithm_concept {
+	public:
+		typedef ... iterator;
+		typedef ... size_type;
+		typedef ... Tuple;
+		
+		/**
+		 * Insert the given tuple into the store.
+		 * 
+		 * If the tuple already is contained in the store (w.r.t. equality),
+		 * return an iterator to that tuple and don't insert anything.
+		 * Else, insert t and return an iterator to the inserted copy.
+		 */
+		template<typename T>
+		iterator insert(const T& t);
+		
+		/**
+		 * Delete the tuple pointed to by iter from the store.
+		 */
+		iterator erase(iterator iter);
+		
+		/**
+		 * Delete all tuples from the store.
+		 */
+		void clear();
+
+		/**
+		 * \return Iterator pointing to a tuple that equals t if such a tuple
+		 * is in the store.
+		 * Return end() if no such tuple was found.
+		 */
+		template<typename T>
+		iterator find(const T& t);
+		
+		/**
+		 * \return Number of tuples in the store that equal \ref t (0 or 1)
+		 */
+		template<typename T>
+		size_type count(const T& t);
+
+		/**
+		 */
+		iterator begin();
+		
+		/**
+		 */
+		iterator end();
+		
+		/**
+		 */
+		size_type size();
+
+		/**
+		 * Return true iff there is no tuple in the store
+		 */
+		bool empty();
+		
+};
+
+} // namespace
+
+// vim: set ft=cpp:
+
