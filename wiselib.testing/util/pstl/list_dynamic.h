@@ -159,25 +159,6 @@ namespace wiselib {
 				return *this;
 			}
 			
-			/**
-			 * If true, don't delete the internal buffer upon destruction.
-			 * Useful if you (shallow) "serialize" the string instance into some other
-			 * format and call its destructor but actually plan to cast it
-			 * back later. Normally that wouldnt be possible because the
-			 * internally buffer would get lost, if you set the object to be
-			 * "weak" in the meantime, the buffer will persist and the
-			 * reconstructed object can be used.
-			 * Only use if you know what you are doing! These methods are
-			 * basically a recipe for memory leaks!
-			 */
-			//bool weak() const { return weak_; }
-			
-			/**
-			 * Set/unset "weak" property.
-			 * See weak() for explanation on weakness.
-			 */
-			//void set_weak(bool s) const { weak_ = s; }
-			
 			iterator begin() { return iterator(*this, first_node_); }
 			iterator end() { return iterator(*this); }
 			

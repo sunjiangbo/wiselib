@@ -25,6 +25,11 @@
 #include <boost/detail/endian.hpp>
 #include <stdint.h>
 
+#define _WHERESTR "%s:%d: "
+#define _WHEREARG __FILE__, __LINE__
+#define DBG2(...) printf(__VA_ARGS__); fflush(stdout);
+#define DBG(_fmt, ...) DBG2(_WHERESTR _fmt "\n", _WHEREARG, __VA_ARGS__)
+
 #include "external_interface/default_return_values.h"
 #include "com_isense_radio.h"
 #include "pc_clock.h"
@@ -33,7 +38,8 @@
 #include "pc_timer.h"
 #include "pc_com_uart.h"
 #include "util/serialization/endian.h"
-#include "algorithms/block_storage/ram_set_erase_storage.h"
+
+#include "algorithms/block_memory/ram_block_memory.h"
 
 namespace wiselib {
 	class PCOsModel
@@ -46,7 +52,8 @@ namespace wiselib {
 			typedef PCOsModel AppMainParameter;
 			typedef PCOsModel Os;
 			
-			typedef uint32_t size_t;
+			//typedef uint32_t size_t;
+			typedef unsigned long size_t;
 			typedef uint8_t block_data_t;
 			
 			typedef PCClockModel<PCOsModel> Clock;
@@ -62,7 +69,7 @@ namespace wiselib {
 			typedef PCComUartModel<PCOsModel, false> Uart;
 			typedef ComISenseRadioModel<PCOsModel, ISenseUart> Radio;
 			
-			typedef RamSetEraseStorage<PCOsModel> BlockMemory;
+			typedef RamBlockMemory<PCOsModel> BlockMemory;
 			
 			static const Endianness endianness = WISELIB_ENDIANNESS;
 	};

@@ -36,10 +36,18 @@
 #include "external_interface/isense/isense_com_bufferuart.h"
 #include "external_interface/isense/isense_duty_cycling.h"
 #include "external_interface/isense/isense_internal_flash.h"
+#include "external_interface/isense/isense_sdcard.h"
 
 #include "util/serialization/endian.h"
 
 #include <util/allocators/malloc_free_allocator.h>
+
+#include <isense/util/get_os.h>
+#define _WHERESTR "%s:%d: "
+#define _WHEREARG __FILE__, __LINE__
+#define DBG2(...) GET_OS.debug(__VA_ARGS__)
+#define DBG(_fmt, ...) DBG2(_WHERESTR _fmt, _WHEREARG, __VA_ARGS__)
+
 
 namespace wiselib
 {
@@ -69,8 +77,13 @@ namespace wiselib
       typedef iSenseDistanceModel<iSenseOsModel> Distance;
       typedef iSenseSerialComBufferUartModel<iSenseOsModel> B_Uart;
       typedef iSenseDutyCycling<iSenseOsModel> DutyCycling;
+
+#ifdef USE_INTERNAL_FLASH
       typedef iSenseInternalFlash<iSenseOsModel> BlockMemory;
-      
+#endif
+#ifdef USE_SDCARD
+      typedef iSenseSdCard<iSenseOsModel> BlockMemory;
+#endif
       static const Endianness endianness = WISELIB_ENDIANNESS;
 
       typedef MallocFreeAllocator<iSenseOsModel> Allocator;
