@@ -24,12 +24,12 @@
 
 #ifdef ISENSE
 #include "external_interface/isense/isense_os.h"
-#include "external_interface/isense/isense_radio.h"
-#include "external_interface/isense/isense_extended_txradio.h"
+//#include "external_interface/isense/isense_radio.h"
+//#include "external_interface/isense/isense_extended_txradio.h"
 #include "external_interface/isense/isense_extended_debug.h"
 #include "external_interface/isense/isense_debug.h"
 #include "external_interface/isense/isense_extended_time.h"
-#include "external_interface/isense/isense_radio.h"
+//#include "external_interface/isense/isense_radio.h"
 #include "external_interface/isense/isense_timer.h"
 #include "external_interface/isense/isense_position.h"
 #include "external_interface/isense/isense_clock.h"
