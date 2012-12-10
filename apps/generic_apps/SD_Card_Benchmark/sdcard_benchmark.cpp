@@ -1,9 +1,7 @@
 #include <external_interface/external_interface.h>
-#include <external_interface/arduino/arduino_sdcard.h>
-#include <external_interface/arduino/arduino_debug.h>
-#include <external_interface/arduino/arduino_clock.h>
 
-#define NR_OF_BLOCKS_TO_TEST 8
+
+#define NR_OF_BLOCKS_TO_TEST 2
 
 typedef wiselib::OSMODEL Os;
 
@@ -17,7 +15,7 @@ class App {
 
 			debug_ = &wiselib::FacetProvider<Os, Os::Debug>::get_facet( value );
 			clock_ = &wiselib::FacetProvider<Os, Os::Clock>::get_facet( value );
-
+			sd_ = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet( value );
 
 			debug_->debug( "Starting SD Card Benchmark" );
 			benchmark_sd();
@@ -32,15 +30,15 @@ class App {
 			}
 
 			int r = Os::SUCCESS;
+			int u;
 
-
-			sd_.init();
+			//sd_->init();
 
 			debug_->debug("writing...");
 			for(int i = 0; i < 20000; i+=NR_OF_BLOCKS_TO_TEST)
 			{
 				Os::Clock::time_t start = clock_->time();
-				r = sd_.write(test_buffer_, i, NR_OF_BLOCKS_TO_TEST );
+				//r = sd_->write(test_buffer_, i, NR_OF_BLOCKS_TO_TEST );
 				if(r != Os::SUCCESS) break;
 				Os::Clock::time_t end = clock_->time();
 				debug_->debug("%d %d",i, (end - start));
@@ -54,7 +52,7 @@ class App {
 		Os::Debug::self_pointer_t debug_;
 		Os::Clock::self_pointer_t clock_;
 		Os::block_data_t test_buffer_[BlOCK_SIZE*NR_OF_BLOCKS_TO_TEST];
-		wiselib::ArduinoSdCard<Os> sd_;
+		Os::BlockMemory::self_pointer_t sd_;
 };
 
 //Os::Debug App::dbg = Os::Debug();

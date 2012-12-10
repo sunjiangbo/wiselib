@@ -81,7 +81,7 @@ namespace wiselib {
 			
 			/**
 			 */
-			int read(block_data_t* buffer, address_t start_block, address_t blocks) {
+			int read(block_data_t* buffer, address_t start_block, address_t blocks = 1) {
 				bool r;
 				for(size_type written = 0; written < blocks; written++) {
 					//delay(3);
@@ -91,10 +91,10 @@ namespace wiselib {
 				//delay(50);
 				return SUCCESS;
 			}
-			
+
 			/**
 			 */
-			int write(block_data_t* buffer, address_t start_block, address_t blocks) {
+			int write(block_data_t* buffer, address_t start_block, address_t blocks = 1) {
 				//delay(50);
 				uint8_t r = card_.writeStart(start_block, blocks);
 				if(!r) {
