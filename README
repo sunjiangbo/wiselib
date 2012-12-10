@@ -1,1 +1,5 @@
 Test.
+
+Test3 : Schreibe bis zum ersten Peak (>150 ms) nach mindestens 10 Blocks.
+Springe 10 Blocks vor den Peak. Schreibe bis 10 Blocks hinter dort wo der Peak war. Wiederhole 100 mal (2000 Blocks gesamt).
+Beobachtung: Peaks treten weiterhin exakt alle 123 Blocks auf, auch wenn die angeschriebene Speicheradresse immer die gleichen 20 Blocks sind.
