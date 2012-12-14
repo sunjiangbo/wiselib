@@ -173,7 +173,7 @@ def transfer_rdf(port, rdf): #@nodename, room):
 	global slave
 	#connect_serial(port)
 	
-		
+	
 	print "erasing..."
 	# erase
 	w(DLE); w(STX); w(0x0c); w(DLE); w(ETX)
