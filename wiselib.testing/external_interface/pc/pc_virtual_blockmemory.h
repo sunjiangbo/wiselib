@@ -47,7 +47,6 @@ public:
 		++ios_;
 		++blocksWritten_;
 		duration_ += 8;
-		OsModel::Debug->debug("test");
 		if (block < 0 || block >= nrOfBlocks) {
 			std::cerr << "OVERFLOW VIRTUAL SD" << std::endl;
 			return ERR_UNSPEC;
