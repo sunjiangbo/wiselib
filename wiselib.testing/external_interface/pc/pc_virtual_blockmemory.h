@@ -10,12 +10,8 @@
 #include "pc_os_model.h"
 
 namespace wiselib {
-class ArduinoOsModel;
-}
 
-namespace wiselib {
-
-template<typename OsModel_P, int nrOfBlocks = 1000>
+template<typename OsModel_P, int nrOfBlocks = 1000, int blocksize = 512>
 class VirtualSD {
 
 public:
@@ -31,7 +27,6 @@ public:
 	};
 
 	VirtualSD() {
-		//is this really necessary?
 		for (int i = 0; i < nrOfBlocks; i++) {
 			isWritten[i] = false;
 		}
@@ -51,7 +46,7 @@ public:
 			std::cerr << "OVERFLOW VIRTUAL SD" << std::endl;
 			return ERR_UNSPEC;
 		}
-		for (int i = 0; i < 512; i++)
+		for (int i = 0; i < blocksize; i++)
 		{
 			memory[block][i] = x[i];
 			isWritten[block] = true;
@@ -64,7 +59,7 @@ int write(block_data_t* x, address_t start_block, address_t blocks) {
 	duration_ += 4;
 
 	for (int i = 0; i < blocks; i++) {
-		write(start_block + i, x + 512 * i);
+		write(start_block + i, x + blocksize * i);
 		duration_ -= 6;
 		--ios_;
 	}
@@ -81,7 +76,7 @@ int read(block_data_t* buffer, address_t block) {
 	duration_ += 4;
 	//else if(!isWritten[block]) std::cerr << "READING EMPTY BLOCK" << std::endl;
 
-	for (int i = 0; i < 512; i++)
+	for (int i = 0; i < blocksize; i++)
 		buffer[i] = memory[block][i];
 	return SUCCESS;
 }
@@ -91,7 +86,7 @@ int read(block_data_t* buffer, address_t block, address_t length) {
 	duration_ += 2;
 
 	for (int i = 0; i < length; i++) {
-		read(block + i, buffer + 512 * i);
+		read(block + i, buffer + blocksize * i);
 		duration_ -= 2;
 		--ios_;
 	}
@@ -113,8 +108,62 @@ void printStats() {
 	std::cout << "AvgIO: " << duration_ / ios_ << std::endl;
 }
 
+void printGraphBytes(int fromBlock, int toBlock)
+{
+	if(fromBlock < 0 || toBlock > nrOfBlocks) return;
+
+	std::cout << "digraph BM {" << std::endl << "\t node [shape=none, margin=0];" << std::endl;
+	std::cout << "\t sdcard" << " [label=<";
+	printHTMLTableBytes(fromBlock, toBlock);
+	std::cout <<">];" << std::endl;
+	std::cout << "}" << std::endl;;
+}
+
+void printGraphBlocks(int fromBlock, int toBlock)
+{
+	if(fromBlock < 0 || toBlock > nrOfBlocks) return;
+
+	std::cout << "digraph BM {" << std::endl << "\t node [shape=none, margin=0];" << std::endl;
+	std::cout << "\t sdcard" << " [label=<";
+	printHTMLTableBlocks(fromBlock, toBlock);
+	std::cout <<">];" << std::endl;
+	std::cout << "}" << std::endl;;
+}
+
+void printHTMLTableBytes(int fromBlock, int toBlock)
+{
+	if(fromBlock < 0 || toBlock > nrOfBlocks) return;
+	std::cout << "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">";
+	for(int block = fromBlock; block <= toBlock; block++)
+	{
+		std::cout << "\n\t\t<tr>\n";
+		for(int j = 0; j < blocksize; j++)
+		{
+			std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << (int)memory[block][j] << "</td>\n";
+			//std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << " " << "</td>\n";
+		}
+		std::cout << "\t\t</tr>\n";
+	}
+	std::cout << "</table>";
+}
+
+void printHTMLTableBlocks(int fromBlock, int toBlock)
+{
+	if(fromBlock < 0 || toBlock > nrOfBlocks) return;
+	std::cout << "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">";
+	std::cout << "\n\t\t<tr>\n";
+	for(int block = fromBlock; block <= toBlock; block++)
+	{
+		std::cout << "\t\t\t<td bgcolor=\"" << (!isWritten[block] ? "#FFFFFF" : "#FF0000") << "\">" << isWritten[block] << "</td>\n";
+		//std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << " " << "</td>\n";
+
+	}
+	std::cout << "\t\t</tr>\n";
+	std::cout << "</table>";
+}
+
 private:
-block_data_t memory[nrOfBlocks][512];
+block_data_t memory[nrOfBlocks][blocksize];
 bool isWritten[nrOfBlocks];
 
 int blocksWritten_;
