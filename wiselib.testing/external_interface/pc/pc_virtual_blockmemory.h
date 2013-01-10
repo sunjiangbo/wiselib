@@ -36,7 +36,7 @@ public:
 	typedef self_type* self_pointer_t;
 	enum {
 		SUCCESS = OsModel::SUCCESS, ERR_UNSPEC = OsModel::ERR_UNSPEC,
-		BLOCK_SIZE = blocksize;
+		BLOCK_SIZE = blocksize
 	};
 
 
