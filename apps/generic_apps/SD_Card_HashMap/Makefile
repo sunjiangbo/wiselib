@@ -10,7 +10,7 @@ all: shawn
 # all: tinyos-tossim
 # all: tinyos-micaz
 
-export APP_SRC=HashMap.cpp HashMapTest.cpp
+export APP_SRC=HashMapTest.cpp
 export BIN_OUT=hashMapTest
 
 include ../Makefile

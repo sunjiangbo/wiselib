@@ -57,6 +57,14 @@ public:
 	}
 
 	/*
+	 * Does nothing, just to comply with the other sd card interface
+	 */
+	void init()
+	{
+
+	}
+
+	/*
 	 * Writes some data to a block.
 	 * @param x An array of data to be written. The array is assumed to be of size *blocksize*.
 	 * @param block the number of the block to write into.
@@ -87,8 +95,8 @@ public:
 		++ios_;
 		duration_ += 4;
 
-		for (int i = 0; i < blocks; i++) {
-			write(start_block + i, x + blocksize * i);
+		for (unsigned int i = 0; i < blocks; i++) {
+			write(x + blocksize * i, start_block + i);
 			duration_ -= 6;
 			--ios_;
 		}
@@ -102,7 +110,7 @@ public:
 	 */
 	int read(block_data_t* buffer, address_t block) {
 		if (block < 0 || block >= nrOfBlocks) {
-			std::cerr << "OVERFLOW VIRTUAL SD" << std::endl;
+			printf("OVERFLOW VIRTUAL SD\n");
 			return ERR_UNSPEC;
 		}
 		++ios_;
@@ -125,8 +133,8 @@ public:
 		++ios_;
 		duration_ += 2;
 
-		for (int i = 0; i < length; i++) {
-			read(block + i, buffer + blocksize * i);
+		for (unsigned int i = 0; i < length; i++) {
+			read(buffer + blocksize * i, block + i);
 			duration_ -= 2;
 			--ios_;
 		}
@@ -147,11 +155,11 @@ public:
 	 * Prints usage statistics about the virtual sd card to the console.
 	 */
 	void printStats() {
-		std::cout << "Blocks Written: " << blocksWritten_ << std::endl;
-		std::cout << "Blocks Read: " << blocksRead_ << std::endl;
-		std::cout << "IOs: " << ios_ << std::endl;
-		std::cout << "Duration: " << duration_ << std::endl;
-		std::cout << "AvgIO: " << duration_ / ios_ << std::endl;
+		printf("Blocks Written: %d \n", blocksWritten_);
+		printf("Blocks Read: %d\n", blocksRead_ );
+		printf("IOs: %d\n", ios_);
+		printf("Duration: %d\n", duration_);
+		printf("AvgIO: %d\n", duration_ / ios_);
 	}
 
 	/*
@@ -164,11 +172,11 @@ public:
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
 
-		std::cout << "digraph BM {" << std::endl << "\t node [shape=none, margin=0];" << std::endl;
-		std::cout << "\t sdcard" << " [label=<";
+		printf("digraph BM { \n\t node [shape=none, margin=0]; \n");
+		printf("\t sdcard [label=<");
 		printHTMLTableBytes(fromBlock, toBlock);
-		std::cout <<">];" << std::endl;
-		std::cout << "}" << std::endl;;
+		printf(">];\n");
+		printf("}\n");
 	}
 
 	/*
@@ -181,11 +189,11 @@ public:
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
 
-		std::cout << "digraph BM {" << std::endl << "\t node [shape=none, margin=0];" << std::endl;
-		std::cout << "\t sdcard" << " [label=<";
+		printf("digraph BM {\n\t node [shape=none, margin=0];\n");
+		printf("\t sdcard [label=<");
 		printHTMLTableBlocks(fromBlock, toBlock);
-		std::cout <<">];" << std::endl;
-		std::cout << "}" << std::endl;;
+		printf(">]\n");
+		printf("}\n");
 	}
 
 	/*
@@ -194,18 +202,18 @@ public:
 	void printHTMLTableBytes(int fromBlock, int toBlock)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
-		std::cout << "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">";
+		printf("<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">");
 		for(int block = fromBlock; block <= toBlock; block++)
 		{
-			std::cout << "\n\t\t<tr>\n";
+			printf("\n\t\t<tr>\n");
 			for(int j = 0; j < blocksize; j++)
 			{
-				std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << (int)memory[block][j] << "</td>\n";
+				printf("\t\t\t<td bgcolor=\"%s\">%d</td>\n", ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000"), (int)memory[block][j]);
 				//std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << " " << "</td>\n";
 			}
-			std::cout << "\t\t</tr>\n";
+			printf("\t\t</tr>\n");
 		}
-		std::cout << "</table>";
+		printf("</table>");
 	}
 
 	/*
@@ -214,22 +222,34 @@ public:
 	void printHTMLTableBlocks(int fromBlock, int toBlock)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
-		std::cout << "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">";
-		std::cout << "\n\t\t<tr>\n";
+		printf("<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">");
+		printf("\n\t\t<tr>\n");
 		for(int block = fromBlock; block <= toBlock; block++)
 		{
-			std::cout << "\t\t\t<td bgcolor=\"" << (!isWritten[block] ? "#FFFFFF" : "#FF0000") << "\">" << isWritten[block] << "</td>\n";
+			printf("\t\t\t<td bgcolor=\"%s\">%d</td>\n", (!isWritten[block] ? "#FFFFFF" : "#FF0000"), isWritten[block]);
 			//std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << " " << "</td>\n";
 
 		}
-		std::cout << "\t\t</tr>\n";
-		std::cout << "</table>";
+		printf("\t\t</tr>\n");
+		printf("</table>");
+	}
+
+	void printASCIIOutputBytes(int fromBlock, int toBlock)
+	{
+		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
+		for(int block = fromBlock; block <= toBlock; block++)
+		{
+			for(int j = 0; j < blocksize; j++)
+			{
+				printf("%3d | ", ((int)memory[block][j]));
+			}
+			printf("\n");
+		}
 	}
 
 private:
 	block_data_t memory[nrOfBlocks][blocksize];
 	bool isWritten[nrOfBlocks];
-
 	int blocksWritten_;
 	int blocksRead_;
 	int ios_;
