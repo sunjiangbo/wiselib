@@ -35,8 +35,10 @@ public:
 	typedef VirtualSD self_type;
 	typedef self_type* self_pointer_t;
 	enum {
-		SUCCESS = OsModel::SUCCESS, ERR_UNSPEC = OsModel::ERR_UNSPEC
+		SUCCESS = OsModel::SUCCESS, ERR_UNSPEC = OsModel::ERR_UNSPEC,
+		BLOCK_SIZE = blocksize;
 	};
+
 
 	/*
 	 * Generates
