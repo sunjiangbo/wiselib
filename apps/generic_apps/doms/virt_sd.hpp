@@ -7,42 +7,24 @@
 #define	VIRTSDCARD_HPP
 #include <iostream>
 #include <stdlib.h>
-typedef char BYTE;
-typedef BYTE* BLOCK;
+
+typedef char block_data_t;
+typedef int address_t;
 
 class VirtualSD{
     public:
 	VirtualSD(int size);//size in blocks
+	VirtualSD();
 	~VirtualSD();
 
-	void write(int block, BLOCK x);
-	void write(int block, BLOCK x, int length);
+	void write(block_data_t* buffer, address_t start_block, address_t blocks);
 
-	void read(int block, BLOCK buffer);
-	void read(int block, BLOCK buffer, int length);
+	void read(block_data_t* buffer, address_t start_block, address_t blocks);
 
-	void resetStats();
-	void printStats(){
-	    std::cout << "Blocks Written: " << blocksWritten_ <<std::endl;
-	    std::cout << "Blocks Read: " << blocksRead_ << std::endl;
-	    std::cout << "IOs: " << ios_ <<std::endl;
-	    std::cout << "Duration: " << duration_ <<std::endl;
-	    std::cout << "AvgIO: " << duration_/ios_ << std::endl;
-	}
-
-	static void cpyBlock(BLOCK source, BLOCK dest, int length){
-	    for(int i=0; i<length; i++) (dest)[i]=(source)[i];
-	}
     private:
-	BLOCK* memory;
-	bool* isWritten;
+	block_data_t*  memory;
 	int size;
 
-	int blocksWritten_;
-	int blocksRead_;
-	int ios_;
-	int duration_;
-
-
 };
+
 #endif
