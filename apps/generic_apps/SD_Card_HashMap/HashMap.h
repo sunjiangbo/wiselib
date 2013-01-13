@@ -22,7 +22,7 @@ namespace wiselib {
 
 typedef OSMODEL Os;
 
-template<typename valueType>
+template<typename keyType, typename valueType>
 class HashMap {
 
 public:
@@ -33,9 +33,9 @@ public:
 		sd->init();
 	}
 
-	bool putEntry(int key, valueType& value)
+	bool putEntry(keyType key, valueType& value)
 	{
-		Block<valueType> block(hash(key), sd);
+		Block<keyType, valueType> block(hash(key), sd);
 		bool insertSuccess = block.insertValue(key, value);
 		if(insertSuccess)
 			return block.writeBack();
@@ -43,14 +43,14 @@ public:
 			return false;
 	}
 
-	valueType getEntry(int key)
+	valueType getEntry(keyType key)
 	{
-		Block<valueType> block(hash(key), sd);
+		Block<keyType, valueType> block(hash(key), sd);
 		return block.getValueByKey(key);
 	}
 
 private:
-	int hash(int key)
+	int hash(keyType key)
 	{
 		return key; //for testing only!!!
 	}

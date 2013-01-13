@@ -15,7 +15,7 @@ namespace wiselib {
 
 typedef OSMODEL Os;
 
-template<typename valueType, int blocksize = 512>
+template<typename keyType, typename valueType, int blocksize = 512>
 class Block
 {
 	typedef struct
@@ -26,7 +26,7 @@ class Block
 
 	typedef struct
 	{
-		int key;
+		keyType key;
 		valueType value;
 	} keyValuePair;
 
@@ -67,7 +67,7 @@ public:
 		return getKVPairByID(id).value;
 	}
 
-	valueType getValueByKey(int key)
+	valueType getValueByKey(keyType key)
 	{
 		for(int i = 0; i < getNumValues(); i++)
 		{
@@ -78,7 +78,7 @@ public:
 		printf("Could not get the value for key %d becaus it is not in this block\n");
 	}
 
-	bool containsKey(int key)
+	bool containsKey(keyType key)
 	{
 		for(int i = 0; i < getNumValues(); i++)
 		{
@@ -92,7 +92,7 @@ public:
 		return id < getNumValues() && id >= 0;
 	}
 
-	bool insertValue(int key, valueType& value)
+	bool insertValue(keyType key, valueType& value)
 	{
 		if(getNumValues() < maxNumValues())
 		{

@@ -30,7 +30,7 @@ public:
 		exit(0);
 	}
 
-	Message makeMessage(char* string)
+	Message makeMessage(const char* string)
 	{
 		Message m;
 		memcpy(m.string, string, 20);
@@ -46,7 +46,7 @@ public:
 
 	void testBlock()
 	{
-		wiselib::Block<Message> b(0, sd);
+		wiselib::Block<int, Message> b(0, sd);
 		debug_->debug("size of message: %d", sizeof(Message));
 		debug_->debug("Number of entries In block: %d", b.getNumValues());
 		debug_->debug("Max number of Values: %d", b.maxNumValues());
@@ -75,7 +75,7 @@ public:
 
 		sd->printASCIIOutputBytes(0,0);
 
-		wiselib::Block<Message> b2(0, sd);
+		wiselib::Block<int, Message> b2(0, sd);
 		debug_->debug("");
 		printMessage(b2.getValueByKey(3));
 		//if(b.containsKey(33)) debug_->debug("It contains key 33");
@@ -90,7 +90,7 @@ public:
 		m2 = makeMessage("TES^T123");
 		m3 = makeMessage("M3");
 
-		wiselib::HashMap<Message> hashMap(debug_, sd);
+		wiselib::HashMap<int, Message> hashMap(debug_, sd);
 
 		hashMap.putEntry(0, m1);
 		//sd->printASCIIOutputBytes(0, 1);
