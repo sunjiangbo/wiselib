@@ -75,7 +75,7 @@ public:
 			if(kvPair.key == key)
 				return kvPair.value;
 		}
-		printf("Could not get the value for key %d becaus it is not in this block\n");
+		printf("Could not get the value for key %d becaus it is not in this block\n", key);
 	}
 
 	bool containsKey(keyType key)
