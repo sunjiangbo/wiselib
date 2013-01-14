@@ -12,7 +12,16 @@ typedef BYTE* BLOCK;
 
 class VirtualSD{
     public:
-	VirtualSD(int size);//size in blocks
+	VirtualSD(int size):size(size){//size in blocks
+    	memory = new BLOCK[size];
+    	isWritten = new bool[size];
+   	for(int i=0; i<size; i++){
+		memory[i]= new BYTE[512];
+		isWritten[i]=false;
+    	}
+    	resetStats();
+	}
+
 	~VirtualSD();
 
 	void write(int block, BLOCK x);
