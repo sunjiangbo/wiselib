@@ -11,7 +11,7 @@ typedef wiselib::OSMODEL Os;
 typedef typename Os::block_data_t block_data_t;
 
 
-template<class T, uint32_t BUFFERSIZE=1, bool PERSISTENT=true, bool DEBUG=false>
+template<class T, uint32_t BUFFERSIZE=2, bool PERSISTENT=true, bool DEBUG=false>
 class ExternalStack{
     private:
 	wiselib::ArduinoSdCard<Os>* sd_;
@@ -44,22 +44,23 @@ class ExternalStack{
 	    if(!PERSISTENT || forceNew){
 		initNewStack();
 	    } else {
-		sd_->read(buffer_, beginMem, 1);
+		sd_->read(buffer_, minBlock_-1, 1);
 
 		blockRead<uint32_t>(buffer_,0,&itemsInBuffer_);
 		blockRead<uint32_t>(buffer_,1,&blocksOnSd_);
 
-		uint32_t tmpMinBlock;
-		blockRead<uint32_t>(buffer_,2,&tmpMinBlock);
-		uint32_t tmpMaxBlock;
-		blockRead<uint32_t>(buffer_,3,&tmpMaxBlock);
-		uint32_t tmpSizeof;
-		blockRead<uint32_t>(buffer_,4,&tmpSizeof);
-		uint32_t tmpValcode;
-		blockRead<uint32_t>(buffer_,5,&tmpValcode);
+		uint32_t tmpMinBlock=0;   blockRead<uint32_t>(buffer_,2,&tmpMinBlock);
+		uint32_t tmpMaxBlock=0;   blockRead<uint32_t>(buffer_,3,&tmpMaxBlock);
+		uint32_t tmpSizeof=0;     blockRead<uint32_t>(buffer_,4,&tmpSizeof);
+		uint32_t tmpValcode=0;    blockRead<uint32_t>(buffer_,5,&tmpValcode);
 
 		uint32_t valCode = itemsInBuffer_+blocksOnSd_;
 		if(tmpMinBlock!= minBlock_ || tmpMaxBlock != maxBlock_ || tmpSizeof != sizeof(T) || tmpValcode != valCode){
+		    if(tmpMinBlock!=minBlock_) debug_->debug("1");
+		    if(tmpMaxBlock!=maxBlock_) debug_->debug("2");
+		    if(tmpSizeof!=sizeof(T)) debug_->debug("3");
+		    if(tmpValcode!=valCode) debug_->debug("4");
+		    debug_->debug("%d %d",tmpMinBlock,minBlock_);
 		    initNewStack();
 		} else {
 		    if(itemsInBuffer_>0){
@@ -71,13 +72,14 @@ class ExternalStack{
 	    }
 	}
 
+
 	~ExternalStack(){
 	    if(PERSISTENT){
 		uint32_t fullBlocksToWrite=itemsInBuffer_/MAX_ITEMS_PER_BLOCK;
 		uint32_t blocksToWrite=fullBlocksToWrite+(itemsInBuffer_%MAX_ITEMS_PER_BLOCK>0?1:0);
 
 		if(blocksToWrite>0)sd_->write(buffer_,minBlock_+blocksOnSd_, blocksToWrite);
-		itemsInBuffer_-=fullBlocksToWrite*BLOCK_SIZE;
+		itemsInBuffer_-=fullBlocksToWrite*MAX_ITEMS_PER_BLOCK;
 		blocksOnSd_+=fullBlocksToWrite;
 
 		blockWrite<uint32_t>(buffer_, 0, itemsInBuffer_);
@@ -95,7 +97,10 @@ class ExternalStack{
 	}
 
 	bool push(T x){
-	    if(minBlock_-1+blocksOnSd_+BUFFERSIZE>maxBlock_) return false;
+	    if(minBlock_-1+blocksOnSd_+BUFFERSIZE>maxBlock_){
+		debug_->debug("%d",minBlock_-1+blocksOnSd_+BUFFERSIZE);
+		return false;
+	    }
 	    if(itemsInBuffer_>=MAX_ITEMS_IN_BUFFER){
 		flushFullBlocks();
 	    }

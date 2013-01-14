@@ -19,9 +19,10 @@ class App {
 
 	    debug_->debug( "SD Card test application running" );
 	    sd_.init();
-	    srand(5);
+	    srand(6);
 
 	    //test_stack<3>(90);
+	    test_stack<2>(80);
 	    debug_->debug("Start Buffersize %d, Ratio %d/100",2,90);
 	    test_queue<2>(90);
 	    debug_->debug("Start Buffersize %d, Ratio %d/100",3,60);
@@ -31,41 +32,70 @@ class App {
 	template<int buffersize>
 	    void test_stack(int writeRat){
 		debug_->debug("Testing Stack");
-		ExternalStack<uint64_t, buffersize> es(&sd_,1,10000,true); 
+		ExternalStack<uint64_t, buffersize,false> testA(&sd_,10001,20000,true);
+		ExternalStack<uint64_t, buffersize,false> testB(&sd_,20001,30000,true);
+		{
+		    ExternalStack<uint64_t, buffersize> es(&sd_,1,3,true);
+		    es.~ExternalStack();
+		}
+		bool toA=true;
 
-		uint64_t pu=0;
-		uint64_t po=0;
 
 		uint64_t inStack=0;
-		uint64_t lastPoped=~0;
+		uint64_t poped=0;
+		uint64_t tmp=0;
+		uint64_t toPush=0;
 
-		for(uint64_t i=0; i<1000; i++){
-		    for(int j=0; j<1000; j++){
+		for(uint64_t i=0; i<100; i++){
+		    ExternalStack<uint64_t, buffersize, true,true> es(&sd_,1,10000);
+		    for(uint64_t j=0; j<10000; j++){
 			int d = rand() %100;
-			if(d<writeRat){
-			    if(es.push(pu)){
-				debug_->debug("Push %d.",pu);
-				pu+=1;
+			toPush = (rand()%1000);
+			if(d<100-i){
+			    if(es.push(toPush)){
 				inStack+=1;
+				if(toA){
+				    testA.push(toPush);
+				    toA=false;
+				} else {
+				    testB.push(toPush);
+				    toA=true;
+				}
+			    } else {
+				debug_->debug("unsucc push");
 			    }
 			} else {
-			    bool succ = es.pop(&po);
+			    bool succ = es.pop(&poped);
 			    if((!succ && inStack>0) || (succ && inStack<=0)){
-				debug_->debug("Wrong BOOL");
+				debug_->debug("Wrong BOOL %d",succ);
+				debug_->debug("bool %d",succ);
+				debug_->debug("inStack %d",inStack);
 				exit(1);
 			    }
 			    if(succ){
-				if(po>=lastPoped){
-				    debug_->debug("Wrong POP %d %d ",po,lastPoped);
+				if(toA){
+				    toA=false;
+				    testB.pop(&tmp);
+				} else {
+				    toA=true;
+				    testA.pop(&tmp);
+				}
+
+				if(tmp!=poped){
+				    debug_->debug("Wrong POP %d %d ",poped,tmp);
 				    exit(1);
 				}
-				debug_->debug("Poped: %d %d. ",po, lastPoped);
 				inStack-=1;
-				lastPoped=po;
+				//debug_->debug("Poped: %d",poped);
+			    } else {
+				debug_->debug("unsucc POP");
 			    }
 			}
 		    }
-		    debug_->debug(">>%d ",i*1000);
+		  //  es.~ExternalStack();
+
+		    debug_->debug(">>%d0000 ",i);
+
 		}
 		debug_->debug("End testing Stack");
 	    }
@@ -107,7 +137,7 @@ class App {
 				exit(1);
 			    }
 			    if(succ){
-			//	debug_->debug("POPED %d!",tmp);
+				//	debug_->debug("POPED %d!",tmp);
 				inQ--;
 				if(tmp!=pop){
 				    debug_->debug("POP ERROR read: %d, Excpected: %d Failed",tmp,pop);
