@@ -249,6 +249,16 @@ public:
 		}
 	}
 
+	void printASCIIOutputBlocks(int fromBlock, int toBlock)
+	{
+		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
+		for(int block = fromBlock; block <= toBlock; block++)
+		{
+			printf("|%s", isWritten[block] ? "1" : " ");
+		}
+		printf("|\n");
+	}
+
 private:
 	block_data_t memory[nrOfBlocks][blocksize];
 	bool isWritten[nrOfBlocks];
