@@ -2,7 +2,7 @@
  * HashMap.h
  *
  *  Created on: Nov 29, 2012
- *      Author: maximilian
+ *      Author: Maximilian Ernestus
  */
 
 #ifndef HASHMAP_H_
@@ -33,6 +33,7 @@ public:
 	typedef Fnv32<Os>::hash_t hash;
 	typedef Fnv32<Os>::block_data_t block_data;
 
+
 	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd)
 	{
 		this->debug_ = debug_;
@@ -54,6 +55,15 @@ public:
 	{
 		Block<KeyType, ValueType> block(computeHash(key), sd);
 		return block.getValueByKey(key);
+	}
+
+	bool removeEntry(KeyType key)
+	{
+		Block<KeyType, ValueType> block(computeHash(key), sd);
+		bool sucess = block.removeValue(key);
+		if(sucess)
+			block.writeBack();
+		return sucess;
 	}
 
 private:

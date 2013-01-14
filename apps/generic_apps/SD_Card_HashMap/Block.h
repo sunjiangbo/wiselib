@@ -2,7 +2,7 @@
  * Block.h
  *
  *  Created on: Jan 8, 2013
- *      Author: maximilian
+ *      Author: Maximilian Ernestus
  */
 
 #ifndef BLOCK_H_
@@ -45,14 +45,18 @@ public:
 		//If the block has not been used yet
 		if(getHeader().pi != 123456789)
 		{
+#ifdef DEBUG
 			printf("Block %d has not been used yet\n", nr);
+#endif
 			header newHeader;
 			newHeader.pi = 123456789;
 			newHeader.numKVPairs = 0;
 			setHeader(newHeader);
 		}
+#ifdef DEBUG
 		else
 			printf("Block %d contains %d elements\n", nr, getHeader().numKVPairs);
+#endif
 	}
 
 	header getHeader()
@@ -78,16 +82,14 @@ public:
 			if(kvPair.key == key)
 				return kvPair.value;
 		}
+#ifdef DEBUG
 		printf("Could not get the value for key %d becaus it is not in this block\n", key);
+#endif
 	}
 
 	bool containsKey(KeyType key)
 	{
-		for(int i = 0; i < getNumValues(); i++)
-		{
-			if(getKVPairByID(i).key == key) return true;
-		}
-		return false;
+		return getIDForKey(key) != -1;
 	}
 
 	bool containsID(int id)
@@ -106,14 +108,33 @@ public:
 			header h = getHeader();
 			h.numKVPairs = getNumValues() + 1;
 			setHeader(h);
+#ifdef DEBUG
 			printf("we inserted key %d into block %d\n", key, blockNr);
+#endif
 			return true;
 		}
 		else
 		{
+#ifdef DEBUG
 			printf("Could not insert value with key %d becuase the block is full\n", key);
+#endif
 			return false;
 		}
+	}
+
+	bool removeValue(KeyType key)
+	{
+		int startID = getIDForKey(key);
+		if(startID == -1)
+			return false;
+		header h = getHeader();
+		for(int i = startID; i < h.numKVPairs-1; i++)
+		{
+			moveKVPair(i+1, i);
+		}
+		h.numKVPairs--;
+		setHeader(h);
+		return true;
 	}
 
 	int getNumValues()
@@ -141,16 +162,42 @@ private:
 	{
 		if(id < getNumValues() && id >= 0)
 		{
+#ifdef DEBUG
 			printf("reading id %d from pos %d\n", id, computePairOffset(id));
+#endif
 			return read<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id));
 		}
+#ifdef DEBUG
 		else
 			printf("tried to acess id %d which does not exist!\n", id);
+#endif
 	}
 
 	int computePairOffset(int id)
 	{
 		return sizeof(header) + id * sizeof(keyValuePair);
+	}
+
+	int getIDForKey(KeyType k)
+	{
+		header h = getHeader();
+		for(int i = 0; i < h.numKVPairs; i++)
+		{
+			if(getKVPairByID(i).key == k)
+				return i;
+		}
+		return -1;
+	}
+
+	void moveKVPair(int fromID, int toID)
+	{
+		keyValuePair p = getKVPairByID(fromID);
+		insertKVPairAtID(p, toID);
+	}
+
+	void insertKVPairAtID(keyValuePair kvp, int id)
+	{
+		write<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id) , kvp);
 	}
 };
 
