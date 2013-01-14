@@ -1,67 +1,107 @@
 #include "virt_sd.hpp"
+//#include "external_stack2.hpp"
+#include "external_stack_item2.hpp"
 
 VirtualSD::VirtualSD(int size):size(size){
-    memory = new BLOCK[size];
-    isWritten = new bool[size];
-    for(int i=0; i<size; i++){
-	memory[i]= new BYTE[512];
-	isWritten[i]=false;
-    }
-    resetStats();
+    memory = new block_data_t[512*size];
+    for(int i=0; i<size; i++) memory[i]=0;
 }
-
+VirtualSD::VirtualSD(){
+    memory = new block_data_t[512*1000];
+   }
 VirtualSD::~VirtualSD(){
-    for(int i=0; i<size; i++) free( memory[i]);
-    free( memory);
-    free(isWritten);
+    free(memory);
 }
-
-void VirtualSD::write(int block, BLOCK x){
-    ++ios_;
-    ++blocksWritten_;
-    duration_+=8;
-
-    if(block<0 || block>=size) std::cerr << "OVERFLOW VIRTUAL SD"<<std::endl;
-    else{ for(int i=0; i<512; i++) memory[block][i]=x[i]; isWritten[block]=true;}
-}
-
-void VirtualSD::write(int block, BLOCK x, int length){
-    ++ios_;
-    duration_+=4;
-
-    for(int i=0; i<length; i++){
-	write(block+i, x+512*i);
-	duration_-=6;
-	--ios_;
+void VirtualSD::write(block_data_t* buffer, address_t start_block, address_t blocks){
+    std::cout << ">>>>>>>>>>>VirtualSD::write("<<"____" <<","<<start_block<<","<<blocks<<")\n";
+    for(int i=0; i<blocks*512;i++){
+	memory[start_block*512+i]=buffer[i];
     }
+    std::cout << ">>>>>>Block Written:\n\n";
+    long* castedMem = (long*) &memory[start_block*512];
+    for(int i=0; i*sizeof(long)<512; i++){
+	std::cout << "  " << castedMem[i];
+    }
+    std::cout <<"\n<<<<<<<<<<<<<<<<<<\n\n";
 
 }
 
-void VirtualSD::read(int block, BLOCK buffer){
-    ++ios_;
-    ++blocksRead_;
-    duration_+=4;
-    if(block<0 || block>=size) std::cerr << "OVERFLOW VIRTUAL SD"<< std::endl;
-    //else if(!isWritten[block]) std::cerr << "READING EMPTY BLOCK" << std::endl;
-    else for(int i=0; i<512; i++) buffer[i]=memory[block][i];
-}
-
-void VirtualSD::read(int block, BLOCK buffer, int length){
-    ++ios_;
-    duration_+=2;
-
-    for(int i=0; i<length; i++){
-	read(block+i, buffer+512*i);
-	duration_-=2;
-	--ios_;
+void VirtualSD::read(block_data_t* buffer, address_t start_block, address_t blocks){
+    std::cout << ">>>>>>>>>>VirtualSD::read("<<start_block<<","<<blocks<<")\n";
+    for(int i=0; i<blocks*512; i++){
+	buffer[i]=memory[start_block*512+i];
     }
 }
 
-
-void VirtualSD::resetStats(){
-    blocksWritten_ = 0;
-    blocksRead_=0;
-    ios_=0;
-    duration_=0;
+int main(){
+    VirtualSD sd;
+    
+    ExternalStackItem<long, 10,8> es(&sd, 0,20);
+    for(long i=1; i<20; i++){
+	es.push(i);
+    }
+    for(long j=1; j<20; j++){
+	long x=-1;
+	es.pop(&x);
+	std::cout << x <<std::endl;
+    }
 }
+/*
+bool test(ExternalStack<long, 3>* es){
+    int testvar=1000;
+    for(int i=0; i<1000; i++) es->push(i);
+    for(int i=1000-1; i>=0; i--){
+	long x;
+	es->pop(&x);
+	if(x!=i){
+	    std::cout << ">>>>>>>>>ERROR<<<<<<<<<<<<<\nXXXXXXXXXXXXX\nXXXXXXX";
+	    exit(1);
+	    return false;
+	}
+    }
+    return true;
+}
+*//*
+int main(){
+    ExternalQueue<long, 3> es;
+    long write=0;
+    long read=0;
+
+	for(int i=10; i<10000; i++){
+	    for(int j=0; j<i; j++) {
+		if(!es.push(write++)) {
+		    std::cout << "QUEUE FULL\n";
+		    exit(1);
+		}
+	    }
+	    for(int j=0; j<(i*3)/4; j++) {
+		long x=0;
+		if(!es.pop(&x)){
+		    std::cout <<"?\n";
+		    exit(1);
+		}
+		//std::cout << x <<std::endl;
+		if(x!=read++) {
+		    std::cout<<"error"<<x<<" " <<read-1<<std::endl;
+		    exit(1);
+		}
+	    }
+	}
+
+
+
+    */
+    //for(int i=0; i<1000; i++) es.push(i);
+    /*for(int i=0; i<1000; i++) {
+	if(!test(&es)) std::cout << ">>>>>>>>>>>>> ERROR\n";
+	long x;
+	es.pop(&x);
+    }*//*
+    std::cout << "END\n";
+}*/
+
+
+
+
+
 
