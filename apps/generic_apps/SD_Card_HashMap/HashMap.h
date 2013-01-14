@@ -2,7 +2,7 @@
  * HashMap.h
  *
  *  Created on: Nov 29, 2012
- *      Author: maximilian
+ *      Author: Maximilian Ernestus
  */
 
 #ifndef HASHMAP_H_
@@ -10,6 +10,7 @@
 
 #include <external_interface/external_interface.h>
 #include <util/serialization/serialization.h>
+#include <algorithms/hash/fnv.h>
 #include "Block.h"
 
 #define FULLBLOCK 42
@@ -22,10 +23,17 @@ namespace wiselib {
 
 typedef OSMODEL Os;
 
-template<typename valueType>
+template<typename KeyType_P, typename ValueType_P, int fromBlock = 0, int toBlock = 100>
 class HashMap {
 
 public:
+	typedef KeyType_P KeyType;
+	typedef ValueType_P ValueType;
+
+	typedef Fnv32<Os>::hash_t hash;
+	typedef Fnv32<Os>::block_data_t block_data;
+
+
 	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd)
 	{
 		this->debug_ = debug_;
@@ -33,9 +41,9 @@ public:
 		sd->init();
 	}
 
-	bool putEntry(int key, valueType& value)
+	bool putEntry(KeyType key, ValueType& value)
 	{
-		Block<valueType> block(hash(key), sd);
+		Block<KeyType, ValueType> block(computeHash(key), sd);
 		bool insertSuccess = block.insertValue(key, value);
 		if(insertSuccess)
 			return block.writeBack();
@@ -43,16 +51,25 @@ public:
 			return false;
 	}
 
-	valueType getEntry(int key)
+	ValueType getEntry(KeyType key)
 	{
-		Block<valueType> block(hash(key), sd);
+		Block<KeyType, ValueType> block(computeHash(key), sd);
 		return block.getValueByKey(key);
 	}
 
-private:
-	int hash(int key)
+	bool removeEntry(KeyType key)
 	{
-		return key; //for testing only!!!
+		Block<KeyType, ValueType> block(computeHash(key), sd);
+		bool sucess = block.removeValue(key);
+		if(sucess)
+			block.writeBack();
+		return sucess;
+	}
+
+private:
+	hash computeHash(KeyType key)
+	{
+		return (Fnv32<Os>::hash((const block_data*) &key, sizeof(key)) % (toBlock - fromBlock)) + fromBlock;
 	}
 
 	Os::BlockMemory::self_pointer_t sd;
