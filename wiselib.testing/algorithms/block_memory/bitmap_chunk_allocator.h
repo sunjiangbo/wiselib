@@ -88,7 +88,7 @@ namespace wiselib {
 			
 			template< size_t entries >
 			struct RootBlockEntries<entries, false> {
-				static const size_t value = RootBlockEntries< entries / ENTRIES_PER_SUMMARY_BLOCK >::value;
+				static const size_t value = RootBlockEntries< DivCeil<entries, ENTRIES_PER_SUMMARY_BLOCK>::value >::value;
 			};
 			
 			enum {
@@ -171,6 +171,7 @@ namespace wiselib {
 				debug_->debug("mem size (#bloks)   : %lu", (size_type)BlockMemory::SIZE);
 				debug_->debug("chunk map bits      : %lu", (size_type)CHUNK_MAP_BITS);
 				debug_->debug("chunk map bytes     : %lu", (size_type)CHUNK_MAP_BYTES);
+				debug_->debug("chunk map blocks    : %lu", (size_type)CHUNK_MAP_BLOCKS);
 				debug_->debug("summary height      : log%lu(cbm=%lu) = %lu",
 						(size_type)ENTRIES_PER_SUMMARY_BLOCK,
 						(size_type)CHUNK_MAP_BLOCKS,
@@ -186,12 +187,90 @@ namespace wiselib {
 				}
 				debug_->debug("end                 : %lu", (size_type)((layer_start(SUMMARY_HEIGHT) + layer_size(SUMMARY_HEIGHT))));
 				
+				assert(TOTAL_MAP_BLOCKS == layer_start(SUMMARY_HEIGHT) + layer_size(SUMMARY_HEIGHT));
+			//#ifdef PC
+				format();
+				//for(size_type i = 0; i < layer_start(SUMMARY_HEIGHT) + layer_size(SUMMARY_HEIGHT); i++) {
+					//allocate_block();
+				//}
+			//#endif
+			}
+			
+			void format() {
+				DBG("formatting block memory device...%s", "");
 				
-			#ifdef PC
-				for(size_type i = 0; i < layer_start(SUMMARY_HEIGHT) + layer_size(SUMMARY_HEIGHT); i++) {
-					allocate_block();
+				// This allocator needs the first TOTAL_MAP_BLOCKS for
+				// himself, thus those need to be marked allocated initially.
+				
+				block_data_t buf[BUFFER_SIZE];
+				
+				// 
+				// ---- mark chunk map blocks ----
+				// 
+				address_t a = layer_start(SUMMARY_HEIGHT);
+				
+				// ASSUMPTION: CHUNKS_PER_BLOCK is divisible by 8, else the
+				// marking will not be correct and thus userdata might
+				// overwrite allocation data
+				size_type zeros = TOTAL_MAP_BLOCKS * (CHUNKS_PER_BLOCK / 8);
+				size_type full_blocks = zeros / BLOCK_SIZE;
+				size_type ones = layer_size(SUMMARY_HEIGHT) * BLOCK_SIZE - zeros;
+				
+				DBG("CMB zero blocks start at %ld", a);
+				memset(buf, 0, BUFFER_SIZE);
+				for( ; zeros >= BLOCK_SIZE; zeros -= BLOCK_SIZE, a++) {
+					block_memory_->write(buf, a);
 				}
-			#endif
+				if(zeros) {
+					DBG("CMB mixed at %ld", a);
+					memset(buf, 0, zeros);
+					memset(buf + zeros, 0xff, BUFFER_SIZE - zeros);
+					block_memory_->write(buf, a);
+					a++;
+					ones -= (BUFFER_SIZE - zeros);
+				}
+				//DBG("CMB ones start at at %ld", a);
+				//memset(buf, 0xff, BUFFER_SIZE);
+				//for( ; ones >= BLOCK_SIZE; ones -= BLOCK_SIZE, a++) {
+					//block_memory_->write(buf, a);
+				//}
+				//assert(ones == 0);
+				
+				DBG("User blocks start at %ld", a);
+				
+				for(size_type layer = SUMMARY_HEIGHT - 1; layer != (size_type)(-1); layer--) {
+					zeros = full_blocks * SUMMARY_SIZE;
+					size_type maxs = layer_size(layer) * BLOCK_SIZE - zeros;
+					a = layer_start(layer);
+					memset(buf, 0, BUFFER_SIZE);
+					for( ; zeros >= BLOCK_SIZE; zeros -= BLOCK_SIZE, a++) {
+						block_memory_->write(buf, a);
+					}
+					if(zeros) {
+						memset(buf, 0x0, zeros);
+						assert(SUMMARY_SIZE == 1);
+						assert(CHUNKS_PER_BLOCK <= 255);
+						memset(buf + zeros, CHUNKS_PER_BLOCK, BUFFER_SIZE - zeros);
+						block_memory_->write(buf, a);
+						a++;
+						maxs -= (BUFFER_SIZE - zeros);
+					}
+					
+					assert(SUMMARY_SIZE == 1);
+					assert(CHUNKS_PER_BLOCK <= 255);
+					memset(buf, CHUNKS_PER_BLOCK, BUFFER_SIZE);
+					for( ; maxs >= BLOCK_SIZE; maxs -= BLOCK_SIZE, a++) {
+						block_memory_->write(buf, a);
+					}
+					assert(maxs == 0);
+					
+					full_blocks = (full_blocks * SUMMARY_SIZE) / BLOCK_SIZE;
+				}
+				
+				for(size_type cmb = 0; cmb < CHUNK_MAP_BLOCKS; cmb++) {
+					check_chunk_map_block(layer_start(SUMMARY_HEIGHT) + cmb);
+				}
+				
 			}
 			
 			void wipe() {
@@ -234,6 +313,11 @@ namespace wiselib {
 				
 				Finder finder(summary_block, n, this);
 				finder.allocate(0, 0);
+				
+			#if BITMAP_CHUNK_ALLOCATOR_CHECK
+				check_chunk_map_block(finder.chunk_map_block_addr_);
+			#endif
+				
 				return finder.chunk_address();
 			}
 			
@@ -306,6 +390,40 @@ namespace wiselib {
 #endif
 			// }}}
 			
+			// Debugging -- Checks
+			// {{{
+#if BITMAP_CHUNK_ALLOCATOR_CHECK
+			void check() {
+			}
+			
+			void check_chunk_map_block(address_t a) {
+				DBG("checking chunk map block at %ld", a);
+				CMBlock cmblock;
+				read_block(cmblock, a);
+				typename CMBlock::summary_t s = cmblock.summary();
+				
+				address_t offset = a - layer_start(SUMMARY_HEIGHT);
+				for(size_type layer = SUMMARY_HEIGHT - 1; layer != (size_type)(-1); layer--) {
+					//DBG("checking layer %ld", layer);
+					
+					address_t new_offset = offset / ENTRIES_PER_SUMMARY_BLOCK;
+					address_t idx = offset % ENTRIES_PER_SUMMARY_BLOCK;
+					
+					SBlock sblock;
+					read_block(sblock, new_offset + layer_start(layer));
+					assert(sblock[idx] == s);
+					
+					s = sblock.summary(ENTRIES_PER_SUMMARY_BLOCK);
+					offset = new_offset;
+				}
+			}
+#else
+			void check() { }
+			void check_chunk_map_block(address_t) { }
+			
+#endif // BITMAP_CHUNK_ALLOCATOR_CHECK
+			// }}}
+			
 		private:
 			
 			template<typename Block>
@@ -345,9 +463,14 @@ namespace wiselib {
 						allocator_->read_block(summary_block_, layer_start(layer) + address);
 						
 						if(layer == SUMMARY_HEIGHT) {
+						#if BITMAP_CHUNK_ALLOCATOR_CHECK
+							chunk_map_block_addr_ = layer_start(layer) + address;
+						#endif
+							
 							CMBlock &chunk_map_block = *reinterpret_cast<CMBlock*>(&summary_block_);
 							chunk_address_.set_address(address * BlockMemory::BLOCK_SIZE * 8 / CHUNKS_PER_BLOCK);
 							size_type offset = chunk_map_block.find(n_);
+							assert(offset != NO_ADDRESS);
 							
 							chunk_address_ += offset;
 							summary_t before = chunk_map_block.summary();
@@ -357,7 +480,9 @@ namespace wiselib {
 							if(after != before) { r = after; }
 						}
 						else {
-							address_t next_address = address * ENTRIES_PER_SUMMARY_BLOCK + summary_block_.find(n_, ENTRIES_PER_SUMMARY_BLOCK);
+							address_t offs = summary_block_.find(n_, ENTRIES_PER_SUMMARY_BLOCK);
+							assert(offs != NO_ADDRESS);
+							address_t next_address = address * ENTRIES_PER_SUMMARY_BLOCK + offs;
 							summary_t s = allocate(layer + 1, next_address);
 							if(s != NO_SUMMARY) {
 								allocator_->read_block(summary_block_, layer_start(layer) + address);
@@ -375,11 +500,16 @@ namespace wiselib {
 					
 					ChunkAddress& chunk_address() { return chunk_address_; }
 					
+				#if BITMAP_CHUNK_ALLOCATOR_CHECK
+					address_t chunk_map_block_addr_;
+				#endif
+					
 				private:
 					SBlock &summary_block_;
 					size_type n_;
 					ChunkAddress chunk_address_;
 					self_type *allocator_;
+					
 			};
 			
 			static address_t layer_start(size_type layer) {
@@ -407,6 +537,9 @@ namespace wiselib {
 				switch(layer) {
 					case 0:
 						return 1;
+						break;
+					case SUMMARY_HEIGHT:
+						return CHUNK_MAP_BLOCKS;
 						break;
 					default: {
 							size_type l = ENTRIES_PER_ROOT_BLOCK;

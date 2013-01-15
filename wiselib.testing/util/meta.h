@@ -80,7 +80,7 @@ struct DivCeil { static const size_t value = (a + b - 1) / b; };
  */
 template<size_t x, size_t base, bool lower_than_base = (x < base)>
 struct Log {
-	static const size_t value = 1 + Log<x / base, base>::value;
+	static const size_t value = 1 + Log< DivCeil<x, base>::value , base>::value;
 };
 
 template<size_t x, size_t base>
@@ -88,19 +88,13 @@ struct Log<x, base, true> {
 	static const size_t value = 0;
 };
 
-/**
- * Returns the total number of nodes in a tree with @a x leaves
- * and a fanout of @a base.
- */
-template<size_t x, size_t base, bool lower_than_base = (x <= base)>
+template<size_t x, size_t base, bool layer0 = (x <= 1)>
 struct TreeNodes {
-	static const size_t value = x + TreeNodes<x / base, base>::value;
+	static const size_t value = x + TreeNodes< DivCeil<x, base>::value , base>::value;
 };
 
 template<size_t x, size_t base>
-struct TreeNodes<x, base, true> {
-	static const size_t value = 1;
-};
+struct TreeNodes<x, base, true> { static const size_t value = 1; };
 
 
 /**

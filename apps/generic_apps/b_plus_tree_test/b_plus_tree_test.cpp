@@ -4,6 +4,7 @@
 	extern "C" { void assert(int) { } }
 	#define DEBUG_GRAPHVIZ 0
 	#define DEBUG_OSTREAM 0
+	#define BITMAP_CHUNK_ALLOCATOR_CHECK 0
 	#define B_PLUS_TREE_CHECK 0
 	
 	#include <isense/util/get_os.h>
@@ -12,6 +13,7 @@
 #else
 	#define DEBUG_GRAPHVIZ 0
 	#define DEBUG_OSTREAM 1
+	#define BITMAP_CHUNK_ALLOCATOR_CHECK 1
 	#define B_PLUS_TREE_CHECK 1
 #endif
 	
@@ -245,7 +247,7 @@ class ExampleApplication
 				tuple.set_deep(2, generate_uri());
 				
 				//debug_->debug("inserting st=%d", stacksize());
-				debug_->debug("ins: i=%d (%s %s %s)", i, (char*)tuple.get(0), (char*)tuple.get(1), (char*)tuple.get(2));
+				debug_->debug("ins: (%s %s %s) i=%d", (char*)tuple.get(0), (char*)tuple.get(1), (char*)tuple.get(2), i);
 				ts.insert(tuple);
 			}
 			
@@ -255,7 +257,7 @@ class ExampleApplication
 			for(TS::iterator iter = ts.begin(); iter != ts.end(); ++iter) {
 				//debug_->debug("i=%d", i++);
 				//debug_->debug("(%x %x %x)", (void*)iter->get(0), (void*)iter->get(1), (void*)iter->get(2));
-				debug_->debug("i=%d (%s %s %s)", i++, iter->get(0), iter->get(1), iter->get(2));
+				debug_->debug("(%s %s %s) i=%d", iter->get(0), iter->get(1), iter->get(2), i++);
 			}
 			dict.tree().debug_graphviz();
 			debug_->debug("ts elems: %d", ts.size());

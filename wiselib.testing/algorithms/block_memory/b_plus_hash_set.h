@@ -426,7 +426,9 @@ namespace wiselib {
 				e.check();
 				ChunkAddress r = block_memory_->create_chunks(reinterpret_cast<block_data_t*>(&e), e.total_length());
 				
+			#if DEBUG_OSTREAM
 				std::cout << "creating entry: " << e << " -> " << r << std::endl;
+			#endif
 				
 				e.check();
 				return r;
@@ -442,7 +444,9 @@ namespace wiselib {
 				e.check();
 				//block_memory().invalidate(addr.address());
 				
+			#if DEBUG_OSTREAM
 				std::cout << "writing entry: " << e << " to " << addr << std::endl;
+			#endif
 				//DBG("write entry l=%d [%x %x %x %x ...] -> %d.%d",
 						//e.total_length(),
 						//reinterpret_cast<block_data_t*>(&e)[0],
