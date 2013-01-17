@@ -10,8 +10,10 @@ typedef wiselib::OSMODEL Os;
 
 struct Message
 {
-	char* string[5];
-	float pi;
+	int m1;
+	int m2;
+	//char* string[5];
+	//float pi;
 };
 
 class App {
@@ -26,25 +28,35 @@ public:
 		debug_ = &wiselib::FacetProvider<Os, Os::Debug>::get_facet(value);
 		sd = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 
+		//testBlockRemoving();
+		simpleTestHashMap();
 		testBlockRemoving();
-		//sequentialTestHashMap();
-		//simpleTestHashMap();
 		//testBlock();
+		sequentialTestHashMap();
 		exit(0);
 	}
 
-	Message makeMessage(const char* string)
+	/*Message makeMessage(const char* string)
 	{
 		Message m;
-		memcpy(m.string, string, 20);
+		memcpy(m.string, string, 5);
 		m.pi = 3.141592;
+		return m;
+	}*/
+
+	Message makeMessage(int m1, int m2)
+	{
+		Message m;
+		m.m1 = m1;
+		m.m2 = m2;
 		return m;
 	}
 
 	void printMessage(Message m)
 	{
-		debug_->debug("%s", m.string);
-		debug_->debug("%f", m.pi);
+		debug_->debug("m1: %d\nm2: %d", m.m1, m.m2);
+		//debug_->debug("%s", m.string);
+		//debug_->debug("%f", m.pi);
 	}
 
 	void printBlock(wiselib::Block<int, Message> b)
@@ -62,9 +74,9 @@ public:
 	{
 		wiselib::Block<int, Message> b(0, sd);
 		Message m1, m2, m3;
-		m1 = makeMessage("ABCDEFGHIJ");
-		m2 = makeMessage("TES^T123");
-		m3 = makeMessage("M3");
+		m1 = makeMessage(4, 2);
+		m2 = makeMessage(99, 100);
+		m3 = makeMessage(23, 24);
 
 		b.insertValue(1, m1);
 		b.insertValue(2, m3);
@@ -72,7 +84,7 @@ public:
 
 		printBlock(b);
 
-		b.removeValue(12);
+		b.removeValue(2);
 
 		printBlock(b);
 	}
@@ -85,15 +97,15 @@ public:
 		debug_->debug("Max number of Values: %d", b.maxNumValues());
 
 		Message m1, m2, m3;
-		m1 = makeMessage("ABCDEFGHIJ");
-		m2 = makeMessage("TES^T123");
-		m3 = makeMessage("M3");
+		m1 = makeMessage(4, 2);
+		m2 = makeMessage(99, 100);
+		m3 = makeMessage(23, 24);
 
 		b.insertValue(3, m1);
 		b.insertValue(2, m2);
 		b.insertValue(1, m3);
 
-		sd->printASCIIOutputBytes(0,0);
+		//sd->printASCIIOutputBytes(0,0);
 
 		debug_->debug("Value with key 1:");
 		printMessage(b.getValueByKey(1));
@@ -106,23 +118,23 @@ public:
 
 		b.writeBack();
 
-		sd->printASCIIOutputBytes(0,0);
+		//sd->printASCIIOutputBytes(0,0);
 
 		wiselib::Block<int, Message> b2(0, sd);
 		debug_->debug("");
 		printMessage(b2.getValueByKey(3));
 		//if(b.containsKey(33)) debug_->debug("It contains key 33");
 
-		sd->printASCIIOutputBytes(0,0);
+		//sd->printASCIIOutputBytes(0,0);
 	}
 
 	void simpleTestHashMap()
 	{
 		wiselib::HashMap<int, Message> hashMap(debug_, sd);
 		Message m1, m2, m3;
-		m1 = makeMessage("ABCDEFGHIJ");
-		m2 = makeMessage("TES^T123");
-		m3 = makeMessage("M3");
+		m1 = makeMessage(4, 2);
+		m2 = makeMessage(99, 100);
+		m3 = makeMessage(23, 24);
 
 		//First simple insertion and retrieval test
 		debug_->debug("We insert 1st entry:");
@@ -144,19 +156,19 @@ public:
 	{
 		wiselib::HashMap<int, Message, 0, 50> hashMap(debug_, sd);
 		Message m1, m2, m3;
-		m1 = makeMessage("ABCDEFGHIJ");
-		m2 = makeMessage("TES^T123");
-		m3 = makeMessage("M3");
+		m1 = makeMessage(4, 2);
+		m2 = makeMessage(99, 100);
+		m3 = makeMessage(23, 24);
 
 		for(int i = 0; i < 300; i+=3)
 		{
 			hashMap.putEntry(i + 0, m1);
 			hashMap.putEntry(i + 1, m2);
 			hashMap.putEntry(i + 2, m3);
-			printf("%3d:", i);
-			sd->printASCIIOutputBlocks(0, 50);
+			debug_->debug("%3d:", i);
+			//sd->printASCIIOutputBlocks(0, 50);
 		}
-		sd->printStats();
+		//sd->printStats();
 	}
 
 private:
