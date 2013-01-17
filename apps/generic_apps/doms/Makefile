@@ -1,12 +1,26 @@
-test: virt_sd.o test.o 
-	g++ virt_sd.o test.o 
+# ----------------------------------------
+# Environment variable WISELIB_PATH needed
+# ----------------------------------------
 
-virt_sd.o: virt_sd.cpp
-	g++ -c virt_sd.cpp
+all: shawn
+# all: scw_msb
+# all: contiki_msb
+# all: contiki_micaz
+# all: isense
+# all: tinyos-tossim
+# all: tinyos-micaz
 
-test.o: test.cpp
-	g++ -c test.cpp
+export APP_SRC=doms_test.cpp
+export BIN_OUT=doms_test
 
 
-clean: 
-	rm *.o
+include ../Makefile
+
+compile:
+	make arduino BOARD=mega2560
+
+write:
+	killall screen; make flash-arduino BOARD=mega2560 PORT=/dev/ttyACM0
+
+show:
+	make monitor-arduino BOARD=mega2560 PORT=/dev/ttyACM0	
