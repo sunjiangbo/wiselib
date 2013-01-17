@@ -66,6 +66,11 @@ public:
 		return sucess;
 	}
 
+	const ValueType& operator[](KeyType idx)
+	{
+		return getEntry(idx);
+	}
+
 private:
 	hash computeHash(KeyType key)
 	{
