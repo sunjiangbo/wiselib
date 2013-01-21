@@ -5,7 +5,7 @@
 #include "external_stack.hpp"
 #include "external_queue.hpp"
 #include <stdlib.h>
-//14011050
+//15011034
 typedef wiselib::OSMODEL Os;
 
 class App {
@@ -19,23 +19,104 @@ class App {
 
 	    debug_->debug( "SD Card test application running" );
 	    sd_.init();
-	    srand(6);
+	    srand(7);
 
 	    //test_stack<3>(90);
-	    test_stack<2>(80);
-	    debug_->debug("Start Buffersize %d, Ratio %d/100",2,90);
-	    test_queue<2>(90);
-	    debug_->debug("Start Buffersize %d, Ratio %d/100",3,60);
-	    test_queue<3>(60);
-	    debug_->debug("End Testing");	
+	    /*
+	       test_stack<2>(80);
+	       debug_->debug("Start Buffersize %d, Ratio %d/100",2,90);
+	       test_queue<2>(90);
+	       debug_->debug("Start Buffersize %d, Ratio %d/100",3,60);
+	       test_queue<3>(60);
+	       debug_->debug("End Testing");*/
+	    test_queue<2>(60);
+	    test_stack<2>(60);
+	    
+	    test_stack<1>(60);
+
+	    debug_->debug("Start TimeTest Stack");
+	    time_stack<1>();
+	    time_stack<2>();
+	    time_stack<3>();
+	    time_stack<4>();
+
+	    debug_->debug("Start TimeTest queue");
+	    time_queue<2>();
+	    time_queue<3>();
+	    time_queue<4>();
+
 	}
+	template<uint32_t buffersize>
+	    void time_stack(){
+		ExternalStack<uint64_t, buffersize> es(&sd_,1,100000,true);
+		uint64_t cz=0;
+		uint64_t tmp=0;
+		int d=0;
+		uint64_t j=0;
+		es.isEmpty();
+		for(uint64_t i=0;i<100;i++){
+		    Os::Clock::time_t start = clock_->time();
+		    for(j=0; j<1000; j++){
+			d = rand()%100;
+			if(d<100-i){
+			    es.push(rand()%1000);
+			} else {
+			    es.pop(&tmp);
+			}
+			es.size();
+			es.isEmpty();
+		    }
+		    Os::Clock::time_t stop = clock_->time() - start;
+		    cz+=stop;
+		  //  debug_->debug("10000 IOs in %d",stop);
+		   // sd_.stat();
+		}
+
+		debug_->debug("TIME: %d",cz);
+	    }
+
+	template<uint32_t buffersize>
+	    void time_queue(){
+		ExternalQueue<int, buffersize> eq(&sd_,1,100000,true);
+		uint64_t cz=0;
+		int tmp=0;
+		int d=0;
+		uint64_t j =0;
+		for(uint64_t i=0; i<100;i++){
+		    Os::Clock::time_t start = clock_->time();
+		    for(j=0;j<1000;j++){
+			d = rand()%100;
+			if(d<100-i){
+			    eq.offer(rand()%1000);
+			}else {
+			    eq.poll(&tmp);
+			}
+		    }
+		    Os::Clock::time_t stop = clock_->time() - start;
+		    cz+=stop;
+		    //debug_->debug("10000 IOs in %d",stop);
+		    //sd_.stat();
+
+		}
+
+		debug_->debug("TIME: %d",cz);
+	    }
+
 	template<int buffersize>
 	    void test_stack(int writeRat){
 		debug_->debug("Testing Stack");
-		ExternalStack<uint64_t, buffersize,false> testA(&sd_,10001,20000,true);
-		ExternalStack<uint64_t, buffersize,false> testB(&sd_,20001,30000,true);
+		ExternalStack<uint64_t, buffersize> testA(&sd_,10001,20000,true);
+		ExternalStack<uint64_t, buffersize> testB(&sd_,20001,30000,true);
 		{
 		    ExternalStack<uint64_t, buffersize> es(&sd_,1,3,true);
+		    if(es.size()!=0){
+			debug_->debug("wrong size");
+			exit(1);
+		    }
+		    if(!es.isEmpty()){
+			debug_->debug("empty wrong");
+			exit(1);
+		    }
 		    es.~ExternalStack();
 		}
 		bool toA=true;
@@ -46,8 +127,8 @@ class App {
 		uint64_t tmp=0;
 		uint64_t toPush=0;
 
-		for(uint64_t i=0; i<100; i++){
-		    ExternalStack<uint64_t, buffersize, true,true> es(&sd_,1,10000);
+		for(uint64_t i=0; i<=100; i++){
+		    ExternalStack<uint64_t, buffersize> es(&sd_,1,10000);
 		    for(uint64_t j=0; j<10000; j++){
 			int d = rand() %100;
 			toPush = (rand()%1000);
@@ -90,9 +171,20 @@ class App {
 			    } else {
 				debug_->debug("unsucc POP");
 			    }
+
+			}
+			if((es.isEmpty() && inStack>0) || (!es.isEmpty()&& inStack<=0)){
+			    debug_->debug("isEmpty()");
+			    exit(1);
+			}
+			if(es.size()!=inStack){
+			    debug_->debug("false size %d,%d",inStack,es.size());
+			    debug_->debug("%d",es.size());
+			    debug_->debug("%d",inStack);
+			    exit(1);
 			}
 		    }
-		  //  es.~ExternalStack();
+		    //  es.~ExternalStack();
 
 		    debug_->debug(">>%d0000 ",i);
 
@@ -105,6 +197,15 @@ class App {
 		debug_->debug("Testing Queue");
 		{
 		    ExternalQueue<uint64_t, 2> eq(&sd_,1,10);
+		    if(eq.size()!=0){
+			debug_->debug("wrong size");
+			exit(1);
+		    }
+		    if(!eq.isEmpty()){
+			debug_->debug("empty wrong");
+			exit(1);
+		    }
+
 		    eq.~ExternalQueue();
 		}
 
@@ -115,7 +216,7 @@ class App {
 		uint64_t tmp=0;
 		uint64_t xpop=0;
 		uint64_t xpush=0;
-		for(uint64_t i=0; i<100; i++){
+		for(uint64_t i=0; i<=100; i++){
 		    xpop = 0;
 		    xpush = 0;
 
@@ -123,7 +224,7 @@ class App {
 		    for(uint64_t j=0; j<10000; j++){
 			int d = rand()%100;
 			if(d<writeRat){
-			    bool succ =eq.push(push);
+			    bool succ =eq.offer(push);
 			    if(succ){
 				//debug_->debug("PUSHED %d.",push);
 				push++;
@@ -131,7 +232,7 @@ class App {
 				xpush+=1;
 			    }
 			} else {
-			    bool succ =eq.pop(&tmp);
+			    bool succ =eq.poll(&tmp);
 			    if((!succ && inQ>0) || (succ && inQ<=0)){
 				debug_->debug("BOO ERROR");
 				exit(1);
@@ -147,7 +248,14 @@ class App {
 				pop++;
 				xpop++;
 			    }
-
+			}
+			if((eq.isEmpty() && inQ>0) || (!eq.isEmpty()&& inQ<=0)){
+			    debug_->debug("isEmpty()");
+			    exit(1);
+			}
+			if(inQ!= eq.size()){
+			    debug_->debug("wrong size %d,%d",inQ,eq.size());
+			    exit(1);
 			}
 		    }
 

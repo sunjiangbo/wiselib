@@ -19,7 +19,7 @@ typedef typename Os::block_data_t block_data_t;
  * von mindestens 2 Bloecken, dafuer erreicht sie fast den minimal moeglichen IO-Durchschnitt pro Operation.
  * Die Queue ist standardmaessig persistent und kann nicht ueberlaufen. Als Folge dieser Schutzmassnahme ist 
  * es nicht immer Moeglich den Speicherplatz vollstaendig zu nutzen. 
- * Sollte man mehrere Queue im begrenzten RAM haben, so sollte man die Persistenz ausnutzen => 
+ * Sollte man mehrere Queue im begrenzten RAM haben, so sollte man die Persistenz ausnutzen und 
  * die Queue zerstoeren und wiederherstellen bei Bedarf
  */
 template<class T, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
@@ -102,14 +102,12 @@ class ExternalQueue{
 	}
 
 
-	/**
-	  * Fuegt ein Element an das Ende der Queue oder gibt FALSE zurueck.
-	  */
-	bool offer(T x){//TODO groessere Sicherheit vor Datenverlust
+
+	bool addLast(T x){//TODO groessere Sicherheit vor Datenverlust
 #ifdef DEBUG
 	    debug_->debug("EXTERNALQUEUE DEBUG: push(%d)->%d",x,minBlock_+blocksOnSd_+BUFFERSIZE>maxBlock_);
 #endif
-	    if(minBlock_+blocksOnSd_+BUFFERSIZE>maxBlock_) return false;
+	    if(blocksOnSdLeft()<BUFFERSIZE) return false;
 	    if(blocksOnSd_<=0){
 		if(itemsInWrite_>0 || isReadBufferFull()){
 		    if(isWriteBufferFull()) flushWrite();
@@ -126,10 +124,16 @@ class ExternalQueue{
 	    return true;
 	}
 
-	/**
-	  * Gibt das erste Element der Queue zurueck und entfernt es oder FALSE
-	  */
-	bool poll(T* x){
+	bool addFirst(T x){
+	    if(blocksOnSdLeft()<BUFFERSIZE) return false;
+	    if(isReadBufferFull()){
+		flushRead();
+	    }
+	    addFirst_read(x);
+	    return true;
+	}
+
+	bool removeFirst(T* x){//Ergaenzung um einen float-param
 	    if(itemsInRead_<=0){
 		bool succ=fillReadBuffer();
 #ifdef DEBUG
@@ -144,10 +148,22 @@ class ExternalQueue{
 	    return true;
 	}
 
-	/**
-	  * Gibt das erste Element der Queue zurueck ohne es zu entfernen oder FALSE
-	  */
-	bool peek(T* x){//same as above
+	bool removeLast(T* x){
+	    if(itemsInWrite_==0){
+		if(blocksOnSd_==0){
+		    if(itemsInRead_==0) return false;
+		    removeLast_read(x);
+		    return true;
+		} else {
+		    sd_->read(&buffer_[BLOCK_SIZE],calcIdxOfLastBlock(),1);
+		}
+	    }
+	    removeLast_write(x);
+	    return true;
+	}
+
+
+	bool top(T* x){//same as above
 	    if(itemsInRead_<=0){
 		bool succ=fillReadBuffer();
 #ifdef DEBUG
@@ -162,9 +178,6 @@ class ExternalQueue{
 	    return true;
 	}
 
-	/**
-	  * Gibt an, ob die Queue leer ist
-	  */
 	bool isEmpty(){
 #ifdef DEBUG
 	    debug_->debug("EXTERNALQUEUE DEBUG: isEmpty()->%d",!(blocksOnSd_>0 || itemsInRead_>0 || itemsInWrite_>0));
@@ -172,9 +185,6 @@ class ExternalQueue{
 	    return !(blocksOnSd_>0 || itemsInRead_>0 || itemsInWrite_>0);
 	}
 
-	/**
-	  * Gibt an, wie viele Elemente in der Queue sind
-	  */
 	uint64_t size(){
 #ifdef DEBUG
 	    debug_->debug("EXTERNALQUEUE DEBUG: size()->%d",blocksOnSd_*MAX_ITEMS_PER_BLOCK+itemsInWrite_+itemsInRead_);
@@ -182,10 +192,6 @@ class ExternalQueue{
 	    return blocksOnSd_*MAX_ITEMS_PER_BLOCK+itemsInWrite_+itemsInRead_;
 	}
 
-	/**
-	  * Speichert den jetztigen Zustand der Queue. Sollten keine weiteren Operationen auf der Queue ausgefuehrt werden,
-	  * so laesst sie sich garantiert wiederherstellen. 
-	  */
 	void flush(){
 #ifdef DEBUG
 	    debug_->debug("EXTERNALQUEUE DEBUG: flush()");
@@ -194,11 +200,9 @@ class ExternalQueue{
 	    flush(tmpBlock);
 	}
 
+
+
     private:
-	/**
-	  * Fuehrt die Speicherung des jetztigen Zustandes der Queue aus. Der uebergebene Block wird zum schreiben auf die SD
-	  * gebraucht und kann auch der Buffer sein. Der Buffer wird als erstes gesichert und braucht den temporaeren Block nicht.
-	  */
 	void flush(block_data_t *tmpBlock){
 	    //Writebuffer schreiben
 	    uint8_t fullBlocksToWrite=itemsInWrite_/MAX_ITEMS_PER_BLOCK;
@@ -256,35 +260,29 @@ class ExternalQueue{
 	}
 
 
-	/**
-	 * Fuellt den ReadBuffer durch einen Block von der SD
-	 */
+
 	bool fillReadBuffer(){
 	    if(blocksOnSd_<=0) {
 		/**
-		 * Es sind keine Bloecke auf SD, daher versuchen wir Elemente aus dem WriteBufer zu kopieren
-		 */
-
+		  * Es sind keine Bloecke auf SD, daher versuchen wir Elemente aus dem WriteBufer zu kopieren
+		  */
 		if(itemsInWrite_<=0) return false; //Funktioniert natuerlich nur, wenn da Elemente enthalten sind
+		//Bloecke aus Write nach read schieben
+		uint8_t blocksToMove=itemsInWrite_/MAX_ITEMS_PER_BLOCK+(itemsInWrite_%MAX_ITEMS_PER_BLOCK>0?1:0);
+		moveBlocks(&buffer_[512],buffer_,blocksToMove);
 
-		//Bloecke um einen nach vorne Schieben und damit den Readbuffer fuellen
-		uint8_t blocksToMove=itemsInWrite_/MAX_ITEMS_PER_BLOCK+(itemsInWrite_%MAX_ITEMS_PER_BLOCK>0?1:0);//Wir wollen keine leeren Bloecke verschieben
-		moveBlocks(&buffer_[BLOCK_SIZE],buffer_,blocksToMove);
-
-		idxRead_=0;//Die Bloecke in Write sind geordnet
-
-		if(itemsInWrite_>MAX_ITEMS_PER_BLOCK){//Es wurde ein voller Bock aus Write nach Read verschoben
+		idxRead_=0;
+		if(itemsInWrite_>MAX_ITEMS_PER_BLOCK){
 		    itemsInRead_=MAX_ITEMS_PER_BLOCK;
 		    itemsInWrite_-=MAX_ITEMS_PER_BLOCK;
-		} else {//Es wurde nur ein partieller Block aus Write nach Read verschoben
+		} else {
 		    itemsInRead_=itemsInWrite_;
 		    itemsInWrite_=0;
 		}
-
 	    } else {
 		/**
-		 * Wir muessen die Daten von der SD holen. Wir holen nur einen Block.
-		 */
+		  * Wir muessen die Daten von der SD holen. Wir holen nur einen Block.
+		  */
 		sd_->read(buffer_, idxBeginSd_, 1);
 		itemsInRead_=MAX_ITEMS_PER_BLOCK; //Wir holen immer nur volle Bloecke
 		if(++idxBeginSd_>maxBlock_) idxBeginSd_=minBlock_; //Erster relevante Block auf SD um 1 erhoehen
@@ -294,11 +292,9 @@ class ExternalQueue{
 	    return true;
 	}
 
-	/**
-	  * Entfernt ein Element vom Anfang des Readbuffers
-	  * Vorbedingung: ReadBuffer nicht leer
-	  */
+
 	void removeFirst_read(T* x){
+	    //Read ist nicht leer
 	    blockRead<T>(buffer_,idxRead_,x);
 	    if(itemsInRead_<=0){
 		itemsInRead_=0;
@@ -308,40 +304,54 @@ class ExternalQueue{
 		--itemsInRead_;
 	    }
 	}
+	void removeLast_read(T* x){
+	    uint16_t idx = (idxRead_+itemsInRead_-1)%MAX_ITEMS_PER_BLOCK;
+	    blockRead<T>(buffer_, idx ,x);
+	    --itemsInRead_;
+	}
+	    
 
-	/**
-	  * Fuegt ein Element an das Ende des Readbuffers ein
-	  * Vorbedinung: Readbuffer nicht voll
-	  */
 	void addLast_read(T x){
+	    //read ist nicht voll
 	    blockWrite<T>(buffer_, (idxRead_+itemsInRead_)%MAX_ITEMS_PER_BLOCK , x);
+	    ++itemsInRead_;
+	}
+	void addFirst_read(T x){
+	    //read ist nicht voll
+	    if(idxRead_>0) --idxRead_;
+	    else idxRead=MAX_ITEMS_PER_BLOCK-1;
+	    blockWrite<T>(buffer_,idxRead,1);
 	    ++itemsInRead_;
 	}
 
 	/**
-	 * Fuegt ein Element in den WriteBuffer ein
-	 */
+	  * Fuegt ein Element in den WriteBuffer ein
+	  */
 	void addLast_write(T x){
 	    blockWrite<T>(&buffer_[BLOCK_SIZE ], itemsInWrite_, x);
 	    ++itemsInWrite_;
 	}
+	void removeLast_write(T* x){
+	    blockRead<T>(&buffer_[BLOCK_SIZE], itemsInWrite_, x);
+	    --itemsInWrite_;
+	}
 
-	/**
-	 * FALSE wenn im WriteBuffer noch Platz ist.
-	 */
+/**
+  * FALSE wenn im WriteBuffer noch Platz ist.
+  */
 	bool isWriteBufferFull(){
 	    return itemsInWrite_>=MAX_ITEMS_PER_BLOCK*(BUFFERSIZE-1);
 	}
-	/**
-	 * false falls im ReadBuffer noch Platz ist.
-	 */
+/**
+  * false falls im ReadBuffer noch Platz ist.
+  */
 	bool isReadBufferFull(){
 	    return itemsInRead_>=MAX_ITEMS_PER_BLOCK;
 	}
 
-	/**
-	 * Leert den VOLLEN(!) WriteBuffer
-	 */
+/**
+  * Leert den VOLLEN(!) WriteBuffer
+  */
 	bool flushWrite(){
 	    //Vorbedingung WRITE FULL => ALLE BLOECKE VOLL
 	    if(blocksOnSdLeft()<=BUFFERSIZE) return false; //Es ist genug platz auf der SD
@@ -406,6 +416,14 @@ class ExternalQueue{
 	    uint32_t idxBegin = idxBeginSd_-1;
 	    if(idxBegin < minBlock_) idxBegin=maxBlock_;
 	    return idxBegin;
+	}
+
+	uint32_t calcIdxOfLastBlock(){
+	    uint32_t idxEnd= idxBeginSd_+blocksOnSd_-1;
+	    if(idxEnd>maxBlock_){
+		idxEnd-=(maxBlock_-minBlock_);
+	    }
+	    return idxEnd;
 	}
 
 	/**
