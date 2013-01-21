@@ -25,7 +25,7 @@ typedef typename Os::block_data_t block_data_t;
 template<class T, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
 class ExternalQueue{
     private:
-	wiselib::ArduinoSdCard<Os>* sd_;
+	Os::BlockMemory::self_pointer_t sd_;
 	const uint16_t MAX_ITEMS_PER_BLOCK = BLOCK_SIZE /sizeof(T);
 
 	block_data_t buffer_[BUFFERSIZE*BLOCK_SIZE ]; //Der Buffer
@@ -52,7 +52,7 @@ class ExternalQueue{
 	 * forceNew - Erzwingt das erstellen einer neuen Queue. Die alte Queue dieses Speicherplatzes wird, falls sie vorhanden war, ueberschrieben
 	 *
 	 */
-	ExternalQueue(wiselib::ArduinoSdCard<Os>* sd,uint32_t beginMem, uint32_t endMem, bool forceNew=false):sd_(sd),minBlock_(beginMem+1),maxBlock_(endMem){
+	ExternalQueue(Os::BlockMemory::self_pointer_t sd,uint32_t beginMem, uint32_t endMem, bool forceNew=false):sd_(sd),minBlock_(beginMem+1),maxBlock_(endMem){
 #ifdef INFO
 	    debug_->debug("EXTERNALQUEUE INFO: begin init queue");
 #endif
