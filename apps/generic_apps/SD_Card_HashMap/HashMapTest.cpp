@@ -3,6 +3,7 @@
 #include "util/serialization/simple_types.h"
 #include "HashMap.h"
 #include "Block.h"
+#include "Stopwatch.h"
 #define NR_OF_BLOCKS_TO_TEST 8
 
 typedef wiselib::OSMODEL Os;
@@ -29,8 +30,8 @@ public:
 		sd = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 
 		//testBlockRemoving();
-		simpleTestHashMap();
-		testBlockRemoving();
+		//simpleTestHashMap();
+		//testBlockRemoving();
 		//testBlock();
 		sequentialTestHashMap();
 		exit(0);
@@ -154,6 +155,7 @@ public:
 
 	void sequentialTestHashMap()
 	{
+		allStopwatch.startMeasurement();
 		wiselib::HashMap<int, Message, 0, 50> hashMap(debug_, sd);
 		Message m1, m2, m3;
 		m1 = makeMessage(4, 2);
@@ -165,9 +167,28 @@ public:
 			hashMap.putEntry(i + 0, m1);
 			hashMap.putEntry(i + 1, m2);
 			hashMap.putEntry(i + 2, m3);
-			debug_->debug("%3d:", i);
+			//debug_->debug("%3d:", i);
 			//sd->printASCIIOutputBlocks(0, 50);
 		}
+		allStopwatch.stopMeasurement();
+
+		unsigned long durationAll = allStopwatch.getAllTime();
+		unsigned long durationIORead = readIOStopwatch.getAllTime();
+		unsigned long durationIOWrite = writeIOStopwatch.getAllTime();
+		unsigned long durationIO = durationIORead + durationIOWrite;
+
+		debug_->debug("Complete duration: %u", durationAll);
+		debug_->debug("Read IO duration: %u", durationIORead);
+		debug_->debug("Write IO duration: %u", durationIOWrite);
+		debug_->debug("IO duration: %u", durationIO);
+
+		/*unsigned long iorp = (durationIORead*1.0/durationAll) * 100.0;
+		unsigned long iowp = (durationIOWrite*1.0/durationAll) * 100.0;
+		unsigned long iop = (durationIO*1.0/durationAll) * 100.0;
+		debug_->debug("Read IO's: %u of the time", iorp);
+		debug_->debug("Write IO's: %u of the time", iowp);
+		debug_->debug("IO's: %u of the time", iop);
+		*/
 		//sd->printStats();
 	}
 

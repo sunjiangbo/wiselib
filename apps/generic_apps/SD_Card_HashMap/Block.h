@@ -11,6 +11,8 @@
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
 
+#include "Stopwatch.h"
+
 namespace wiselib {
 
 typedef OSMODEL Os;
@@ -40,7 +42,9 @@ public:
 		this->blockNr = nr;
 		this->sd = sd;
 
+		readIOStopwatch.startMeasurement();
 		sd->read(rawData, nr); //read the raw data from the sd card
+		readIOStopwatch.stopMeasurement();
 
 		//If the block has not been used yet
 		if(getHeader().pi != 123456789)
@@ -149,7 +153,10 @@ public:
 
 	bool writeBack()
 	{
-		return sd->write(rawData, blockNr) == Os::SUCCESS;
+		writeIOStopwatch.startMeasurement();
+		bool s = sd->write(rawData, blockNr) == Os::SUCCESS;
+		writeIOStopwatch.stopMeasurement();
+		return s;
 	}
 
 private:
