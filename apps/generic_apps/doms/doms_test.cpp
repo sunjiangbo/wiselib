@@ -1,7 +1,4 @@
 #include <external_interface/external_interface.h>
-#include <external_interface/arduino/arduino_sdcard.h>
-#include <external_interface/arduino/arduino_debug.h>
-#include <external_interface/arduino/arduino_clock.h>
 #include "external_stack.hpp"
 #include "external_queue.hpp"
 #include <stdlib.h>
@@ -16,6 +13,7 @@ class App {
 	void init(Os::AppMainParameter& value) {
 	    debug_ = &wiselib::FacetProvider<Os, Os::Debug>::get_facet( value );
 	    clock_ = &wiselib::FacetProvider<Os, Os::Clock>::get_facet(value);
+	    sd_ = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 
 	    debug_->debug( "SD Card test application running" );
 	    sd_.init();
@@ -272,7 +270,7 @@ class App {
 	Os::Clock::self_pointer_t clock_;
 
 
-	wiselib::ArduinoSdCard<Os> sd_;
+	Os::BlockMemory::self_pointer_t sd_;
 };
 
 //Os::Debug App::dbg = Os::Debug();
