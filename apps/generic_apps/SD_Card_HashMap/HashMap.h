@@ -34,7 +34,7 @@ public:
 	typedef Fnv32<Os>::block_data_t block_data;
 
 
-	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd) : insertedElements(0), mostRecentBlock(-1)
+	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd) : insertedElements(0)
 	{
 		this->debug_ = debug_;
 		this->sd = sd;
