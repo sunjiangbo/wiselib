@@ -1,4 +1,4 @@
-//#define DEBUG
+//define DEBUG
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
 #include "HashMap.h"
@@ -33,7 +33,9 @@ public:
 		//simpleTestHashMap();
 		//testBlockRemoving();
 		//testBlock();
-		sequentialTestHashMap();
+		sd->init();
+		//sequentialTestHashMap();
+		maxLoadFactorTest();
 		exit(0);
 	}
 
@@ -84,9 +86,7 @@ public:
 		b.insertValue(3, m2);
 
 		printBlock(b);
-
 		b.removeValue(2);
-
 		printBlock(b);
 	}
 
@@ -127,10 +127,13 @@ public:
 		//if(b.containsKey(33)) debug_->debug("It contains key 33");
 
 		//sd->printASCIIOutputBytes(0,0);
+
+
 	}
 
 	void simpleTestHashMap()
 	{
+		debug_->debug("Value with id 0:");
 		wiselib::HashMap<int, Message> hashMap(debug_, sd);
 		Message m1, m2, m3;
 		m1 = makeMessage(4, 2);
@@ -153,34 +156,91 @@ public:
 		printMessage(hashMap.getEntry(1));
 	}
 
+	struct SmallValue
+	{
+		int load;
+	};
+
+	struct MiddleValue
+	{
+		int load1;
+		long int load2;
+		long int load3;
+		long int load4;
+	};
+
+	struct BigValue
+	{
+		int load1;
+		long int load2;
+		long int load3;
+		long int load4;
+		long int load5;
+		long int load6;
+		long int load7;
+		long int load8;
+		long int load9;
+		long int load10;
+	};
+
+	void maxLoadFactorTest()
+	{
+		SmallValue small;
+		MiddleValue middle;
+		BigValue big;
+
+		wiselib::HashMap<int, SmallValue, 0, 100> smallValueMap(debug_, sd);
+		wiselib::HashMap<int, MiddleValue, 100, 200> middleValueMap(debug_, sd);
+		wiselib::HashMap<int, BigValue, 200, 300> bigValueMap(debug_, sd);
+
+		int counter = 0;
+		while(smallValueMap.putEntry(counter, small))
+			counter++;
+		debug_->debug("Failed with small values at %f load factor", smallValueMap.getLoadFactor());
+
+		counter = 0;
+		while(middleValueMap.putEntry(counter, middle))
+			counter++;
+		debug_->debug("Failed with middle values at %f load factor", middleValueMap.getLoadFactor());
+
+		counter = 0;
+		while(bigValueMap.putEntry(counter, big))
+			counter++;
+		debug_->debug("Failed with big values at %f load factor", bigValueMap.getLoadFactor());
+	}
+
 	void sequentialTestHashMap()
 	{
 		allStopwatch.startMeasurement();
-		wiselib::HashMap<int, Message, 0, 50> hashMap(debug_, sd);
+		wiselib::HashMap<int, Message, 0, 25> hashMap(debug_, sd);
 		Message m1, m2, m3;
-		m1 = makeMessage(4, 2);
+		m1 = makeMessage(0xFFFFFFFF, 0xFFFFFFFF - 1);
 		m2 = makeMessage(99, 100);
 		m3 = makeMessage(23, 24);
 
-		for(int i = 0; i < 300; i+=3)
+		for(int i = 0; i < 1000; i++)
 		{
-			hashMap.putEntry(i + 0, m1);
-			hashMap.putEntry(i + 1, m2);
-			hashMap.putEntry(i + 2, m3);
+			if(!hashMap.putEntry(i + 0, m1))
+			{
+				debug_->debug("could not insert element %d", i);
+				debug_->debug("Failed at load factor: %f", hashMap.getLoadFactor());
+				return;
+			}
 			//debug_->debug("%3d:", i);
 			//sd->printASCIIOutputBlocks(0, 50);
 		}
 		allStopwatch.stopMeasurement();
 
-		unsigned long durationAll = allStopwatch.getAllTime();
-		unsigned long durationIORead = readIOStopwatch.getAllTime();
-		unsigned long durationIOWrite = writeIOStopwatch.getAllTime();
-		unsigned long durationIO = durationIORead + durationIOWrite;
+		unsigned long int durationAll = allStopwatch.getAllTime();
+		//unsigned long int durationIORead = readIOStopwatch.getAllTime();
+		//unsigned long int durationIOWrite = writeIOStopwatch.getAllTime();
+		//unsigned long int durationIO = durationIORead + durationIOWrite;
+		unsigned long int durationIO = IOStopwatch.getAllTime();
 
-		debug_->debug("Complete duration: %u", durationAll);
-		debug_->debug("Read IO duration: %u", durationIORead);
-		debug_->debug("Write IO duration: %u", durationIOWrite);
-		debug_->debug("IO duration: %u", durationIO);
+		//debug_->debug("Complete duration: %u", durationAll);
+		//debug_->debug("Read IO duration: %u", durationIORead);
+		//debug_->debug("Write IO duration: %u", durationIOWrite);
+		//debug_->debug("IO duration: %u", durationIO);
 
 		/*unsigned long iorp = (durationIORead*1.0/durationAll) * 100.0;
 		unsigned long iowp = (durationIOWrite*1.0/durationAll) * 100.0;
@@ -190,6 +250,7 @@ public:
 		debug_->debug("IO's: %u of the time", iop);
 		*/
 		//sd->printStats();
+		//sd->printGraphBytes(0, 50);
 	}
 
 private:
