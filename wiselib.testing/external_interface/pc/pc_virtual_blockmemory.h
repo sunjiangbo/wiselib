@@ -210,7 +210,7 @@ public:
 			printf("\n\t\t<tr>\n");
 			for(int j = 0; j < blocksize; j++)
 			{
-				printf("\t\t\t<td bgcolor=\"%s\">%d</td>\n", ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000"), (int)memory[block][j]);
+				printf("\t\t\t<td bgcolor=\"%s\">%3d</td>\n", ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000"), (int)memory[block][j]);
 				//std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << " " << "</td>\n";
 			}
 			printf("\t\t</tr>\n");
