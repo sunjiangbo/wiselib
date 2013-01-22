@@ -34,7 +34,7 @@ public:
 	typedef Fnv32<Os>::block_data_t block_data;
 
 
-	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd)
+	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd) : insertedElements(0), mostRecentBlock(-1)
 	{
 		this->debug_ = debug_;
 		this->sd = sd;
@@ -46,7 +46,10 @@ public:
 		Block<KeyType, ValueType> block(computeHash(key), sd);
 		bool insertSuccess = block.insertValue(key, value);
 		if(insertSuccess)
+		{
+			insertedElements++;
 			return block.writeBack();
+		}
 		else
 			return false;
 	}
@@ -71,6 +74,14 @@ public:
 		return getEntry(idx);
 	}
 
+	float getLoadFactor()
+	{
+		Block<KeyType, ValueType> block(computeHash(0), sd);
+		int valuesPerBlock = block.maxNumValues();
+		unsigned long int maxElements = valuesPerBlock * (toBlock - fromBlock);
+		return ((float)insertedElements)/maxElements;
+	}
+
 private:
 	hash computeHash(KeyType key)
 	{
@@ -79,6 +90,8 @@ private:
 
 	Os::BlockMemory::self_pointer_t sd;
 	Os::Debug::self_pointer_t debug_;
+
+	unsigned long int insertedElements;
 };
 
 } //NS wiselib
