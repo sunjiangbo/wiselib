@@ -12,18 +12,14 @@
 #include <util/serialization/serialization.h>
 #include <algorithms/hash/fnv.h>
 #include "Block.h"
-
-#define FULLBLOCK 42
-#define BLOCKSIZE 512
-
-
+#include "ReturnTypes.h"
 
 namespace wiselib {
 
 
 typedef OSMODEL Os;
 
-template<typename KeyType_P, typename ValueType_P, int fromBlock = 0, int toBlock = 100>
+template<typename KeyType_P, typename ValueType_P>
 class HashMap {
 
 public:
@@ -34,24 +30,39 @@ public:
 	typedef Fnv32<Os>::block_data_t block_data;
 
 
-	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd) : insertedElements(0)
+	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd, int fromBlock = 0, int toBlock = 100)
+	: insertedElements(0), fromBlock(fromBlock), toBlock(toBlock), lastNewBlock(0), firstBlock(0), currentState(INTACT)
 	{
 		this->debug_ = debug_;
 		this->sd = sd;
 		sd->init();
 	}
 
-	bool putEntry(KeyType key, ValueType& value)
+	returnTypes putEntry(KeyType key, ValueType& value)
 	{
-		Block<KeyType, ValueType> block(computeHash(key), sd);
-		bool insertSuccess = block.insertValue(key, value);
-		if(insertSuccess)
+		size_t blockNr = computeHash(key);
+		Block<KeyType, ValueType> block(blockNr, sd);
+		if(block.insertValue(key, value) == BLOCK_FULL) return HASHMAP_FULL;
+
+		if(insertedElements == 0)
 		{
-			insertedElements++;
-			return block.writeBack();
+			firstBlock = blockNr;
 		}
 		else
-			return false;
+		{
+			Block<KeyType, ValueType> headBlock(lastNewBlock, sd);
+			headBlock.append(&block);
+			if(headBlock.writeBack() == SD_ERROR) currentState = BROKEN;
+
+			lastNewBlock = blockNr;
+		}
+
+		returnTypes writingToSd = block.writeBack();
+		if(writingToSd == OK)
+			insertedElements++;
+		else
+			currentState = BROKEN;
+		return writingToSd;
 	}
 
 	ValueType getEntry(KeyType key)
@@ -60,18 +71,38 @@ public:
 		return block.getValueByKey(key);
 	}
 
-	bool removeEntry(KeyType key)
+	returnTypes removeEntry(KeyType key)
 	{
 		Block<KeyType, ValueType> block(computeHash(key), sd);
-		bool sucess = block.removeValue(key);
-		if(sucess)
-			block.writeBack();
-		return sucess;
+		if(block.removeValue(key) == NO_VALUE_FOR_THAT_KEY) return NO_VALUE_FOR_THAT_KEY;
+
+		if(block.isEmpty())
+		{
+			Block<KeyType, ValueType> prevBlock(block.getPrevBlock(), sd);
+			Block<KeyType, ValueType> nextBlock(block.getNextBlock(), sd);
+			block.disconnect();
+			prevBlock.append(nextBlock);
+			if(prevBlock.writeBack() != OK) currentState = BROKEN;
+			if(nextBlock.writeBack() != OK) currentState = BROKEN;
+		}
+
+		returnTypes writingToSd = block.writeBack();
+		if(writingToSd == OK)
+			insertedElements--;
+		else
+			currentState = BROKEN;
+		return writingToSd;
 	}
 
-	const ValueType& operator[](KeyType idx)
+	const ValueType operator[](KeyType idx)
 	{
 		return getEntry(idx);
+	}
+
+	bool containsKey(KeyType key)
+	{
+		Block<KeyType, ValueType> block(computeHash(key), sd);
+		return block.containsKey(key);
 	}
 
 	float getLoadFactor()
@@ -83,15 +114,25 @@ public:
 	}
 
 private:
-	hash computeHash(KeyType key)
+	Os::size_t computeHash(KeyType key)
 	{
+		//return (key % (toBlock - fromBlock)) + fromBlock;
 		return (Fnv32<Os>::hash((const block_data*) &key, sizeof(key)) % (toBlock - fromBlock)) + fromBlock;
 	}
 
 	Os::BlockMemory::self_pointer_t sd;
 	Os::Debug::self_pointer_t debug_;
 
-	unsigned long int insertedElements;
+	//better data types here!!!
+	int insertedElements;
+	int fromBlock, toBlock;
+
+	size_t lastNewBlock;
+	size_t firstBlock;
+
+	enum hashMapState{INTACT, BROKEN};
+
+	hashMapState currentState;
 };
 
 } //NS wiselib

@@ -3,7 +3,9 @@
 #include "util/serialization/simple_types.h"
 #include "HashMap.h"
 #include "Block.h"
+#include "BlockIterator.h"
 #include "Stopwatch.h"
+
 #define NR_OF_BLOCKS_TO_TEST 8
 
 typedef wiselib::OSMODEL Os;
@@ -35,17 +37,385 @@ public:
 		//testBlock();
 		sd->init();
 		//sequentialTestHashMap();
-		maxLoadFactorTest();
+		//loadFactorTests();
+		if(!blockTest()) debug_->debug("blockTest failed!");
+		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
+		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
 		exit(0);
 	}
 
-	/*Message makeMessage(const char* string)
+	bool blockTest()
 	{
-		Message m;
-		memcpy(m.string, string, 5);
-		m.pi = 3.141592;
-		return m;
-	}*/
+		sd->reset();
+		wiselib::Block<int, long> block(0, sd);
+
+		if(block.getNumValues() != 0)
+		{
+			debug_->debug("A new block should contain 0 values!");
+			return false;
+		}
+
+		const int initialLen = 8;
+		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
+		int keys1[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
+
+		// --- test if insertion works ---
+		for(int i = 0; i < initialLen; ++i)
+			if(block.insertValue(keys1[i], values1[i]) == BLOCK_FULL)
+			{
+				debug_->debug("Block was full while it should not be!");
+				return false;
+			}
+
+		if(!blockContains(&block, values1, initialLen))
+		{
+			debug_->debug("The block did not contain the values in the order it was supposed to after insertion!");
+			return false;
+		}
+
+		if(block.getNumValues() != initialLen)
+		{
+			debug_->debug("The block failed to count its elements!");
+			return false;
+		}
+
+		// --- test if contains key works ---
+
+		for(int i = 0; i < initialLen; i++)
+			if(!block.containsKey(keys1[i]))
+			{
+				debug_->debug("The block.containsKey claims that the key %d is not in the block while it should be in there", keys1[i]);
+				return false;
+			}
+
+		for(int i = 9; i < 20; i++)
+			if(block.containsKey(i))
+			{
+				debug_->debug("The block.containsKey claims that the block contains %d while it should not!", i);
+				return false;
+			}
+
+		// --- test if deletion works ---
+
+		// --- deletion in the middle
+		long values2[initialLen - 1]	= {1, 1, 2, 3, 21, 8, 13};
+		int keys2[initialLen - 1]		= {8, 7, 6, 5,  1, 3,  2};
+
+		block.removeValue(4);
+		if(!blockContains(&block, values2, initialLen -1))
+		{
+			debug_->debug("The block did not contain the values in the order it was supposed to after deletion in the middle!");
+			return false;
+		}
+
+		if(block.getNumValues() != initialLen - 1)
+		{
+			debug_->debug("The block failed to count its elements!");
+			return false;
+		}
+
+		// --- deletion at the beginning ---
+		long values3[initialLen - 2]	= {13, 1, 2, 3, 21, 8};
+		int keys3[initialLen - 2]		= { 2, 7, 6, 5,  1, 3};
+
+		block.removeValue(8);
+		if(!blockContains(&block, values3, initialLen - 2))
+		{
+			debug_->debug("The block did not contain the values in the order it was supposed to after deletion at the beginning!");
+			return false;
+		}
+
+		if(block.getNumValues() != initialLen - 2)
+		{
+			debug_->debug("The block failed to count its elements!");
+			return false;
+		}
+
+		// --- deletion at the end ---
+		long values4[initialLen - 3]	= {13, 1, 2, 3, 21};
+		int keys4[initialLen - 3]		= { 2, 7, 6, 5,  1};
+
+		block.removeValue(3);
+		if(!blockContains(&block, values4, initialLen - 3))
+		{
+			debug_->debug("The block did not contain the values in the order it was supposed to after deletion at the end!");
+			return false;
+		}
+
+		if(block.getNumValues() != initialLen - 3)
+		{
+			debug_->debug("The block failed to count its elements!");
+			return false;
+		}
+
+		// --- writing to the block interface and reading again, also reading the meta info ---
+		block.setNextBlock(5);
+		block.setPrevBlock(7);
+
+		block.writeBack();
+
+		wiselib::Block<int, long> readBlock(0, sd);
+		if(readBlock.getNextBlock() != 5)
+		{
+			debug_->debug("The block did not properly store the next block");
+			return false;
+		}
+		if(readBlock.getPrevBlock() != 7)
+		{
+			debug_->debug("The block did not properly store the prev block");
+			return false;
+		}
+
+		if(block.getNumValues() != initialLen - 3)
+		{
+			debug_->debug("The block failed to count its elements after reading again from the sd card!");
+			return false;
+		}
+
+		if(!blockContains(&readBlock, values4, initialLen - 3))
+		{
+			debug_->debug("The block could not retrieve the proper values after writing and reading from sd");
+			return false;
+		}
+
+		sd->reset();
+		// --- test appending ---
+		{
+			wiselib::Block<int, long> b1(1, sd);
+			wiselib::Block<int, long> b2(2, sd);
+			wiselib::Block<int, long> b3(3, sd);
+
+			b1.append(&b2);
+			b2.append(&b3);
+
+			b1.writeBack();
+			b2.writeBack();
+			b3.writeBack();
+
+			b1.initFromSD();
+			b2.initFromSD();
+			b3.initFromSD();
+
+			if(b1.hasPrevBlock() == true || b1.hasNextBlock() == false || b1.getNextBlock() != 2)
+			{
+				debug_->debug("appending on b1 failed!");
+				return false;
+			}
+
+			if(b2.hasPrevBlock() == false || b2.hasNextBlock() == false || b2.getPrevBlock() != 1 || b2.getNextBlock() != 3)
+			{
+				debug_->debug("appending on b2 failed!");
+				return false;
+			}
+
+			if(b3.hasPrevBlock() == false || b3.hasNextBlock() == true || b3.getPrevBlock() != 2)
+			{
+				debug_->debug("appending on b3 failed!");
+				return false;
+			}
+		}
+
+		// --- test removing from block chain ---
+		sd->reset();
+		// --- at the beginning ---
+		{
+			wiselib::Block<int, long> b1(1, sd);
+			wiselib::Block<int, long> b2(2, sd);
+			wiselib::Block<int, long> b3(3, sd);
+
+			b1.append(&b2);
+			b2.append(&b3);
+
+			b1.writeBack();
+			b2.writeBack();
+			b3.writeBack();
+
+			b1.removeFromChain();
+			b1.writeBack();
+
+			b1.initFromSD();
+			b2.initFromSD();
+			b3.initFromSD();
+
+			if(b1.hasNextBlock() || b1.hasPrevBlock())
+			{
+				debug_->debug("removing on b1 failed! at the beginning");
+				return false;
+			}
+			if(b2.hasNextBlock() == false || b2.hasPrevBlock() || b2.getNextBlock() != 3)
+			{
+				debug_->debug("removing on b2 failed! at the beginning");
+				debug_->debug("b2.nextBlock: %d, b2.prevBlock: %d", b2.getNextBlock(), b2.getPrevBlock());
+				//return false;
+			}
+			if(b3.hasNextBlock() || b3.hasPrevBlock() == false || b3.getPrevBlock() != 2)
+			{
+				debug_->debug("removing on b3 failed! at the beginning");
+				debug_->debug("b3.nextBlock: %d, b3.prevBlock: %d", b3.getNextBlock(), b3.getPrevBlock());
+				return false;
+			}
+		}
+		sd->reset();
+		// --- in the middle ---
+		{
+			wiselib::Block<int, long> b1(1, sd);
+			wiselib::Block<int, long> b2(2, sd);
+			wiselib::Block<int, long> b3(3, sd);
+			b1.append(&b2);
+			b2.append(&b3);
+			b1.writeBack();
+			b2.writeBack();
+			b3.writeBack();
+
+			b2.removeFromChain();
+			b2.writeBack();
+
+			b1.initFromSD();
+			b2.initFromSD();
+			b3.initFromSD();
+
+			if(b1.hasNextBlock() == false || b1.hasPrevBlock() || b1.getNextBlock() != 3)
+			{
+				debug_->debug("removing on b1 failed! in the middle");
+				return false;
+			}
+			if(b2.hasNextBlock()|| b2.hasPrevBlock())
+			{
+				debug_->debug("removing on b2 failed! in the middle");
+				return false;
+			}
+			if(b3.hasNextBlock() || b3.hasPrevBlock() == false || b3.getPrevBlock() != 1)
+			{
+				debug_->debug("removing on b3 failed! in the middle");
+				return false;
+			}
+		}
+		sd->reset();
+
+		// --- at the end ---
+		{
+			wiselib::Block<int, long> b1(1, sd);
+			wiselib::Block<int, long> b2(2, sd);
+			wiselib::Block<int, long> b3(3, sd);
+			b1.append(&b2);
+			b2.append(&b3);
+
+			b1.writeBack();
+			b2.writeBack();
+			b3.writeBack();
+
+			b3.removeFromChain();
+			b3.writeBack();
+
+			b1.initFromSD();
+			b2.initFromSD();
+			b3.initFromSD();
+
+			if(b1.hasNextBlock() == false || b1.hasPrevBlock() || b1.getNextBlock() != 2)
+			{
+				debug_->debug("removing on b1 failed! at the end");
+				return false;
+			}
+			if(b2.hasNextBlock()|| b2.hasPrevBlock() == false || b2.getPrevBlock() != 1)
+			{
+				debug_->debug("removing on b2 failed! at the end");
+				return false;
+			}
+			if(b3.hasNextBlock() || b3.hasPrevBlock())
+			{
+				debug_->debug("removing on b3 failed! at the end");
+				return false;
+			}
+		}
+
+		debug_->debug("Block test succeeds!");
+
+		return true;
+	}
+
+	bool blockIteratorTest()
+	{
+		sd->reset();
+		wiselib::Block<int, long> block(0, sd);
+		const int initialLen = 8;
+		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
+		int keys1[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
+
+		for(int i = 0; i < initialLen; i++)
+		{
+			block.insertValue(keys1[i], values1[i]);
+		}
+
+		wiselib::BlockIterator<int, long> it(&block);
+
+		int counter = 0;
+		while(it.hasNext())
+		{
+			if(*it != values1[counter])
+			{
+				debug_->debug("The block iterator gave wrong values! at position %d", counter);
+				return false;
+			}
+			++it;
+			++counter;
+		}
+		debug_->debug("Block Iterator test succeeds!");
+		return true;
+	}
+
+	bool hashMapTest()
+	{
+		// --- simple insertion and retrieval of known values test ---
+		sd->reset();
+		wiselib::HashMap<int, long> hashMap(debug_, sd, 0, 100);
+		const int initialLen = 8;
+		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
+		int keys1[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
+
+		for(int i = initialLen - 1; i >= 0; i--) //fill in backwards
+		{
+			hashMap.putEntry(keys1[i], values1[i]);
+		}
+
+		for(int i = 0; i < initialLen; i++)
+			if(hashMap[keys1[i]] != values1[i])
+			{
+				debug_->debug("Simple insertion and retrieval test on the hashmap failed!");
+				return false;
+			}
+
+		// --- contains key method test ---
+		for(int i = 0; i < initialLen; i++)
+			if(!hashMap.containsKey(keys1[i]))
+			{
+				debug_->debug("Contains key gave a false negative!");
+				return false;
+			}
+
+		for(int i = 9; i < 500; i++)
+			if(hashMap.containsKey(i))
+			{
+				debug_->debug("Contains key gave a false positive on the key %d, apparently it has the value %d!", i, hashMap[i]);
+				return false;
+			}
+
+		debug_->debug("Hash Map test succeeds!");
+
+
+		return true;
+	}
+
+	bool blockContains(wiselib::Block<int, long> *b, long values[], int numValues)
+	{
+		for(int i = 0; i < numValues; ++i)
+		{
+			if(b->getValueByID(i) != values[i])
+			{
+				return false;
+			}
+		}
+		return true;
+	}
 
 	Message makeMessage(int m1, int m2)
 	{
@@ -90,47 +460,6 @@ public:
 		printBlock(b);
 	}
 
-	void testBlock()
-	{
-		wiselib::Block<int, Message> b(0, sd);
-		debug_->debug("size of message: %d", sizeof(Message));
-		debug_->debug("Number of entries In block: %d", b.getNumValues());
-		debug_->debug("Max number of Values: %d", b.maxNumValues());
-
-		Message m1, m2, m3;
-		m1 = makeMessage(4, 2);
-		m2 = makeMessage(99, 100);
-		m3 = makeMessage(23, 24);
-
-		b.insertValue(3, m1);
-		b.insertValue(2, m2);
-		b.insertValue(1, m3);
-
-		//sd->printASCIIOutputBytes(0,0);
-
-		debug_->debug("Value with key 1:");
-		printMessage(b.getValueByKey(1));
-
-		debug_->debug("");
-
-		debug_->debug("Value with id 0:");
-		printMessage(b.getValueByID(0));
-
-
-		b.writeBack();
-
-		//sd->printASCIIOutputBytes(0,0);
-
-		wiselib::Block<int, Message> b2(0, sd);
-		debug_->debug("");
-		printMessage(b2.getValueByKey(3));
-		//if(b.containsKey(33)) debug_->debug("It contains key 33");
-
-		//sd->printASCIIOutputBytes(0,0);
-
-
-	}
-
 	void simpleTestHashMap()
 	{
 		debug_->debug("Value with id 0:");
@@ -142,10 +471,10 @@ public:
 
 		//First simple insertion and retrieval test
 		debug_->debug("We insert 1st entry:");
-		hashMap.putEntry(0, m1);
+		//hashMap.putEntry(0, m1);
 		debug_->debug("");
 		debug_->debug("We insert 2nd entry:");
-		hashMap.putEntry(1, m2);
+		//hashMap.putEntry(1, m2);
 
 		debug_->debug("\n");
 
@@ -183,36 +512,63 @@ public:
 		long int load10;
 	};
 
-	void maxLoadFactorTest()
+	void loadFactorTests()
 	{
 		SmallValue small;
 		MiddleValue middle;
 		BigValue big;
 
-		wiselib::HashMap<int, SmallValue, 0, 100> smallValueMap(debug_, sd);
-		wiselib::HashMap<int, MiddleValue, 100, 200> middleValueMap(debug_, sd);
-		wiselib::HashMap<int, BigValue, 200, 300> bigValueMap(debug_, sd);
+		//debug_->debug("Test with small (%d bytes) values:", sizeof(SmallValue));
+		//debug_->debug("nr of blocks, loadfactor");
+		/*
+		for(int i = 1; i < 1000; i++)
+		{
+			wiselib::HashMap<int, SmallValue> smallValueMap(debug_, sd, 0, i);
+			int counter = 0;
+			while(smallValueMap.putEntry(counter + 99272, small))
+			{
+				counter++;
+			}
 
-		int counter = 0;
-		while(smallValueMap.putEntry(counter, small))
-			counter++;
-		debug_->debug("Failed with small values at %f load factor", smallValueMap.getLoadFactor());
+			debug_->debug("%d %f", i, smallValueMap.getLoadFactor());
+			sd->erase(0, 1000);
+		}*/
 
-		counter = 0;
-		while(middleValueMap.putEntry(counter, middle))
-			counter++;
-		debug_->debug("Failed with middle values at %f load factor", middleValueMap.getLoadFactor());
+		/*
+		for(int i = 1; i < 1000; i++)
+		{
+			wiselib::HashMap<int, MiddleValue> middleValueMap(debug_, sd, 0, i);
+			int counter = 0;
+			while(middleValueMap.putEntry(counter + 99272, middle))
+			{
+				counter++;
+			}
 
-		counter = 0;
-		while(bigValueMap.putEntry(counter, big))
-			counter++;
-		debug_->debug("Failed with big values at %f load factor", bigValueMap.getLoadFactor());
+			debug_->debug("%d %f", i, middleValueMap.getLoadFactor());
+			sd->erase(0, 1000);
+		}*/
+
+
+		for(int i = 1; i < 1000; i++)
+		{
+			wiselib::HashMap<int, BigValue> bigValueMap(debug_, sd, 0, i);
+			int counter = 0;
+			while(bigValueMap.putEntry(counter + 99272, big) == OK)
+			{
+				counter++;
+			}
+
+			debug_->debug("%d %f", i, bigValueMap.getLoadFactor());
+			sd->erase(0, 1000);
+		}
+
+
 	}
 
 	void sequentialTestHashMap()
 	{
 		allStopwatch.startMeasurement();
-		wiselib::HashMap<int, Message, 0, 25> hashMap(debug_, sd);
+		wiselib::HashMap<int, Message> hashMap(debug_, sd, 0, 25);
 		Message m1, m2, m3;
 		m1 = makeMessage(0xFFFFFFFF, 0xFFFFFFFF - 1);
 		m2 = makeMessage(99, 100);
@@ -220,7 +576,7 @@ public:
 
 		for(int i = 0; i < 1000; i++)
 		{
-			if(!hashMap.putEntry(i + 0, m1))
+			//if(!hashMap.putEntry(i + 0, m1))
 			{
 				debug_->debug("could not insert element %d", i);
 				debug_->debug("Failed at load factor: %f", hashMap.getLoadFactor());

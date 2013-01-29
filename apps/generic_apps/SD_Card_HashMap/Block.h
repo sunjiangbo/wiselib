@@ -12,7 +12,7 @@
 #include "util/serialization/simple_types.h"
 
 #include "Stopwatch.h"
-
+#include "ReturnTypes.h"
 
 namespace wiselib {
 
@@ -30,6 +30,8 @@ public:
 	{
 		long pi;
 		uint8_t numKVPairs;
+		Os::size_t nextBlock;
+		Os::size_t prevBlock;
 	} header;
 
 	typedef struct
@@ -38,15 +40,19 @@ public:
 		ValueType value;
 	} keyValuePair;
 
-	Block(long int nr, Os::BlockMemory::self_pointer_t sd)
+	Block(Os::size_t nr, Os::BlockMemory::self_pointer_t sd)
 	{
 		this->blockNr = nr;
 		this->sd = sd;
 
-		IOStopwatch.startMeasurement();
-		sd->read(rawData, nr); //read the raw data from the sd card
-		IOStopwatch.stopMeasurement();
+		initFromSD();
+	}
 
+	void initFromSD()
+	{
+		IOStopwatch.startMeasurement();
+		sd->read(rawData, blockNr); //read the raw data from the sd card
+		IOStopwatch.stopMeasurement();
 		head = read<Os, Os::block_data_t, header>(rawData);
 
 		//If the block has not been used yet
@@ -57,6 +63,8 @@ public:
 #endif
 			head.pi = 123456789;
 			head.numKVPairs = 0;
+			head.nextBlock = this->blockNr;
+			head.prevBlock = this->blockNr;
 		}
 #ifdef DEBUG
 		else
@@ -64,15 +72,40 @@ public:
 #endif
 	}
 
-	/*header getHeader()
+	Os::size_t getNextBlock()
 	{
-		return read<Os, Os::block_data_t, header>(rawData);
+		return head.nextBlock;
 	}
 
-	void setHeader(header& h)
+	Os::size_t getPrevBlock()
 	{
-		write<Os, Os::block_data_t, header>(rawData, h);
-	}*/
+		return head.prevBlock;
+	}
+
+	void setNextBlock(Os::size_t nextBlock)
+	{
+		head.nextBlock = nextBlock;
+	}
+
+	void setPrevBlock(Os::size_t prevBlock)
+	{
+		head.prevBlock = prevBlock;
+	}
+
+	bool hasNextBlock()
+	{
+		return head.nextBlock != blockNr;
+	}
+
+	bool hasPrevBlock()
+	{
+		return head.prevBlock != blockNr;
+	}
+
+	bool isEmpty()
+	{
+		return getNumValues() == 0;
+	}
 
 	ValueType getValueByID(uint8_t id)
 	{
@@ -102,7 +135,7 @@ public:
 		return id < getNumValues() && id >= 0;
 	}
 
-	bool insertValue(KeyType key, ValueType& value)
+	returnTypes insertValue(KeyType key, ValueType& value)
 	{
 		if(getNumValues() < maxNumValues())
 		{
@@ -114,29 +147,27 @@ public:
 #ifdef DEBUG
 			printf("we inserted key %d into block %d\n", key, blockNr);
 #endif
-			return true;
+			return OK;
 		}
 		else
 		{
 #ifdef DEBUG
 			printf("Could not insert value with key %d becuase the block is full\n", key);
 #endif
-			return false;
+			return BLOCK_FULL;
 		}
 	}
 
-	bool removeValue(KeyType key)
+	returnTypes removeValue(KeyType key) //TODO: not tested yet
 	{
-		int startID = getIDForKey(key);
-		if(startID == -1)
-			return false;
+		int valueID = getIDForKey(key);
+		if(valueID == -1)
+			return NO_VALUE_FOR_THAT_KEY;
 
-		for(int i = startID; i < head.numKVPairs-1; i++)
-		{
-			moveKVPair(i+1, i);
-		}
+		//we just put the last element in place of the current element.
+		moveKVPair(head.numKVPairs -1, valueID);
 		head.numKVPairs--;
-		return true;
+		return OK;
 	}
 
 	int getNumValues()
@@ -149,13 +180,65 @@ public:
 		return (blocksize - sizeof(header)) / sizeof(keyValuePair);
 	}
 
-	bool writeBack()
+	returnTypes writeBack()
 	{
 		write<Os, Os::block_data_t, header>(rawData, head);
 		IOStopwatch.startMeasurement();
 		bool s = sd->write(rawData, blockNr) == Os::SUCCESS;
 		IOStopwatch.stopMeasurement();
-		return s;
+		if(s)
+			return OK;
+		else
+			return SD_ERROR;
+	}
+
+	void append(Block* nextBlock)
+	{
+		nextBlock->setPrevBlock(this->blockNr);
+		this->setNextBlock(nextBlock->blockNr);
+	}
+
+	returnTypes removeFromChain()
+	{
+		if(!hasPrevBlock()) //special case if it is the first block
+		{
+			Block<KeyType, ValueType> nextBlock(head.nextBlock, sd);
+			nextBlock.setPrevBlock(head.nextBlock); //we set the prev part of the next block to "null"
+
+			head.nextBlock = blockNr;
+			head.prevBlock = blockNr;
+
+			if(nextBlock.writeBack() == SD_ERROR)
+				return SD_ERROR;
+			else
+				return OK;
+		}
+
+		if(!hasNextBlock()) //special case if it is the last block
+		{
+			Block<KeyType, ValueType> prevBlock(head.prevBlock, sd);
+			prevBlock.setNextBlock(head.prevBlock); //we set the next part of the prev block to "null"
+
+			head.nextBlock = blockNr;
+			head.prevBlock = blockNr;
+
+			if(prevBlock.writeBack() == SD_ERROR)
+				return SD_ERROR;
+			else
+				return OK;
+		}
+
+		//all the other special cases:
+
+		Block<KeyType, ValueType> prevBlock(head.prevBlock, sd);
+		Block<KeyType, ValueType> nextBlock(head.nextBlock, sd);
+		prevBlock.append(&nextBlock);
+		head.nextBlock = blockNr;
+		head.prevBlock = blockNr;
+		if(prevBlock.writeBack() == SD_ERROR || nextBlock.writeBack() == SD_ERROR)
+			return SD_ERROR;
+		else
+			return OK;
 	}
 
 private:
@@ -185,9 +268,10 @@ private:
 		return sizeof(header) + id * sizeof(keyValuePair);
 	}
 
-	uint8_t getIDForKey(KeyType k)
+
+	int16_t getIDForKey(KeyType k) //we use a int16_t instead of uint_8 in case we want to return -1;
 	{
-		for(int i = 0; i < head.numKVPairs; i++)
+		for(int i = 0; i < head.numKVPairs; ++i)
 		{
 			if(getKVPairByID(i).key == k)
 				return i;
@@ -197,8 +281,11 @@ private:
 
 	void moveKVPair(uint8_t fromID, uint8_t toID)
 	{
-		keyValuePair p = getKVPairByID(fromID);
-		insertKVPairAtID(p, toID);
+		if(fromID != toID)
+		{
+			keyValuePair p = getKVPairByID(fromID);
+			insertKVPairAtID(p, toID);
+		}
 	}
 
 	void insertKVPairAtID(keyValuePair kvp, uint8_t id)
