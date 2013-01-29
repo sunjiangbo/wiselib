@@ -54,9 +54,9 @@ public:
 	 * Not implemented yet! Who wants this anyways?
 	 */
 	int erase(address_t start_block, address_t blocks) {
-		for(int i = 0; i < blocks; i++)
+		for(unsigned int i = 0; i < blocks; i++)
 		{
-			for(int j = 0; j < blocksize; j++)
+			for(unsigned int j = 0; j < blocksize; j++)
 				memory[i + start_block][j] = 0;
 		}
 
@@ -266,12 +266,11 @@ public:
 
 	void reset()
 	{
-		for (int i = 0; i < nrOfBlocks; i++)
+		for (int unsigned i = 0; i < nrOfBlocks; i++)
 			isWritten[i] = false;
 		resetStats();
 
 		erase(0, nrOfBlocks);
-
 	}
 
 private:
