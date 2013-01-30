@@ -23,15 +23,15 @@ public:
 		else
 		{
 			running = true;
-			startTime = micros();
+			startTime = millis();
 		}
 	}
 
-	unsigned long stopMeasurement()
+	unsigned long int stopMeasurement()
 	{
+		unsigned long int stoppedTime = millis() - startTime;
 		if(running)
 		{
-			unsigned long stoppedTime = micros() - startTime;
 			allTime += stoppedTime;
 			running = false;
 			return stoppedTime;
@@ -40,7 +40,7 @@ public:
 			return 0;
 	}
 
-	unsigned long getAllTime()
+	unsigned long int getAllTime()
 	{
 		return allTime;
 	}
@@ -52,14 +52,19 @@ public:
 		allTime = 0;
 	}
 
+	unsigned long int millis()
+	{
+		return 0;
+	}
+
 private:
 		bool running;
-		unsigned long startTime;
-		unsigned long allTime;
+		unsigned long int startTime;
+		unsigned long int allTime;
 };
 
-Stopwatch readIOStopwatch;
-Stopwatch writeIOStopwatch;
+Stopwatch IOStopwatch;
+//Stopwatch writeIOStopwatch;
 Stopwatch allStopwatch;
 
 

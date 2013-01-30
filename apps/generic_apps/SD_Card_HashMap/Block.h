@@ -13,6 +13,7 @@
 
 #include "Stopwatch.h"
 
+
 namespace wiselib {
 
 typedef OSMODEL Os;
@@ -28,7 +29,7 @@ public:
 	typedef struct
 	{
 		long pi;
-		int numKVPairs;
+		uint8_t numKVPairs;
 	} header;
 
 	typedef struct
@@ -37,33 +38,33 @@ public:
 		ValueType value;
 	} keyValuePair;
 
-	Block(int nr, Os::BlockMemory::self_pointer_t sd)
+	Block(long int nr, Os::BlockMemory::self_pointer_t sd)
 	{
 		this->blockNr = nr;
 		this->sd = sd;
 
-		readIOStopwatch.startMeasurement();
+		IOStopwatch.startMeasurement();
 		sd->read(rawData, nr); //read the raw data from the sd card
-		readIOStopwatch.stopMeasurement();
+		IOStopwatch.stopMeasurement();
+
+		head = read<Os, Os::block_data_t, header>(rawData);
 
 		//If the block has not been used yet
-		if(getHeader().pi != 123456789)
+		if(head.pi != 123456789)
 		{
 #ifdef DEBUG
 			printf("Block %d has not been used yet\n", nr);
 #endif
-			header newHeader;
-			newHeader.pi = 123456789;
-			newHeader.numKVPairs = 0;
-			setHeader(newHeader);
+			head.pi = 123456789;
+			head.numKVPairs = 0;
 		}
 #ifdef DEBUG
 		else
-			printf("Block %d contains %d elements\n", nr, getHeader().numKVPairs);
+			printf("Block %d contains %d elements\n", nr, head.numKVPairs);
 #endif
 	}
 
-	header getHeader()
+	/*header getHeader()
 	{
 		return read<Os, Os::block_data_t, header>(rawData);
 	}
@@ -71,9 +72,9 @@ public:
 	void setHeader(header& h)
 	{
 		write<Os, Os::block_data_t, header>(rawData, h);
-	}
+	}*/
 
-	ValueType getValueByID(int id)
+	ValueType getValueByID(uint8_t id)
 	{
 		return getKVPairByID(id).value;
 	}
@@ -87,7 +88,7 @@ public:
 				return kvPair.value;
 		}
 #ifdef DEBUG
-		printf("Could not get the value for key %d becaus it is not in this block\n", key);
+		printf("Could not get the value for key %d because it is not in this block\n", key);
 #endif
 	}
 
@@ -96,7 +97,7 @@ public:
 		return getIDForKey(key) != -1;
 	}
 
-	bool containsID(int id)
+	bool containsID(uint8_t id)
 	{
 		return id < getNumValues() && id >= 0;
 	}
@@ -109,9 +110,7 @@ public:
 			pair.key = key;
 			pair.value = value;
 			write<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(getNumValues()) , pair);
-			header h = getHeader();
-			h.numKVPairs = getNumValues() + 1;
-			setHeader(h);
+			head.numKVPairs = getNumValues() + 1;
 #ifdef DEBUG
 			printf("we inserted key %d into block %d\n", key, blockNr);
 #endif
@@ -131,19 +130,18 @@ public:
 		int startID = getIDForKey(key);
 		if(startID == -1)
 			return false;
-		header h = getHeader();
-		for(int i = startID; i < h.numKVPairs-1; i++)
+
+		for(int i = startID; i < head.numKVPairs-1; i++)
 		{
 			moveKVPair(i+1, i);
 		}
-		h.numKVPairs--;
-		setHeader(h);
+		head.numKVPairs--;
 		return true;
 	}
 
 	int getNumValues()
 	{
-		return getHeader().numKVPairs;
+		return head.numKVPairs;
 	}
 
 	int maxNumValues()
@@ -153,19 +151,21 @@ public:
 
 	bool writeBack()
 	{
-		writeIOStopwatch.startMeasurement();
+		write<Os, Os::block_data_t, header>(rawData, head);
+		IOStopwatch.startMeasurement();
 		bool s = sd->write(rawData, blockNr) == Os::SUCCESS;
-		writeIOStopwatch.stopMeasurement();
+		IOStopwatch.stopMeasurement();
 		return s;
 	}
 
 private:
 	Os::block_data_t rawData[blocksize];
-	int blockNr;
-	//int numKVPairs;
+	Os::size_t blockNr;
+	header head;
+
 	Os::BlockMemory::self_pointer_t sd;
 
-	keyValuePair getKVPairByID(int id)
+	keyValuePair getKVPairByID(uint8_t id)
 	{
 		if(id < getNumValues() && id >= 0)
 		{
@@ -180,15 +180,14 @@ private:
 #endif
 	}
 
-	int computePairOffset(int id)
+	int computePairOffset(uint8_t id)
 	{
 		return sizeof(header) + id * sizeof(keyValuePair);
 	}
 
-	int getIDForKey(KeyType k)
+	uint8_t getIDForKey(KeyType k)
 	{
-		header h = getHeader();
-		for(int i = 0; i < h.numKVPairs; i++)
+		for(int i = 0; i < head.numKVPairs; i++)
 		{
 			if(getKVPairByID(i).key == k)
 				return i;
@@ -196,13 +195,13 @@ private:
 		return -1;
 	}
 
-	void moveKVPair(int fromID, int toID)
+	void moveKVPair(uint8_t fromID, uint8_t toID)
 	{
 		keyValuePair p = getKVPairByID(fromID);
 		insertKVPairAtID(p, toID);
 	}
 
-	void insertKVPairAtID(keyValuePair kvp, int id)
+	void insertKVPairAtID(keyValuePair kvp, uint8_t id)
 	{
 		write<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id) , kvp);
 	}

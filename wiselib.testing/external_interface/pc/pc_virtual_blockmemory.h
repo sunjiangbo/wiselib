@@ -54,7 +54,12 @@ public:
 	 * Not implemented yet! Who wants this anyways?
 	 */
 	int erase(address_t start_block, address_t blocks) {
-		//TODO
+		for(int i = 0; i < blocks; i++)
+		{
+			for(int j = 0; j < blocksize; j++)
+				memory[i + start_block][j] = 0;
+		}
+
 		return SUCCESS;
 	}
 
@@ -210,7 +215,7 @@ public:
 			printf("\n\t\t<tr>\n");
 			for(int j = 0; j < blocksize; j++)
 			{
-				printf("\t\t\t<td bgcolor=\"%s\">%d</td>\n", ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000"), (int)memory[block][j]);
+				printf("\t\t\t<td bgcolor=\"%s\">%3d</td>\n", ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000"), (int)memory[block][j]);
 				//std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << " " << "</td>\n";
 			}
 			printf("\t\t</tr>\n");
@@ -257,6 +262,16 @@ public:
 			printf("|%s", isWritten[block] ? "1" : " ");
 		}
 		printf("|\n");
+	}
+
+	void reset()
+	{
+		for (int i = 0; i < nrOfBlocks; i++)
+			isWritten[i] = false;
+		resetStats();
+
+		erase(0, nrOfBlocks);
+
 	}
 
 private:
