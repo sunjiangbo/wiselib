@@ -1,7 +1,11 @@
 #include <external_interface/external_interface.h>
+#include <external_interface/arduino/arduino_sdcard.h>
+#include <external_interface/arduino/arduino_debug.h>
+#include <external_interface/arduino/arduino_clock.h>
 #include "external_stack.hpp"
 #include "external_queue.hpp"
 #include <stdlib.h>
+#define RELOAD
 //15011034
 typedef wiselib::OSMODEL Os;
 
@@ -13,13 +17,13 @@ class App {
 	void init(Os::AppMainParameter& value) {
 	    debug_ = &wiselib::FacetProvider<Os, Os::Debug>::get_facet( value );
 	    clock_ = &wiselib::FacetProvider<Os, Os::Clock>::get_facet(value);
-	    sd_ = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 
 	    debug_->debug( "SD Card test application running" );
-	    sd_.init();
+	    sd_ = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
+	    sd_->init();
 	    srand(7);
-
-	    //test_stack<3>(90);
+		test_queue<2>();
+	    test_stack<1>();
 	    /*
 	       test_stack<2>(80);
 	       debug_->debug("Start Buffersize %d, Ratio %d/100",2,90);
@@ -27,26 +31,19 @@ class App {
 	       debug_->debug("Start Buffersize %d, Ratio %d/100",3,60);
 	       test_queue<3>(60);
 	       debug_->debug("End Testing");*/
-	    test_queue<2>(60);
-	    test_stack<2>(60);
-	    
-	    test_stack<1>(60);
+	    //test_queue<4>(60);
+	    //test_queue<3>(90);
 
 	    debug_->debug("Start TimeTest Stack");
-	    time_stack<1>();
 	    time_stack<2>();
-	    time_stack<3>();
-	    time_stack<4>();
 
 	    debug_->debug("Start TimeTest queue");
 	    time_queue<2>();
-	    time_queue<3>();
-	    time_queue<4>();
 
 	}
 	template<uint32_t buffersize>
 	    void time_stack(){
-		ExternalStack<uint64_t, buffersize> es(&sd_,1,100000,true);
+		ExternalStack<uint64_t, buffersize> es(sd_,1,100000,true);
 		uint64_t cz=0;
 		uint64_t tmp=0;
 		int d=0;
@@ -67,15 +64,15 @@ class App {
 		    Os::Clock::time_t stop = clock_->time() - start;
 		    cz+=stop;
 		  //  debug_->debug("10000 IOs in %d",stop);
-		   // sd_.stat();
 		}
 
+		    sd_->stat();
 		debug_->debug("TIME: %d",cz);
 	    }
 
 	template<uint32_t buffersize>
 	    void time_queue(){
-		ExternalQueue<int, buffersize> eq(&sd_,1,100000,true);
+		ExternalQueue<int, buffersize> eq(sd_,1,100000,true);
 		uint64_t cz=0;
 		int tmp=0;
 		int d=0;
@@ -93,20 +90,20 @@ class App {
 		    Os::Clock::time_t stop = clock_->time() - start;
 		    cz+=stop;
 		    //debug_->debug("10000 IOs in %d",stop);
-		    //sd_.stat();
 
 		}
 
+		    sd_->stat();
 		debug_->debug("TIME: %d",cz);
 	    }
 
 	template<int buffersize>
-	    void test_stack(int writeRat){
+	    void test_stack(){
 		debug_->debug("Testing Stack");
-		ExternalStack<uint64_t, buffersize> testA(&sd_,10001,20000,true);
-		ExternalStack<uint64_t, buffersize> testB(&sd_,20001,30000,true);
+		ExternalStack<uint64_t, buffersize> testA(sd_,10001,20000,true);
+		ExternalStack<uint64_t, buffersize> testB(sd_,20001,30000,true);
 		{
-		    ExternalStack<uint64_t, buffersize> es(&sd_,1,3,true);
+		    ExternalStack<uint64_t, buffersize> es(sd_,1,3,true);
 		    if(es.size()!=0){
 			debug_->debug("wrong size");
 			exit(1);
@@ -126,7 +123,7 @@ class App {
 		uint64_t toPush=0;
 
 		for(uint64_t i=0; i<=100; i++){
-		    ExternalStack<uint64_t, buffersize> es(&sd_,1,10000);
+		    ExternalStack<uint64_t, buffersize> es(sd_,1,10000);
 		    for(uint64_t j=0; j<10000; j++){
 			int d = rand() %100;
 			toPush = (rand()%1000);
@@ -190,11 +187,11 @@ class App {
 		debug_->debug("End testing Stack");
 	    }
 	template<int BUFFERSIZE>
-	    void test_queue(int writeRat){
+	    void test_queue(){
 
 		debug_->debug("Testing Queue");
 		{
-		    ExternalQueue<uint64_t, 2> eq(&sd_,1,10);
+		    ExternalQueue<uint64_t, 2> eq(sd_,1,10);
 		    if(eq.size()!=0){
 			debug_->debug("wrong size");
 			exit(1);
@@ -206,22 +203,27 @@ class App {
 
 		    eq.~ExternalQueue();
 		}
+		sd_->stat();
 
-		//ExternalQueue<uint64_t, BUFFERSIZE> eq(&sd_,1,10000);
+		//ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,1,10000);
+#ifndef RELOAD
+		ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,1,10000);
+#endif
 		uint64_t push=0;
 		uint64_t pop=0;
 		uint64_t inQ=0;
 		uint64_t tmp=0;
 		uint64_t xpop=0;
 		uint64_t xpush=0;
-		for(uint64_t i=0; i<=100; i++){
+		for(uint64_t i=0; i<=101; i++){
 		    xpop = 0;
 		    xpush = 0;
-
-		    ExternalQueue<uint64_t, BUFFERSIZE> eq(&sd_,1,10000);
+#ifdef RELOAD
+		    ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,1,10000);
+#endif
 		    for(uint64_t j=0; j<10000; j++){
 			int d = rand()%100;
-			if(d<writeRat){
+			if(d<100-i){
 			    bool succ =eq.offer(push);
 			    if(succ){
 				//debug_->debug("PUSHED %d.",push);
@@ -258,7 +260,11 @@ class App {
 		    }
 
 		    // eq.~ExternalQueue();
-		    debug_->debug("%d0000 IOs: pushed %d , poped %d , in Queue %d ",i,xpush,xpop, inQ);
+		    debug_->debug("%d0000 IOs: ",i);
+		    debug_->debug("pushed %d Elements", xpush);
+		    debug_->debug("poped %d Elements", xpop);
+		    debug_->debug("Remaining %u Elements in Queue",inQ);
+		    sd_->stat();
 		}
 
 

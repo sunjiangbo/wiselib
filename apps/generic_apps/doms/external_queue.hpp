@@ -25,14 +25,13 @@ typedef typename Os::block_data_t block_data_t;
 template<class T, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
 class ExternalQueue{
     private:
-	Os::BlockMemory::self_pointer_t sd_;
 	const uint16_t MAX_ITEMS_PER_BLOCK = BLOCK_SIZE /sizeof(T);
 
 	block_data_t buffer_[BUFFERSIZE*BLOCK_SIZE ]; //Der Buffer
 
-	uint32_t itemsInRead_; //Anzahl der Elemente im Readbuffer
-	uint32_t itemsInWrite_; //Anzahl der Elemente im Writebuffer
-	uint32_t idxRead_; //Der Readbuffer ist eine Queue und hat einen rotierenden Anfang. Der Index zeigt auf das aelteste Element
+	uint16_t itemsInRead_; //Anzahl der Elemente im Readbuffer
+	uint16_t itemsInWrite_; //Anzahl der Elemente im Writebuffer
+	uint16_t idxRead_; //Der Readbuffer ist eine Queue und hat einen rotierenden Anfang. Der Index zeigt auf das aelteste Element
 
 	uint32_t blocksOnSd_; //Auf der SD gespeicherte VOLLSTAENDIGE Bloecke
 	uint32_t idxBeginSd_; //Die Bloecke auf SD bilden eine Queue mit rotierendem Anfang. Der Index zeigt auf den aeltesten Block
@@ -41,6 +40,7 @@ class ExternalQueue{
 	const uint32_t maxBlock_; //Blockgrenze rechts
 
 	Os::Debug::self_pointer_t debug_;
+	Os::BlockMemory::self_pointer_t sd_;
     public:
 
 	/**
@@ -49,13 +49,10 @@ class ExternalQueue{
 	 * sd - Pointer auf das zu verwendende Blockinterface
 	 * beginMem - Erster zu verwendende Block des Blockinterfaces
 	 * endMem - Letzter zu verwendender Block des Blockinterfaces. Dieser Index wird noch verwendet.
-	 * forceNew - Erzwingt das erstellen einer neuen Queue. Die alte Queue dieses Speicherplatzes wird, falls sie vorhanden war, ueberschrieben
+	 * forceNew - Erzwingt das Erstellen einer neuen Queue. Die alte Queue dieses Speicherplatzes wird, falls sie vorhanden war, ueberschrieben
 	 *
 	 */
 	ExternalQueue(Os::BlockMemory::self_pointer_t sd,uint32_t beginMem, uint32_t endMem, bool forceNew=false):sd_(sd),minBlock_(beginMem+1),maxBlock_(endMem){
-#ifdef INFO
-	    debug_->debug("EXTERNALQUEUE INFO: begin init queue");
-#endif
 	    if(BUFFERSIZE<2){
 		debug_->debug("EXTERNAL_QUEUE ERROR: Tried to init with Buffersize %d, but Buffersize has to be at least 2");
 		exit(1);
@@ -65,9 +62,9 @@ class ExternalQueue{
 	    } else { //Alte Queue versuchen zu reloaden
 		sd_->read(buffer_, beginMem, 1);
 
-		blockRead<uint32_t>(buffer_, 0, &itemsInRead_);
-		blockRead<uint32_t>(buffer_, 1, &itemsInWrite_);
-		blockRead<uint32_t>(buffer_, 2, &idxRead_);
+		blockRead<uint16_t>(buffer_, 0, &itemsInRead_);
+		blockRead<uint16_t>(buffer_, 1, &itemsInWrite_);
+		blockRead<uint16_t>(buffer_, 2, &idxRead_);
 		blockRead<uint32_t>(buffer_, 3, &blocksOnSd_);
 		blockRead<uint32_t>(buffer_, 4, &idxBeginSd_);
 
@@ -88,7 +85,7 @@ class ExternalQueue{
 			sd_->read(buffer_,calcIdxOfFirstFreeBlock(),1);
 		    }
 #ifdef INFO
-		    debug_->debug("EXTERNALQUEUE INFO: reloaded old queue");
+		    debug_->debug("EXTERNAL_QUEUE INFO: reloaded old queue");
 #endif
 		}
 	    }
@@ -96,6 +93,9 @@ class ExternalQueue{
 
 
 	~ExternalQueue(){
+#ifdef INFO
+	    debug_->debug("EXTERNAL_QUEUE INFO: destroyed queue");
+#endif
 	    if(PERSISTENT){
 		flush(buffer_);
 	    }
@@ -103,11 +103,11 @@ class ExternalQueue{
 
 
 	/**
-	  * Fuegt ein Element an das Ende der Queue oder gibt FALSE zurueck.
-	  */
+	 * Fuegt ein Element an das Ende der Queue oder gibt FALSE zurueck.
+	 */
 	bool offer(T x){//TODO groessere Sicherheit vor Datenverlust
 #ifdef DEBUG
-	    debug_->debug("EXTERNALQUEUE DEBUG: push(%d)->%d",x,minBlock_+blocksOnSd_+BUFFERSIZE>maxBlock_);
+	    debug_->debug("EXTERNAL_QUEUE DEBUG: push(%d)->%d",x,minBlock_+blocksOnSd_+BUFFERSIZE>maxBlock_);
 #endif
 	    if(minBlock_+blocksOnSd_+BUFFERSIZE>maxBlock_) return false;
 	    if(blocksOnSd_<=0){
@@ -127,68 +127,68 @@ class ExternalQueue{
 	}
 
 	/**
-	  * Gibt das erste Element der Queue zurueck und entfernt es oder FALSE
-	  */
+	 * Gibt das erste Element der Queue zurueck und entfernt es oder FALSE
+	 */
 	bool poll(T* x){
 	    if(itemsInRead_<=0){
 		bool succ=fillReadBuffer();
 #ifdef DEBUG
-		if(!succ) debug_->debug("EXTERNALQUEUE DEBUG: pop unsuccessfull");
+		if(!succ) debug_->debug("EXTERNAL_QUEUE DEBUG: pop unsuccessfull");
 #endif 
 		if(!succ) return false;
 	    } 
 	    removeFirst_read(x);
 #ifdef DEBUG
-	    debug_->debug("EXTERNALQUEUE DEBUG: pop(%d)",*x);
+	    debug_->debug("EXTERNAL_QUEUE DEBUG: pop(%d)",*x);
 #endif
 	    return true;
 	}
 
 	/**
-	  * Gibt das erste Element der Queue zurueck ohne es zu entfernen oder FALSE
-	  */
+	 * Gibt das erste Element der Queue zurueck ohne es zu entfernen oder FALSE
+	 */
 	bool peek(T* x){//same as above
 	    if(itemsInRead_<=0){
 		bool succ=fillReadBuffer();
 #ifdef DEBUG
-		if(!succ) debug_->debug("EXTERNALQUEUE DEBUG: pop unsuccessfull");
+		if(!succ) debug_->debug("EXTERNAL_QUEUE DEBUG: pop unsuccessfull");
 #endif 
 		if(!succ) return false;
 	    } 
 	    blockRead<T>(buffer_,idxRead_, x);
 #ifdef DEBUG
-	    debug_->debug("EXTERNALQUEUE DEBUG: pop(%d)",*x);
+	    debug_->debug("EXTERNAL_QUEUE DEBUG: pop(%d)",*x);
 #endif
 	    return true;
 	}
 
 	/**
-	  * Gibt an, ob die Queue leer ist
-	  */
+	 * Gibt an, ob die Queue leer ist
+	 */
 	bool isEmpty(){
 #ifdef DEBUG
-	    debug_->debug("EXTERNALQUEUE DEBUG: isEmpty()->%d",!(blocksOnSd_>0 || itemsInRead_>0 || itemsInWrite_>0));
+	    debug_->debug("EXTERNAL_QUEUE DEBUG: isEmpty()->%d",!(blocksOnSd_>0 || itemsInRead_>0 || itemsInWrite_>0));
 #endif
 	    return !(blocksOnSd_>0 || itemsInRead_>0 || itemsInWrite_>0);
 	}
 
 	/**
-	  * Gibt an, wie viele Elemente in der Queue sind
-	  */
+	 * Gibt an, wie viele Elemente in der Queue sind
+	 */
 	uint64_t size(){
 #ifdef DEBUG
-	    debug_->debug("EXTERNALQUEUE DEBUG: size()->%d",blocksOnSd_*MAX_ITEMS_PER_BLOCK+itemsInWrite_+itemsInRead_);
+	    debug_->debug("EXTERNAL_QUEUE DEBUG: size()->%d",blocksOnSd_*MAX_ITEMS_PER_BLOCK+itemsInWrite_+itemsInRead_);
 #endif
 	    return blocksOnSd_*MAX_ITEMS_PER_BLOCK+itemsInWrite_+itemsInRead_;
 	}
 
 	/**
-	  * Speichert den jetztigen Zustand der Queue. Sollten keine weiteren Operationen auf der Queue ausgefuehrt werden,
-	  * so laesst sie sich garantiert wiederherstellen. 
-	  */
+	 * Speichert den jetztigen Zustand der Queue. Sollten keine weiteren Operationen auf der Queue ausgefuehrt werden,
+	 * so laesst sie sich garantiert wiederherstellen. 
+	 */
 	void flush(){
 #ifdef DEBUG
-	    debug_->debug("EXTERNALQUEUE DEBUG: flush()");
+	    debug_->debug("EXTERNAL_QUEUE DEBUG: flush()");
 #endif
 	    block_data_t tmpBlock[512];
 	    flush(tmpBlock);
@@ -196,9 +196,9 @@ class ExternalQueue{
 
     private:
 	/**
-	  * Fuehrt die Speicherung des jetztigen Zustandes der Queue aus. Der uebergebene Block wird zum schreiben auf die SD
-	  * gebraucht und kann auch der Buffer sein. Der Buffer wird als erstes gesichert und braucht den temporaeren Block nicht.
-	  */
+	 * Fuehrt die Speicherung des jetztigen Zustandes der Queue aus. Der uebergebene Block wird zum schreiben auf die SD
+	 * gebraucht und kann auch der Buffer sein. Der Buffer wird als erstes gesichert und braucht den temporaeren Block nicht.
+	 */
 	void flush(block_data_t *tmpBlock){
 	    //Writebuffer schreiben
 	    uint8_t fullBlocksToWrite=itemsInWrite_/MAX_ITEMS_PER_BLOCK;
@@ -223,9 +223,9 @@ class ExternalQueue{
 	    }
 
 	    //Variablen sichern
-	    blockWrite<uint32_t>(tmpBlock,0,itemsInRead_);
-	    blockWrite<uint32_t>(tmpBlock,1,itemsInWrite_);
-	    blockWrite<uint32_t>(tmpBlock,2,idxRead_);
+	    blockWrite<uint16_t>(tmpBlock,0,itemsInRead_);
+	    blockWrite<uint16_t>(tmpBlock,1,itemsInWrite_);
+	    blockWrite<uint16_t>(tmpBlock,2,idxRead_);
 	    blockWrite<uint32_t>(tmpBlock,3,blocksOnSd_);
 	    blockWrite<uint32_t>(tmpBlock,4,idxBeginSd_);
 
@@ -251,7 +251,7 @@ class ExternalQueue{
 	    blocksOnSd_=0;
 	    idxBeginSd_=beginMem+1;
 #ifdef INFO
-	    debug_->debug("EXTERNALQUEUE INFO: inited new queue");
+	    debug_->debug("EXTERNAL_QUEUE INFO: inited new queue");
 #endif
 	}
 
@@ -295,9 +295,9 @@ class ExternalQueue{
 	}
 
 	/**
-	  * Entfernt ein Element vom Anfang des Readbuffers
-	  * Vorbedingung: ReadBuffer nicht leer
-	  */
+	 * Entfernt ein Element vom Anfang des Readbuffers
+	 * Vorbedingung: ReadBuffer nicht leer
+	 */
 	void removeFirst_read(T* x){
 	    blockRead<T>(buffer_,idxRead_,x);
 	    if(itemsInRead_<=0){
@@ -310,9 +310,9 @@ class ExternalQueue{
 	}
 
 	/**
-	  * Fuegt ein Element an das Ende des Readbuffers ein
-	  * Vorbedinung: Readbuffer nicht voll
-	  */
+	 * Fuegt ein Element an das Ende des Readbuffers ein
+	 * Vorbedinung: Readbuffer nicht voll
+	 */
 	void addLast_read(T x){
 	    blockWrite<T>(buffer_, (idxRead_+itemsInRead_)%MAX_ITEMS_PER_BLOCK , x);
 	    ++itemsInRead_;
@@ -341,30 +341,16 @@ class ExternalQueue{
 
 	/**
 	 * Leert den VOLLEN(!) WriteBuffer
+	 * Vorbedingung: WriteBuffer ist voll
+	 * Nachbedingung: WriteBuffer ist um mindestens einen Block leerer
 	 */
 	bool flushWrite(){
-	    //Vorbedingung WRITE FULL => ALLE BLOECKE VOLL
 	    if(blocksOnSdLeft()<=BUFFERSIZE) return false; //Es ist genug platz auf der SD
 	    if(blocksOnSd_<=0 && itemsInRead_<=0){ //erster Block von Write kann nach Read kopiert werden
-
-		T* castedBufferRead = (T*) buffer_;
-		T* castedBufferWrite = (T*) &buffer_[BLOCK_SIZE ];
-
-		itemsInRead_=0; idxRead_=0;
-		for(uint32_t i=0; i<MAX_ITEMS_PER_BLOCK; i++){ //Evtl schoener direkt ueber itemsInRead
-		    castedBufferRead[i]=castedBufferWrite[i];
-		}
-		itemsInRead_=MAX_ITEMS_PER_BLOCK;
+		moveBlocks(&buffer_[512],buffer_,BUFFERSIZE-1);
 		itemsInWrite_-=MAX_ITEMS_PER_BLOCK;
-
-		if(itemsInWrite_>0){ //restliche Bloecke auf SD schreiben
-		    idxBeginSd_=minBlock_;
-
-		    sd_->write(&buffer_[BLOCK_SIZE *2], minBlock_, BUFFERSIZE-2);
-
-		    blocksOnSd_+= BUFFERSIZE-2;
-		}
-		itemsInWrite_=0;
+		itemsInRead_=MAX_ITEMS_PER_BLOCK;
+		idxRead_=0;
 	    } else { //kompletten WriteBuffer auf SD schreiben
 
 		if(blocksOnSd_==0) idxBeginSd_=minBlock_;
@@ -375,7 +361,7 @@ class ExternalQueue{
 		    blocksOnSd_+=BUFFERSIZE-1;
 		    itemsInWrite_=0;
 		} else {//Nur der vordere Teil kann in einem Stueck geschrieben werden. Der hintere wird nach vorne geschoben
-		    uint32_t blocksLeft= BUFFERSIZE-1-max;
+		    uint8_t blocksLeft= BUFFERSIZE-1-max;
 		    sd_->write(&buffer_[BLOCK_SIZE ], calcIdxOfNextFreeBlock(), max);
 		    blocksOnSd_+=max;
 		    itemsInWrite_-=max*MAX_ITEMS_PER_BLOCK;
@@ -419,8 +405,8 @@ class ExternalQueue{
 	 * Liest ein Element aus Bloecken wie aus ein passendes Array. Blocksprunge werden ausgefuehrt.
 	 */
 	template<class S>
-	    void blockRead(block_data_t* block, uint32_t idx, S* x){
-		uint32_t maxPerBlock = BLOCK_SIZE /sizeof(S);
+	    void blockRead(block_data_t* block, uint16_t idx, S* x){
+		uint16_t maxPerBlock = BLOCK_SIZE /sizeof(S);
 		S* castedBlock = (S*) &block[BLOCK_SIZE *(idx/maxPerBlock)];
 		*x=castedBlock[idx%maxPerBlock];
 	    }
@@ -429,8 +415,8 @@ class ExternalQueue{
 	 * Schreibt ein Element passend in Bloecke
 	 */
 	template<class S>
-	    void blockWrite(block_data_t* block, uint32_t idx, S x){
-		uint32_t maxPerBlock = BLOCK_SIZE /sizeof(S);
+	    void blockWrite(block_data_t* block, uint16_t idx, S x){
+		uint16_t maxPerBlock = BLOCK_SIZE /sizeof(S);
 		S* castedBlock = (S*) &block[BLOCK_SIZE *(idx/maxPerBlock)];
 		castedBlock[idx%maxPerBlock]=x;
 	    }
