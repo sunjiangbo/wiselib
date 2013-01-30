@@ -17,8 +17,9 @@ class HashMapIterator
 	typedef KeyType_P KeyType;
 	typedef ValueType_P ValueType;
 public:
+
 	HashMapIterator(size_t beginBlock, Os::BlockMemory::self_pointer_t sd)
-	: sd(sd), currentBlock(Block<KeyType, ValueType>(beginBlock, sd)), blockIterator(BlockIterator<KeyType, ValueType>(currentBlock))
+	: sd(sd), currentBlock(Block<KeyType, ValueType>(beginBlock, sd)), blockIterator(BlockIterator<KeyType, ValueType>(&currentBlock)), dead(false)
 	{
 
 	}
@@ -30,20 +31,32 @@ public:
 
 	HashMapIterator<KeyType, ValueType>& operator++()
 	{
-		if(blockIterator.hasNext())
-			++blockIterator;
-		else
+		++blockIterator;
+		if(blockIterator.reachedEnd())
 		{
-			currentBlock = Block<KeyType, ValueType>(currentBlock.getNextBlock(), sd);
-			blockIterator = BlockIterator<KeyType, ValueType>(&currentBlock);
+			if(currentBlock.hasNextBlock()) //we reached the end of the block
+			{
+				currentBlock = Block<KeyType, ValueType>(currentBlock.getNextBlock(), sd);
+				blockIterator = BlockIterator<KeyType, ValueType>(&currentBlock);
+			}
+			else //we reached the end of the hashmap
+			{
+				this->dead = true;
+			}
 		}
 		return *this;
+	}
+
+	bool reachedEnd()
+	{
+		return this->dead;
 	}
 
 private:
 	Os::BlockMemory::self_pointer_t sd;
 	Block<KeyType, ValueType> currentBlock;
 	BlockIterator<KeyType, ValueType> blockIterator;
+	bool dead;
 };
 
 } //NS wiselib

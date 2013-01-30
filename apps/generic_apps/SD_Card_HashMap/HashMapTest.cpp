@@ -5,6 +5,8 @@
 #include "Block.h"
 #include "BlockIterator.h"
 #include "Stopwatch.h"
+#include "HashMapIterator.h"
+#include "HashFunctionProvider.h"
 
 #define NR_OF_BLOCKS_TO_TEST 8
 
@@ -37,10 +39,12 @@ public:
 		//testBlock();
 		sd->init();
 		//sequentialTestHashMap();
-		//loadFactorTests();
+//		loadFactorTests();
 		if(!blockTest()) debug_->debug("blockTest failed!");
 		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
 		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
+		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+		maxLoadFactorTest();
 		exit(0);
 	}
 
@@ -67,7 +71,7 @@ public:
 				return false;
 			}
 
-		if(!blockContains(&block, values1, initialLen))
+		if(!blockContainsValues(&block, values1, initialLen))
 		{
 			debug_->debug("The block did not contain the values in the order it was supposed to after insertion!");
 			return false;
@@ -102,7 +106,7 @@ public:
 		int keys2[initialLen - 1]		= {8, 7, 6, 5,  1, 3,  2};
 
 		block.removeValue(4);
-		if(!blockContains(&block, values2, initialLen -1))
+		if(!blockContainsValues(&block, values2, initialLen -1))
 		{
 			debug_->debug("The block did not contain the values in the order it was supposed to after deletion in the middle!");
 			return false;
@@ -119,7 +123,7 @@ public:
 		int keys3[initialLen - 2]		= { 2, 7, 6, 5,  1, 3};
 
 		block.removeValue(8);
-		if(!blockContains(&block, values3, initialLen - 2))
+		if(!blockContainsValues(&block, values3, initialLen - 2))
 		{
 			debug_->debug("The block did not contain the values in the order it was supposed to after deletion at the beginning!");
 			return false;
@@ -136,7 +140,7 @@ public:
 		int keys4[initialLen - 3]		= { 2, 7, 6, 5,  1};
 
 		block.removeValue(3);
-		if(!blockContains(&block, values4, initialLen - 3))
+		if(!blockContainsValues(&block, values4, initialLen - 3))
 		{
 			debug_->debug("The block did not contain the values in the order it was supposed to after deletion at the end!");
 			return false;
@@ -172,7 +176,7 @@ public:
 			return false;
 		}
 
-		if(!blockContains(&readBlock, values4, initialLen - 3))
+		if(!blockContainsValues(&readBlock, values4, initialLen - 3))
 		{
 			debug_->debug("The block could not retrieve the proper values after writing and reading from sd");
 			return false;
@@ -217,7 +221,7 @@ public:
 
 		// --- test removing from block chain ---
 		sd->reset();
-		// --- at the beginning ---
+		// --- removing block at the beginning of the chain---
 		{
 			wiselib::Block<int, long> b1(1, sd);
 			wiselib::Block<int, long> b2(2, sd);
@@ -256,7 +260,7 @@ public:
 			}
 		}
 		sd->reset();
-		// --- in the middle ---
+		// --- remove block in the middle of the chain ---
 		{
 			wiselib::Block<int, long> b1(1, sd);
 			wiselib::Block<int, long> b2(2, sd);
@@ -290,9 +294,9 @@ public:
 				return false;
 			}
 		}
-		sd->reset();
 
-		// --- at the end ---
+		sd->reset();
+		// --- remove block at the end of the chain---
 		{
 			wiselib::Block<int, long> b1(1, sd);
 			wiselib::Block<int, long> b2(2, sd);
@@ -328,6 +332,22 @@ public:
 			}
 		}
 
+		sd->reset();
+		// --- remove free floating block from the chain ---
+		{
+			wiselib::Block<int, long> b1(1, sd);
+			b1.writeBack();
+
+			b1.removeFromChain();
+			b1.writeBack();
+
+			if(b1.hasNextBlock() || b1.hasPrevBlock())
+			{
+				debug_->debug("Removing a free floating block from the chain failed!");
+				return false;
+			}
+		}
+
 		debug_->debug("Block test succeeds!");
 
 		return true;
@@ -341,23 +361,45 @@ public:
 		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
 		int keys1[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
 
+		long arrayChecksum = 0;
 		for(int i = 0; i < initialLen; i++)
 		{
 			block.insertValue(keys1[i], values1[i]);
+			arrayChecksum += values1[i];
 		}
 
 		wiselib::BlockIterator<int, long> it(&block);
 
 		int counter = 0;
-		while(it.hasNext())
+		long blockChecksum = 0;
+		while(!it.reachedEnd())
 		{
 			if(*it != values1[counter])
 			{
 				debug_->debug("The block iterator gave wrong values! at position %d", counter);
 				return false;
 			}
+			blockChecksum += *it;
 			++it;
 			++counter;
+		}
+
+		if(counter < initialLen)
+		{
+			debug_->debug("The iterator ran only through %d elements while the block contains %d elements!", counter, initialLen);
+			return false;
+		}
+
+		if(counter > initialLen)
+		{
+			debug_->debug("The iterator ran through %d elements while the block contains %d elements!", counter, initialLen);
+			return false;
+		}
+
+		if(arrayChecksum != blockChecksum)
+		{
+			debug_->debug("Apparently the iterator id not iterate over all the elements, because the two checksums did not match up!");
+			return false;
 		}
 		debug_->debug("Block Iterator test succeeds!");
 		return true;
@@ -367,7 +409,7 @@ public:
 	{
 		// --- simple insertion and retrieval of known values test ---
 		sd->reset();
-		wiselib::HashMap<int, long> hashMap(debug_, sd, 0, 100);
+		wiselib::HashMap<int, long> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 100);
 		const int initialLen = 8;
 		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
 		int keys1[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
@@ -377,7 +419,7 @@ public:
 			hashMap.putEntry(keys1[i], values1[i]);
 		}
 
-		for(int i = 0; i < initialLen; i++)
+		for(int i = 0; i < initialLen; i++) //retrieve forwards
 			if(hashMap[keys1[i]] != values1[i])
 			{
 				debug_->debug("Simple insertion and retrieval test on the hashmap failed!");
@@ -399,13 +441,98 @@ public:
 				return false;
 			}
 
+		// --- test deletions ---
+
+		hashMap.removeEntry(1);
+		hashMap.removeEntry(2);
+		hashMap.removeEntry(3);
+
+		// --- are the others still there? ---
+
+		for(int i = 0; i < initialLen - 3; i++)
+			if(hashMap[keys1[i]] != values1[i])
+			{
+				debug_->debug("hashMap.removeEntry removed to much!");
+				return false;
+			}
+
+		// --- are the deleted ones really away? ---
+		for(int i = 1; i <= 3; i++)
+			if(hashMap.containsKey(i))
+			{
+				debug_->debug("The hashmap still contains key %d while it was removed just before!", i);
+				return false;
+			}
+
 		debug_->debug("Hash Map test succeeds!");
-
-
 		return true;
 	}
 
-	bool blockContains(wiselib::Block<int, long> *b, long values[], int numValues)
+	bool hashMapIteratorTest()
+	{
+		sd->reset();
+		wiselib::HashMap<int, long> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 100);
+		const int initialLen = 8;
+		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
+		int keys1[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
+
+		long arrayChecksum = 0;
+		long hashMapChecksum = 0;
+
+		for(int i = initialLen - 1; i >= 0; i--) //fill in backwards
+		{
+			hashMap.putEntry(keys1[i], values1[i]);
+			arrayChecksum += values1[i];
+		}
+
+		wiselib::HashMapIterator<int, long> it(hashMap.getFirstUsedBlock(), sd);
+		int elementCounter = 0;
+
+		while(!it.reachedEnd())
+		{
+			if(!arrayContainsValue(values1, initialLen, *it))
+			{
+				debug_->debug("The HashMapIterator returned the value %d that was not supposed to be in the HashMap!", *it);
+				return false;
+			}
+			hashMapChecksum += *it;
+			++it;
+			++elementCounter;
+		}
+
+		if(elementCounter < initialLen)
+		{
+			debug_->debug("The iterator ran only through %d elements while the hashmap contains %d elements!", elementCounter, initialLen);
+			return false;
+		}
+
+		if(elementCounter > initialLen)
+		{
+			debug_->debug("The iterator ran through %d elements while the hashmap contains %d elements!", elementCounter, initialLen);
+			return false;
+		}
+
+		if(arrayChecksum != hashMapChecksum)
+		{
+			debug_->debug("Apparently the iterator id not iterate over all the elements, because the two checksums did not match up!");
+			return false;
+		}
+
+
+		debug_->debug("HashMapIterator test succeeds!");
+		return true;
+	}
+
+	bool arrayContainsValue(long array[], int arrayLen, long value)
+	{
+		for(int i = 0; i < arrayLen; i++)
+			if(array[i] == value) return true;
+
+		return false;
+	}
+
+
+	bool blockContainsValues(wiselib::Block<int, long> *b, long values[], int numValues)
 	{
 		for(int i = 0; i < numValues; ++i)
 		{
@@ -416,6 +543,26 @@ public:
 		}
 		return true;
 	}
+
+	void maxLoadFactorTest()
+	{
+		for(int hashFunction = 0; hashFunction <=4; ++hashFunction)
+		{
+			for(int numBlocks = 1; numBlocks < 200; ++numBlocks)
+			{
+				sd->reset();
+				wiselib::HashMap<int, long> hashMap(debug_, sd, wiselib::HashFunctionProvider<Os, int>::getHashFunction(hashFunction), 0, numBlocks);
+				long counter = 0;
+
+				while(hashMap.putEntry(int(counter), counter) == OK)
+				{
+					counter++;
+				}
+				debug_->debug("load factor was %f with %d blocks and the hashfunction #%d", hashMap.getLoadFactor(), numBlocks, hashFunction);
+			}
+		}
+	}
+
 
 	Message makeMessage(int m1, int m2)
 	{
@@ -463,7 +610,7 @@ public:
 	void simpleTestHashMap()
 	{
 		debug_->debug("Value with id 0:");
-		wiselib::HashMap<int, Message> hashMap(debug_, sd);
+		wiselib::HashMap<int, Message> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv);
 		Message m1, m2, m3;
 		m1 = makeMessage(4, 2);
 		m2 = makeMessage(99, 100);

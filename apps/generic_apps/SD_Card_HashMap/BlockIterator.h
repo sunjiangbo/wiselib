@@ -36,9 +36,9 @@ public:
 		return *this;
 	}
 
-	bool hasNext()
+	bool reachedEnd()
 	{
-		return currentPos < block->getNumValues() -1;
+		return !(currentPos < block->getNumValues());
 	}
 
 

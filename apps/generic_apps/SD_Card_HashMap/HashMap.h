@@ -28,10 +28,11 @@ public:
 
 	typedef Fnv32<Os>::hash_t hash;
 	typedef Fnv32<Os>::block_data_t block_data;
+	typedef size_t (*hashFunction)(KeyType);
 
 
-	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd, int fromBlock = 0, int toBlock = 100)
-	: insertedElements(0), fromBlock(fromBlock), toBlock(toBlock), lastNewBlock(0), firstBlock(0), currentState(INTACT)
+	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd, hashFunction hash, int fromBlock = 0, int toBlock = 100)
+	: hashFunc(hash), insertedElements(0), fromBlock(fromBlock), toBlock(toBlock), lastNewBlock(0), firstBlock(0), currentState(INTACT)
 	{
 		this->debug_ = debug_;
 		this->sd = sd;
@@ -44,17 +45,20 @@ public:
 		Block<KeyType, ValueType> block(blockNr, sd);
 		if(block.insertValue(key, value) == BLOCK_FULL) return HASHMAP_FULL;
 
-		if(insertedElements == 0)
+		if(insertedElements == 0) //it was the first block that we ever inserted
 		{
 			firstBlock = blockNr;
+			lastNewBlock = blockNr;
 		}
 		else
 		{
-			Block<KeyType, ValueType> headBlock(lastNewBlock, sd);
-			headBlock.append(&block);
-			if(headBlock.writeBack() == SD_ERROR) currentState = BROKEN;
-
-			lastNewBlock = blockNr;
+			if(block.getNumValues() == 1) //we just used an empty block for the first time
+			{
+				Block<KeyType, ValueType> headBlock(lastNewBlock, sd);
+				headBlock.append(&block);
+				if(headBlock.writeBack() == SD_ERROR) currentState = BROKEN;
+				lastNewBlock = blockNr;
+			}
 		}
 
 		returnTypes writingToSd = block.writeBack();
@@ -78,12 +82,7 @@ public:
 
 		if(block.isEmpty())
 		{
-			Block<KeyType, ValueType> prevBlock(block.getPrevBlock(), sd);
-			Block<KeyType, ValueType> nextBlock(block.getNextBlock(), sd);
-			block.disconnect();
-			prevBlock.append(nextBlock);
-			if(prevBlock.writeBack() != OK) currentState = BROKEN;
-			if(nextBlock.writeBack() != OK) currentState = BROKEN;
+			if(block.removeFromChain() == SD_ERROR) currentState = BROKEN;
 		}
 
 		returnTypes writingToSd = block.writeBack();
@@ -113,12 +112,20 @@ public:
 		return ((float)insertedElements)/maxElements;
 	}
 
+	size_t getFirstUsedBlock()
+	{
+		return firstBlock;
+	}
+
 private:
 	Os::size_t computeHash(KeyType key)
 	{
+		return (hashFunc(key) % (toBlock - fromBlock)) + fromBlock;
 		//return (key % (toBlock - fromBlock)) + fromBlock;
-		return (Fnv32<Os>::hash((const block_data*) &key, sizeof(key)) % (toBlock - fromBlock)) + fromBlock;
+		//return (Fnv32<Os>::hash((const block_data*) &key, sizeof(key)) % (toBlock - fromBlock)) + fromBlock;
 	}
+
+	hashFunction hashFunc;
 
 	Os::BlockMemory::self_pointer_t sd;
 	Os::Debug::self_pointer_t debug_;

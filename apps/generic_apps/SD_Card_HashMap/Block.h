@@ -200,6 +200,11 @@ public:
 
 	returnTypes removeFromChain()
 	{
+		if(!hasPrevBlock() && !hasNextBlock()) //special case if we are not connected anyways not really necessary but it saves some io's
+		{
+			return OK;
+		}
+
 		if(!hasPrevBlock()) //special case if it is the first block
 		{
 			Block<KeyType, ValueType> nextBlock(head.nextBlock, sd);
@@ -233,7 +238,7 @@ public:
 		Block<KeyType, ValueType> prevBlock(head.prevBlock, sd);
 		Block<KeyType, ValueType> nextBlock(head.nextBlock, sd);
 		prevBlock.append(&nextBlock);
-		head.nextBlock = blockNr;
+		head.nextBlock = blockNr; //TODO: I want a "disconnect from next"/"disconnect from tail" for this
 		head.prevBlock = blockNr;
 		if(prevBlock.writeBack() == SD_ERROR || nextBlock.writeBack() == SD_ERROR)
 			return SD_ERROR;

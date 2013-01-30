@@ -1,0 +1,5 @@
+Fragen:
+
+- Wie am besten die Return Typen gestalten, wenn "null" Werte vorkommen koennen. Ist ein Pointer in der Signatur zwingend noetig?
+- Gibt es ein Iterator Concept, das ich implementieren kann?
+- Wenn die Key-Value Paare in jedem Block geordnet gespeichert werden sollen, dann ist eine Ordnungsrelation noetig. Wie geht das fuer generische Datentypen?
