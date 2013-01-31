@@ -63,9 +63,9 @@ private:
 		unsigned long int allTime;
 };
 
-Stopwatch IOStopwatch;
+//Stopwatch IOStopwatch;
 //Stopwatch writeIOStopwatch;
-Stopwatch allStopwatch;
+//Stopwatch allStopwatch;
 
 
 #endif /* STOPWATCH_H_ */

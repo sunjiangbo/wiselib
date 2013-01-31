@@ -4,6 +4,7 @@
 #include "HashMap.h"
 #include "Block.h"
 #include "Stopwatch.h"
+#include "HashFunctionProvider.h"
 #define NR_OF_BLOCKS_TO_TEST 8
 
 typedef wiselib::OSMODEL Os;
@@ -60,49 +61,49 @@ public:
 	}
 
 
-	void sequentialTestHashMap()
-	{
-		allStopwatch.startMeasurement();
-		wiselib::HashMap<int, Message, 0, 25> hashMap(debug_, sd);
-		Message m1, m2, m3;
-		m1 = makeMessage(0xFFFFFFFF, 0xFFFFFFFF - 1);
-		m2 = makeMessage(99, 100);
-		m3 = makeMessage(23, 24);
-
-		for(int i = 0; i < 1000; i++)
-		{
-			if(!hashMap.putEntry(i + 0, m1))
-			{
-				debug_->debug("could not insert element %d", i);
-				debug_->debug("Failed at load factor: %f", hashMap.getLoadFactor());
-				return;
-			}
-			//debug_->debug("%3d:", i);
-			//sd->printASCIIOutputBlocks(0, 50);
-		}
-		allStopwatch.stopMeasurement();
-
-		unsigned long int durationAll = allStopwatch.getAllTime();
-		//unsigned long int durationIORead = readIOStopwatch.getAllTime();
-		//unsigned long int durationIOWrite = writeIOStopwatch.getAllTime();
-		//unsigned long int durationIO = durationIORead + durationIOWrite;
-		unsigned long int durationIO = IOStopwatch.getAllTime();
-
-		//debug_->debug("Complete duration: %u", durationAll);
-		//debug_->debug("Read IO duration: %u", durationIORead);
-		//debug_->debug("Write IO duration: %u", durationIOWrite);
-		//debug_->debug("IO duration: %u", durationIO);
-
-		/*unsigned long iorp = (durationIORead*1.0/durationAll) * 100.0;
-		unsigned long iowp = (durationIOWrite*1.0/durationAll) * 100.0;
-		unsigned long iop = (durationIO*1.0/durationAll) * 100.0;
-		debug_->debug("Read IO's: %u of the time", iorp);
-		debug_->debug("Write IO's: %u of the time", iowp);
-		debug_->debug("IO's: %u of the time", iop);
-		*/
-		//sd->printStats();
-		//sd->printGraphBytes(0, 50);
-	}
+//	void sequentialTestHashMap()
+//	{
+//		allStopwatch.startMeasurement();
+//		wiselib::HashMap<int, Message> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 25);
+//		Message m1, m2, m3;
+//		m1 = makeMessage(0xFFFFFFFF, 0xFFFFFFFF - 1);
+//		m2 = makeMessage(99, 100);
+//		m3 = makeMessage(23, 24);
+//
+//		for(int i = 0; i < 1000; i++)
+//		{
+//			if(!hashMap.putEntry(i + 0, m1))
+//			{
+//				debug_->debug("could not insert element %d", i);
+//				debug_->debug("Failed at load factor: %f", hashMap.getLoadFactor());
+//				return;
+//			}
+//			//debug_->debug("%3d:", i);
+//			//sd->printASCIIOutputBlocks(0, 50);
+//		}
+//		allStopwatch.stopMeasurement();
+//
+//		unsigned long int durationAll = allStopwatch.getAllTime();
+//		//unsigned long int durationIORead = readIOStopwatch.getAllTime();
+//		//unsigned long int durationIOWrite = writeIOStopwatch.getAllTime();
+//		//unsigned long int durationIO = durationIORead + durationIOWrite;
+//		unsigned long int durationIO = IOStopwatch.getAllTime();
+//
+//		//debug_->debug("Complete duration: %u", durationAll);
+//		//debug_->debug("Read IO duration: %u", durationIORead);
+//		//debug_->debug("Write IO duration: %u", durationIOWrite);
+//		//debug_->debug("IO duration: %u", durationIO);
+//
+//		/*unsigned long iorp = (durationIORead*1.0/durationAll) * 100.0;
+//		unsigned long iowp = (durationIOWrite*1.0/durationAll) * 100.0;
+//		unsigned long iop = (durationIO*1.0/durationAll) * 100.0;
+//		debug_->debug("Read IO's: %u of the time", iorp);
+//		debug_->debug("Write IO's: %u of the time", iowp);
+//		debug_->debug("IO's: %u of the time", iop);
+//		*/
+//		//sd->printStats();
+//		//sd->printGraphBytes(0, 50);
+//	}
 
 private:
 

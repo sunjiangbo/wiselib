@@ -58,9 +58,9 @@ public:
 
 	void initFromSD()
 	{
-		IOStopwatch.startMeasurement();
+//		IOStopwatch.startMeasurement();
 		sd->read(rawData, blockNr); //read the raw data from the sd card
-		IOStopwatch.stopMeasurement();
+//		IOStopwatch.stopMeasurement();
 		head = read<Os, Os::block_data_t, header>(rawData);
 
 		//If the block has not been used yet
@@ -191,9 +191,9 @@ public:
 	returnTypes writeBack()
 	{
 		write<Os, Os::block_data_t, header>(rawData, head);
-		IOStopwatch.startMeasurement();
+//		IOStopwatch.startMeasurement();
 		bool s = sd->write(rawData, blockNr) == Os::SUCCESS;
-		IOStopwatch.stopMeasurement();
+//		IOStopwatch.stopMeasurement();
 		if(s)
 			return OK;
 		else
