@@ -1,6 +1,6 @@
 /*
  * HashMapIterator.h
- *
+ *  This class can be used to iterate over the block that were filled by a hashmap.
  *  Created on: Jan 27, 2013
  *      Author: maximilian
  */
@@ -18,6 +18,10 @@ class HashMapIterator
 	typedef ValueType_P ValueType;
 public:
 
+	/*
+	 * Creates a new iterator starting at the beginBlock.
+	 * Because all metadata is stored within the blocks no instance of the hashmap is required.
+	 */
 	HashMapIterator(size_t beginBlock, Os::BlockMemory::self_pointer_t sd)
 	: sd(sd), currentBlock(Block<KeyType, ValueType>(beginBlock, sd)), blockIterator(BlockIterator<KeyType, ValueType>(&currentBlock)), dead(false)
 	{
@@ -26,15 +30,15 @@ public:
 
 	ValueType operator*() const
 	{
-		return *blockIterator;
+		return *blockIterator; //we just forward the hard work to the underlying BlockIterator
 	}
 
 	HashMapIterator<KeyType, ValueType>& operator++()
 	{
 		++blockIterator;
-		if(blockIterator.reachedEnd())
+		if(blockIterator.reachedEnd())//we reached the end of the block
 		{
-			if(currentBlock.hasNextBlock()) //we reached the end of the block
+			if(currentBlock.hasNextBlock()) //load the next block if there is one
 			{
 				currentBlock = Block<KeyType, ValueType>(currentBlock.getNextBlock(), sd);
 				blockIterator = BlockIterator<KeyType, ValueType>(&currentBlock);

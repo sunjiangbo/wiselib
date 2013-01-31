@@ -1,6 +1,6 @@
 /*
  * Block.h
- *
+ *  A block cache for a BlockDevice with advanced IO methods
  *  Created on: Jan 8, 2013
  *      Author: Maximilian Ernestus
  */
@@ -26,6 +26,9 @@ public:
 	typedef KeyType_P KeyType;
 	typedef ValueType_P ValueType;
 
+	/*
+	 * The header to be stored at the beginning of each block
+	 */
 	typedef struct
 	{
 		long pi;
@@ -34,12 +37,17 @@ public:
 		Os::size_t prevBlock;
 	} header;
 
+
 	typedef struct
 	{
 		KeyType key;
 		ValueType value;
 	} keyValuePair;
 
+	/*
+	 * Creates a new block based on the block number and the block memory.
+	 * Also loads the block data from the block memory.
+	 */
 	Block(Os::size_t nr, Os::BlockMemory::self_pointer_t sd)
 	{
 		this->blockNr = nr;

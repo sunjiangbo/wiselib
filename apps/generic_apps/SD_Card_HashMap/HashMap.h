@@ -1,6 +1,7 @@
 /*
  * HashMap.h
  *
+ *	Hash Map implementation based on a block device. Also supports iterators.
  *  Created on: Nov 29, 2012
  *      Author: Maximilian Ernestus
  */
@@ -31,6 +32,10 @@ public:
 	typedef size_t (*hashFunction)(KeyType);
 
 
+	/*
+	 * Creates a new hashmap that operates on a given block memory, between given block numbers and uses a given hashFunction.
+	 *
+	 */
 	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd, hashFunction hash, int fromBlock = 0, int toBlock = 100)
 	: hashFunc(hash), insertedElements(0), fromBlock(fromBlock), toBlock(toBlock), lastNewBlock(0), firstBlock(0), currentState(INTACT)
 	{
@@ -39,6 +44,10 @@ public:
 		sd->init();
 	}
 
+	/*
+	 * Inserts a new key value pair into the hashmap.
+	 * Returns SD_ERROR if there was an IO problem and HASHMAP_FULL when there is no space left in the hashmap.
+	 */
 	returnTypes putEntry(KeyType key, ValueType& value)
 	{
 		size_t blockNr = computeHash(key);
@@ -69,12 +78,21 @@ public:
 		return writingToSd;
 	}
 
+	/*
+	 * Retrives an entry from the hashmap based on a given key.
+	 * Only keys that are already in the hashmap might be retrieved, otherwise the behavior is undefined.
+	 */
 	ValueType getEntry(KeyType key)
 	{
 		Block<KeyType, ValueType> block(computeHash(key), sd);
 		return block.getValueByKey(key);
 	}
 
+	/*
+	 * Removes an entry from the hashmap based on a given key.
+	 * Returns NO_VALUE_FOR_THAT_KEY if the hashmap did not contain the key.
+	 * Return SD_ERROR if there was an IO error.
+	 */
 	returnTypes removeEntry(KeyType key)
 	{
 		Block<KeyType, ValueType> block(computeHash(key), sd);
@@ -98,12 +116,18 @@ public:
 		return getEntry(idx);
 	}
 
+	/*
+	 * Checks if a given key exists in the hashmap.
+	 */
 	bool containsKey(KeyType key)
 	{
 		Block<KeyType, ValueType> block(computeHash(key), sd);
 		return block.containsKey(key);
 	}
 
+	/*
+	 * Computes the load factor of the hashmap. The overhead caused by storing the keys and the block headers is ignored!
+	 */
 	float getLoadFactor()
 	{
 		Block<KeyType, ValueType> block(computeHash(0), sd);
@@ -112,6 +136,10 @@ public:
 		return ((float)insertedElements)/maxElements;
 	}
 
+	/*
+	 * Returns the address of the first block that was used.
+	 * Use this method to create your iterator!
+	 */
 	size_t getFirstUsedBlock()
 	{
 		return firstBlock;
@@ -130,15 +158,15 @@ private:
 	Os::BlockMemory::self_pointer_t sd;
 	Os::Debug::self_pointer_t debug_;
 
-	//better data types here!!!
+	//TODO: better data types here!!!
 	int insertedElements;
-	int fromBlock, toBlock;
+	size_t fromBlock, toBlock;
 
 	size_t lastNewBlock;
 	size_t firstBlock;
 
+	//TODO: somehow react to a broken state
 	enum hashMapState{INTACT, BROKEN};
-
 	hashMapState currentState;
 };
 
