@@ -129,19 +129,14 @@ public:
 		debug_ = &wiselib::FacetProvider<Os, Os::Debug>::get_facet(value);
 		sd = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 
-		//testBlockRemoving();
-		//simpleTestHashMap();
-		//testBlockRemoving();
-		//testBlock();
 		sd->init();
-		//sequentialTestHashMap();
-//		loadFactorTests();
-//		if(!blockTest()) debug_->debug("blockTest failed!");
-//		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
-//		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
-//		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+		if(!blockTest()) debug_->debug("blockTest failed!");
+		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
+		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
+		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+
 //		maxLoadFactorTest();
-		generateGNUPLOTScripts();
+//		generateGNUPLOTScripts();
 		//generateFillupAnimation();
 		exit(0);
 	}
