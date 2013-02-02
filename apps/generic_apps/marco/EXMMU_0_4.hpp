@@ -3,7 +3,7 @@
 
 //#include <external_interface/external_interface.h>
 
-#include <math.h>
+//#include <math.h>
 #include "external_stack.hpp"
 
 #include <external_interface/external_interface.h>
@@ -56,7 +56,7 @@ template <typename OsModel_P, typename block_address_t,
 class EXMMU {
 
 	typedef OsModel_P OsModel;
-	typedef OsModel::BlockMemory BlockMemory;
+	typedef typename OsModel::BlockMemory BlockMemory;
 	typedef Debug_P Debug;
 	//typedef typename OsModel::block_data_t block_data_t;
 	typedef typename BlockMemory::size_t size_t;
