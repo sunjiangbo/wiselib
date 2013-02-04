@@ -6,12 +6,18 @@
 
 # full access for the project manager
 RW+ = hasemann
+RW+ = kroeller
+RW+ = brandenb
+RW+ = y0060215
+RW+ = y0050433
+RW+ = y0058289
+RW+ = y0055901
 
 # full access for other project members
 #RW+ = user2
 
 # read-only access for staff members
-#R = @mitarb
+R = @mitarb
 
 # enable read-only anonymous git-daemon access.
 #R = daemon
@@ -22,5 +28,7 @@ RW+ = hasemann
 
 # only the project manager may update .gitaccess
 RW+ VREF/NAME/.gitaccess = hasemann
+RW+ VREF/NAME/.gitaccess = kroeller
+RW+ VREF/NAME/.gitaccess = brandenb
 -   VREF/NAME/.gitaccess = @all
 
