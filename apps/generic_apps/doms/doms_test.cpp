@@ -5,7 +5,7 @@
 #include "external_stack.hpp"
 #include "external_queue.hpp"
 #include <stdlib.h>
-#define RELOAD
+//#define RELOAD
 //15011034
 typedef wiselib::OSMODEL Os;
 
@@ -21,9 +21,32 @@ class App {
 	    debug_->debug( "SD Card test application running" );
 	    sd_ = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 	    sd_->init();
-	    srand(7);
-		test_queue<2>();
-	    test_stack<1>();
+	    srand(8);
+	//	test_queue<2>();
+	   /* 
+	    for(uint64_t i=1;i<=100000; i*=10){
+		debug_->debug(">>>> %d", i);
+		debug_->debug("B: 1");
+	    test_stack<1>(i);
+		debug_->debug("B: 2");
+	    test_stack<2>(i);
+		debug_->debug("B: 3");
+	    test_stack<3>(i);
+		debug_->debug("B: 4");
+	    test_stack<4>(i);
+	    }*/
+	    debug_->debug("startTest");
+	    test_queue<2>(100000);
+	    for(uint64_t j=1; j<=100000; j*=10){
+		debug_->debug(">>>> %d",j);
+		debug_->debug("B: 2");
+		test_queue<2>(j);
+		debug_->debug("B: 3");
+		test_queue<3>(j);
+		debug_->debug("B: 4");
+		test_queue<4>(j);
+	    }
+	    
 	    /*
 	       test_stack<2>(80);
 	       debug_->debug("Start Buffersize %d, Ratio %d/100",2,90);
@@ -36,6 +59,8 @@ class App {
 
 	    debug_->debug("Start TimeTest Stack");
 	    time_stack<2>();
+	    time_stack<3>();
+	    time_stack<4>();
 
 	    debug_->debug("Start TimeTest queue");
 	    time_queue<2>();
@@ -48,18 +73,18 @@ class App {
 		uint64_t tmp=0;
 		int d=0;
 		uint64_t j=0;
-		es.isEmpty();
+
+		uint64_t countPushed=0, countPoped=0;
 		for(uint64_t i=0;i<100;i++){
 		    Os::Clock::time_t start = clock_->time();
 		    for(j=0; j<1000; j++){
 			d = rand()%100;
 			if(d<100-i){
-			    es.push(rand()%1000);
+			    if(es.push(rand()%1000)) countPushed+=1;
+
 			} else {
-			    es.pop(&tmp);
+			    if(es.pop(&tmp)) countPoped+=1;
 			}
-			es.size();
-			es.isEmpty();
 		    }
 		    Os::Clock::time_t stop = clock_->time() - start;
 		    cz+=stop;
@@ -68,23 +93,27 @@ class App {
 
 		    sd_->stat();
 		debug_->debug("TIME: %d",cz);
+		debug_->debug("PUSHED: %u",countPushed);
+		debug_->debug("POPED: %u",countPoped);
 	    }
 
 	template<uint32_t buffersize>
 	    void time_queue(){
-		ExternalQueue<int, buffersize> eq(sd_,1,100000,true);
+		ExternalQueue<uint64_t, buffersize> eq(sd_,1,100000,true);
 		uint64_t cz=0;
-		int tmp=0;
+		uint64_t tmp=0;
 		int d=0;
 		uint64_t j =0;
+
+		uint64_t countPushed=0, countPoped=0;
 		for(uint64_t i=0; i<100;i++){
 		    Os::Clock::time_t start = clock_->time();
 		    for(j=0;j<1000;j++){
 			d = rand()%100;
 			if(d<100-i){
-			    eq.offer(rand()%1000);
+			    if(eq.offer(rand()%1000)) countPushed+=1;
 			}else {
-			    eq.poll(&tmp);
+			    if(eq.poll(&tmp)) countPoped+=1;
 			}
 		    }
 		    Os::Clock::time_t stop = clock_->time() - start;
@@ -95,10 +124,13 @@ class App {
 
 		    sd_->stat();
 		debug_->debug("TIME: %d",cz);
+		debug_->debug("PUSHED: %u",countPushed);
+		debug_->debug("POPED: %u",countPoped);
+
 	    }
 
 	template<int buffersize>
-	    void test_stack(){
+	    void test_stack(uint64_t perrun){
 		debug_->debug("Testing Stack");
 		ExternalStack<uint64_t, buffersize> testA(sd_,10001,20000,true);
 		ExternalStack<uint64_t, buffersize> testB(sd_,20001,30000,true);
@@ -122,9 +154,9 @@ class App {
 		uint64_t tmp=0;
 		uint64_t toPush=0;
 
-		for(uint64_t i=0; i<=100; i++){
+		for(uint64_t i=0; i<=101; i++){
 		    ExternalStack<uint64_t, buffersize> es(sd_,1,10000);
-		    for(uint64_t j=0; j<10000; j++){
+		    for(uint64_t j=0; j<perrun; j++){
 			int d = rand() %100;
 			toPush = (rand()%1000);
 			if(d<100-i){
@@ -137,9 +169,7 @@ class App {
 				    testB.push(toPush);
 				    toA=true;
 				}
-			    } else {
-				debug_->debug("unsucc push");
-			    }
+			    } 
 			} else {
 			    bool succ = es.pop(&poped);
 			    if((!succ && inStack>0) || (succ && inStack<=0)){
@@ -158,14 +188,16 @@ class App {
 				}
 
 				if(tmp!=poped){
-				    debug_->debug("Wrong POP %d %d ",poped,tmp);
+				    debug_->debug("Wrong POP %u popped",poped);
+				    debug_->debug(">> %u should be",tmp);
+				    debug_->debug(">>> %u",tmp!=poped);
+				    debug_->debug(">> size: %u",es.size());
+				    debug_->debug(">> should be: %u",inStack);
 				    exit(1);
 				}
 				inStack-=1;
 				//debug_->debug("Poped: %d",poped);
-			    } else {
-				debug_->debug("unsucc POP");
-			    }
+			    } 
 
 			}
 			if((es.isEmpty() && inStack>0) || (!es.isEmpty()&& inStack<=0)){
@@ -181,13 +213,13 @@ class App {
 		    }
 		    //  es.~ExternalStack();
 
-		    debug_->debug(">>%d0000 ",i);
+		    debug_->debug(">>%d ",i);
 
 		}
 		debug_->debug("End testing Stack");
 	    }
 	template<int BUFFERSIZE>
-	    void test_queue(){
+	    void test_queue(uint64_t perrun){
 
 		debug_->debug("Testing Queue");
 		{
@@ -207,7 +239,7 @@ class App {
 
 		//ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,1,10000);
 #ifndef RELOAD
-		ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,1,10000);
+		ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,1,1000000);
 #endif
 		uint64_t push=0;
 		uint64_t pop=0;
@@ -221,7 +253,7 @@ class App {
 #ifdef RELOAD
 		    ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,1,10000);
 #endif
-		    for(uint64_t j=0; j<10000; j++){
+		    for(uint64_t j=0; j<perrun; j++){
 			int d = rand()%100;
 			if(d<100-i){
 			    bool succ =eq.offer(push);
@@ -241,7 +273,14 @@ class App {
 				//	debug_->debug("POPED %d!",tmp);
 				inQ--;
 				if(tmp!=pop){
-				    debug_->debug("POP ERROR read: %d, Excpected: %d Failed",tmp,pop);
+				    debug_->debug("POP ERROR read: %u Failed",tmp);
+				    debug_->debug("read %u",pop);
+				    debug_->debug(">> %u",pop!=tmp);
+				    debug_->debug(">> %u",i);
+				    debug_->debug(">> %u",j);
+				    debug_->debug(">> %u",inQ);
+				    debug_->debug(">> %u", eq.size());
+
 				    exit(1);
 				}
 				//debug_->debug("POPED %d. In QUEUE %d.",tmp,inQ);
@@ -260,11 +299,13 @@ class App {
 		    }
 
 		    // eq.~ExternalQueue();
+		    /*
 		    debug_->debug("%d0000 IOs: ",i);
 		    debug_->debug("pushed %d Elements", xpush);
 		    debug_->debug("poped %d Elements", xpop);
 		    debug_->debug("Remaining %u Elements in Queue",inQ);
 		    sd_->stat();
+		    */
 		}
 
 

@@ -4,7 +4,7 @@
 #include <external_interface/arduino/arduino_sdcard.h>
 #include <external_interface/arduino/arduino_debug.h>
 #include <external_interface/arduino/arduino_clock.h>
-#define BLOCK_SIZE 512
+#define BLOCK_SIZE_DEFINE 512
 
 //#define DEBUG
 //#define INFO
@@ -25,9 +25,9 @@ typedef typename Os::block_data_t block_data_t;
 template<class T, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
 class ExternalQueue{
     private:
-	const uint16_t MAX_ITEMS_PER_BLOCK = BLOCK_SIZE /sizeof(T);
+	const uint16_t MAX_ITEMS_PER_BLOCK = BLOCK_SIZE_DEFINE /sizeof(T);
 
-	block_data_t buffer_[BUFFERSIZE*BLOCK_SIZE ]; //Der Buffer
+	block_data_t buffer_[BUFFERSIZE*BLOCK_SIZE_DEFINE ]; //Der Buffer
 
 	uint16_t itemsInRead_; //Anzahl der Elemente im Readbuffer
 	uint16_t itemsInWrite_; //Anzahl der Elemente im Writebuffer
@@ -79,7 +79,7 @@ class ExternalQueue{
 		    initNewQueue(beginMem);
 		} else {
 		    if(itemsInWrite_>0){
-			sd_->read(&buffer_[512], calcIdxOfNextFreeBlock(),1);
+			sd_->read(&buffer_[BLOCK_SIZE_DEFINE], calcIdxOfNextFreeBlock(),1);
 		    }
 		    if(itemsInRead_>0){
 			sd_->read(buffer_,calcIdxOfFirstFreeBlock(),1);
@@ -190,7 +190,7 @@ class ExternalQueue{
 #ifdef DEBUG
 	    debug_->debug("EXTERNAL_QUEUE DEBUG: flush()");
 #endif
-	    block_data_t tmpBlock[512];
+	    block_data_t tmpBlock[BLOCK_SIZE_DEFINE];
 	    flush(tmpBlock);
 	}
 
@@ -204,14 +204,14 @@ class ExternalQueue{
 	    uint8_t fullBlocksToWrite=itemsInWrite_/MAX_ITEMS_PER_BLOCK;
 	    uint8_t blocksToWrite=fullBlocksToWrite+(itemsInWrite_%MAX_ITEMS_PER_BLOCK>0?1:0);
 	    if(blocksToWrite>0){
-		uint8_t max=maxBlock_-(calcIdxOfNextFreeBlock()-1);
+		uint32_t max=maxBlock_-(calcIdxOfNextFreeBlock()-1);//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 		if(max>=blocksToWrite){
-		    sd_->write(&buffer_[BLOCK_SIZE ], calcIdxOfNextFreeBlock(), blocksToWrite);
+		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), blocksToWrite);
 		    blocksOnSd_+=fullBlocksToWrite;
 		} else {
-		    sd_->write(&buffer_[BLOCK_SIZE ], calcIdxOfNextFreeBlock(), max);
+		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), max);
 		    blocksOnSd_+=max;
-		    sd_->write(&buffer_[BLOCK_SIZE +BLOCK_SIZE *max], calcIdxOfNextFreeBlock(), blocksToWrite-max);
+		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE +BLOCK_SIZE_DEFINE *max], calcIdxOfNextFreeBlock(), blocksToWrite-max);
 		    blocksOnSd_+=fullBlocksToWrite-max;
 		}
 		itemsInWrite_%=MAX_ITEMS_PER_BLOCK; //Beim reload werden unvollstaendige Bloecke automatisch wieder in den Buffer geladen
@@ -269,7 +269,7 @@ class ExternalQueue{
 
 		//Bloecke um einen nach vorne Schieben und damit den Readbuffer fuellen
 		uint8_t blocksToMove=itemsInWrite_/MAX_ITEMS_PER_BLOCK+(itemsInWrite_%MAX_ITEMS_PER_BLOCK>0?1:0);//Wir wollen keine leeren Bloecke verschieben
-		moveBlocks(&buffer_[BLOCK_SIZE],buffer_,blocksToMove);
+		moveBlocks(&buffer_[BLOCK_SIZE_DEFINE],buffer_,blocksToMove);
 
 		idxRead_=0;//Die Bloecke in Write sind geordnet
 
@@ -322,7 +322,7 @@ class ExternalQueue{
 	 * Fuegt ein Element in den WriteBuffer ein
 	 */
 	void addLast_write(T x){
-	    blockWrite<T>(&buffer_[BLOCK_SIZE ], itemsInWrite_, x);
+	    blockWrite<T>(&buffer_[BLOCK_SIZE_DEFINE ], itemsInWrite_, x);
 	    ++itemsInWrite_;
 	}
 
@@ -347,7 +347,7 @@ class ExternalQueue{
 	bool flushWrite(){
 	    if(blocksOnSdLeft()<=BUFFERSIZE) return false; //Es ist genug platz auf der SD
 	    if(blocksOnSd_<=0 && itemsInRead_<=0){ //erster Block von Write kann nach Read kopiert werden
-		moveBlocks(&buffer_[512],buffer_,BUFFERSIZE-1);
+		moveBlocks(&buffer_[BLOCK_SIZE_DEFINE],buffer_,BUFFERSIZE-1);
 		itemsInWrite_-=MAX_ITEMS_PER_BLOCK;
 		itemsInRead_=MAX_ITEMS_PER_BLOCK;
 		idxRead_=0;
@@ -357,16 +357,16 @@ class ExternalQueue{
 		uint32_t max=maxBlock_-calcIdxOfNextFreeBlock()+1;//Maximal in einem Stueck schreibbare bloecke
 
 		if(max>=BUFFERSIZE-1){//Der komplette Buffer kann in einem Stueck geschrieben werden.
-		    sd_->write(&buffer_[BLOCK_SIZE ], calcIdxOfNextFreeBlock(), BUFFERSIZE-1);
+		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), BUFFERSIZE-1);
 		    blocksOnSd_+=BUFFERSIZE-1;
 		    itemsInWrite_=0;
 		} else {//Nur der vordere Teil kann in einem Stueck geschrieben werden. Der hintere wird nach vorne geschoben
 		    uint8_t blocksLeft= BUFFERSIZE-1-max;
-		    sd_->write(&buffer_[BLOCK_SIZE ], calcIdxOfNextFreeBlock(), max);
+		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), max);
 		    blocksOnSd_+=max;
 		    itemsInWrite_-=max*MAX_ITEMS_PER_BLOCK;
 
-		    moveBlocks(&buffer_[(max+1)*512],&buffer_[512],blocksLeft);
+		    moveBlocks(&buffer_[(max+1)*BLOCK_SIZE_DEFINE],&buffer_[BLOCK_SIZE_DEFINE],blocksLeft);
 		}
 	    }
 
@@ -406,8 +406,8 @@ class ExternalQueue{
 	 */
 	template<class S>
 	    void blockRead(block_data_t* block, uint16_t idx, S* x){
-		uint16_t maxPerBlock = BLOCK_SIZE /sizeof(S);
-		S* castedBlock = (S*) &block[BLOCK_SIZE *(idx/maxPerBlock)];
+		uint16_t maxPerBlock = BLOCK_SIZE_DEFINE /sizeof(S);
+		S* castedBlock = (S*) &block[BLOCK_SIZE_DEFINE *(idx/maxPerBlock)];
 		*x=castedBlock[idx%maxPerBlock];
 	    }
 
@@ -416,15 +416,15 @@ class ExternalQueue{
 	 */
 	template<class S>
 	    void blockWrite(block_data_t* block, uint16_t idx, S x){
-		uint16_t maxPerBlock = BLOCK_SIZE /sizeof(S);
-		S* castedBlock = (S*) &block[BLOCK_SIZE *(idx/maxPerBlock)];
+		uint16_t maxPerBlock = BLOCK_SIZE_DEFINE /sizeof(S);
+		S* castedBlock = (S*) &block[BLOCK_SIZE_DEFINE *(idx/maxPerBlock)];
 		castedBlock[idx%maxPerBlock]=x;
 	    }
 
 	void moveBlocks(block_data_t* from, block_data_t* to, uint8_t count){
 	    for(uint8_t i=0;i<count; i++){
-		for(uint16_t j=0; j<512; j++){
-		    to[i*512+j]=from[i*512+j];
+		for(uint16_t j=0; j<BLOCK_SIZE_DEFINE; j++){
+		    to[i*BLOCK_SIZE_DEFINE+j]=from[i*BLOCK_SIZE_DEFINE+j];
 		}
 	    }
 	}
