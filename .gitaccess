@@ -1,0 +1,26 @@
+##
+## This .gitaccess file is specific for the IBR GIT server.
+## It becomes part of the repository's configuration section
+## on the IBR gitolite server.
+##
+
+# full access for the project manager
+RW+ = hasemann
+
+# full access for other project members
+#RW+ = user2
+
+# read-only access for staff members
+#R = @mitarb
+
+# enable read-only anonymous git-daemon access.
+#R = daemon
+
+# uncommenting this will implicitly enable read-only anonymous gitweb access.
+#config gitweb.owner       =   "Henning Hasemann hasemann@ibr.cs.tu-bs.de"
+#config gitweb.description =   "Project algprak-ws1213"
+
+# only the project manager may update .gitaccess
+RW+ VREF/NAME/.gitaccess = hasemann
+-   VREF/NAME/.gitaccess = @all
+
