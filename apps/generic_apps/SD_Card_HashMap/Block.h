@@ -37,7 +37,6 @@ public:
 		Os::size_t prevBlock;
 	} header;
 
-
 	typedef struct
 	{
 		KeyType key;
@@ -58,26 +57,23 @@ public:
 
 	void initFromSD()
 	{
+#ifdef SPEED_MEASUREMENT
 		IOStopwatch.startMeasurement();
+#endif
 		sd->read(rawData, blockNr); //read the raw data from the sd card
+#ifdef SPEED_MEASUREMENT
 		IOStopwatch.stopMeasurement();
+#endif
 		head = read<Os, Os::block_data_t, header>(rawData);
 
 		//If the block has not been used yet
 		if(head.pi != 123456789)
 		{
-#ifdef DEBUG
-			printf("Block %d has not been used yet\n", nr);
-#endif
 			head.pi = 123456789;
 			head.numKVPairs = 0;
 			head.nextBlock = this->blockNr;
 			head.prevBlock = this->blockNr;
 		}
-#ifdef DEBUG
-		else
-			printf("Block %d contains %d elements\n", nr, head.numKVPairs);
-#endif
 	}
 
 	Os::size_t getNextBlock()
@@ -117,7 +113,20 @@ public:
 
 	ValueType getValueByID(uint8_t id)
 	{
-		return getKVPairByID(id).value;
+		if(id < getNumValues() && id >= 0)
+		{
+			return getKVPairByID(id).value;
+		}
+	}
+
+	bool getValueById(ValueType* value, uint8_t id)
+	{
+		if(id < getNumValues() && id >= 0)
+		{
+			*value = getKVPairByID(id).value;
+			return true;
+		}
+		return false;
 	}
 
 	ValueType getValueByKey(KeyType key)
@@ -128,9 +137,21 @@ public:
 			if(kvPair.key == key)
 				return kvPair.value;
 		}
-#ifdef DEBUG
-		printf("Could not get the value for key %d because it is not in this block\n", key);
-#endif
+		return -1;
+	}
+
+	bool getValueByKey(KeyType key, ValueType* value)
+	{
+		for(int i = 0; i < getNumValues(); i++)
+		{
+			keyValuePair kvPair = getKVPairByID(i);
+			if(kvPair.key == key)
+			{
+				*value = kvPair.value;
+				return true;
+			}
+		}
+		return false;
 	}
 
 	bool containsKey(KeyType key)
@@ -152,21 +173,15 @@ public:
 			pair.value = value;
 			write<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(getNumValues()) , pair);
 			head.numKVPairs = getNumValues() + 1;
-#ifdef DEBUG
-			printf("we inserted key %d into block %d\n", key, blockNr);
-#endif
 			return OK;
 		}
 		else
 		{
-#ifdef DEBUG
-			printf("Could not insert value with key %d becuase the block is full\n", key);
-#endif
 			return BLOCK_FULL;
 		}
 	}
 
-	returnTypes removeValue(KeyType key) //TODO: not tested yet
+	returnTypes removeValue(KeyType key)
 	{
 		int valueID = getIDForKey(key);
 		if(valueID == -1)
@@ -191,9 +206,13 @@ public:
 	returnTypes writeBack()
 	{
 		write<Os, Os::block_data_t, header>(rawData, head);
+#ifdef SPEED_MEASUREMENT
 		IOStopwatch.startMeasurement();
+#endif
 		bool s = sd->write(rawData, blockNr) == Os::SUCCESS;
+#ifdef SPEED_MEASUREMENT
 		IOStopwatch.stopMeasurement();
+#endif
 		if(s)
 			return OK;
 		else
@@ -263,17 +282,7 @@ private:
 
 	keyValuePair getKVPairByID(uint8_t id)
 	{
-		if(id < getNumValues() && id >= 0)
-		{
-#ifdef DEBUG
-			printf("reading id %d from pos %d\n", id, computePairOffset(id));
-#endif
-			return read<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id));
-		}
-#ifdef DEBUG
-		else
-			printf("tried to acess id %d which does not exist!\n", id);
-#endif
+		return read<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id));
 	}
 
 	int computePairOffset(uint8_t id)
@@ -281,7 +290,9 @@ private:
 		return sizeof(header) + id * sizeof(keyValuePair);
 	}
 
-
+	/**
+	 * Returns the id for the given key or -1 if the key does not exist.
+	 */
 	int16_t getIDForKey(KeyType k) //we use a int16_t instead of uint_8 in case we want to return -1;
 	{
 		for(int i = 0; i < head.numKVPairs; ++i)
