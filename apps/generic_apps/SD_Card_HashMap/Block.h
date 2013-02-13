@@ -10,9 +10,10 @@
 
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
+#include <util/meta.h>
 
 #include "Stopwatch.h"
-#include "ReturnTypes.h"
+
 
 namespace wiselib {
 
@@ -26,23 +27,33 @@ public:
 	typedef KeyType_P KeyType;
 	typedef ValueType_P ValueType;
 
-	/*
-	 * The header to be stored at the beginning of each block
-	 */
 	typedef struct
 	{
 		long pi;
 		uint8_t numKVPairs;
-		Os::size_t nextBlock;
-		Os::size_t prevBlock;
 	} header;
-
 
 	typedef struct
 	{
 		KeyType key;
 		ValueType value;
 	} keyValuePair;
+
+	//typedef SmallUint<(blocksize - sizeof(header)) / sizeof(keyValuePair)>  IndexType; //TODO: how to solve this with template magic? we have circular references there!
+	//typedef SmallUint<(blocksize - (sizeof(Os::size_t) * 2 + sizeof(long) + 8)) / sizeof(keyValuePair)> index_t; //TODO: not working
+	typedef uint16_t index_t;
+
+	/*
+	 * The header to be stored at the beginning of each block
+	 */
+	typedef struct
+	{
+		long pi;
+		index_t numKVPairs;
+		Os::size_t nextBlock;
+		Os::size_t prevBlock;
+	} header;
+
 
 	/*
 	 * Creates a new block based on the block number and the block memory.
@@ -58,9 +69,13 @@ public:
 
 	void initFromSD()
 	{
-//		IOStopwatch.startMeasurement();
+#ifdef SPEED_MEASUREMENT
+		IOStopwatch.startMeasurement();
+#endif
 		sd->read(rawData, blockNr); //read the raw data from the sd card
-//		IOStopwatch.stopMeasurement();
+#ifdef SPEED_MEASUREMENT
+		IOStopwatch.stopMeasurement();
+#endif
 		head = read<Os, Os::block_data_t, header>(rawData);
 
 		//If the block has not been used yet
@@ -115,22 +130,39 @@ public:
 		return getNumValues() == 0;
 	}
 
-	ValueType getValueByID(uint8_t id)
+	int getValueByID(index_t id, ValueType* value)
 	{
-		return getKVPairByID(id).value;
+		if(id < getNumValues() && id >= 0)
+		{
+			*value = getKVPairByID(id).value;
+			return Os::SUCCESS;
+		}
+		else
+			return Os::NO_VALUE;
 	}
 
-	ValueType getValueByKey(KeyType key)
+	/*
+	 * Returns the value by ID, not by Key like the hash map. Unspecified behavior if the index is out of range!
+	 */
+	const ValueType operator[](index_t idx)
+	{
+		ValueType value;
+		getValueByID(idx, &value);
+		return value;
+	}
+
+	int getValueByKey(KeyType key, ValueType* value)
 	{
 		for(int i = 0; i < getNumValues(); i++)
 		{
 			keyValuePair kvPair = getKVPairByID(i);
 			if(kvPair.key == key)
-				return kvPair.value;
+			{
+				*value = kvPair.value;
+				return Os::SUCCESS;
+			}
 		}
-#ifdef DEBUG
-		printf("Could not get the value for key %d because it is not in this block\n", key);
-#endif
+		return Os::NO_VALUE;
 	}
 
 	bool containsKey(KeyType key)
@@ -143,7 +175,7 @@ public:
 		return id < getNumValues() && id >= 0;
 	}
 
-	returnTypes insertValue(KeyType key, ValueType& value)
+	int insertValue(KeyType key, ValueType& value)
 	{
 		if(getNumValues() < maxNumValues())
 		{
@@ -152,30 +184,24 @@ public:
 			pair.value = value;
 			write<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(getNumValues()) , pair);
 			head.numKVPairs = getNumValues() + 1;
-#ifdef DEBUG
-			printf("we inserted key %d into block %d\n", key, blockNr);
-#endif
-			return OK;
+			return Os::SUCCESS;
 		}
 		else
 		{
-#ifdef DEBUG
-			printf("Could not insert value with key %d becuase the block is full\n", key);
-#endif
-			return BLOCK_FULL;
+			return Os::ERR_NOMEM;
 		}
 	}
 
-	returnTypes removeValue(KeyType key) //TODO: not tested yet
+	int removeValue(KeyType key)
 	{
 		int valueID = getIDForKey(key);
 		if(valueID == -1)
-			return NO_VALUE_FOR_THAT_KEY;
+			return Os::NO_VALUE;
 
 		//we just put the last element in place of the current element.
 		moveKVPair(head.numKVPairs -1, valueID);
 		head.numKVPairs--;
-		return OK;
+		return Os::SUCCESS;
 	}
 
 	int getNumValues()
@@ -188,16 +214,17 @@ public:
 		return (blocksize - sizeof(header)) / sizeof(keyValuePair);
 	}
 
-	returnTypes writeBack()
+	int writeBack()
 	{
-		write<Os, Os::block_data_t, header>(rawData, head);
-//		IOStopwatch.startMeasurement();
-		bool s = sd->write(rawData, blockNr) == Os::SUCCESS;
-//		IOStopwatch.stopMeasurement();
-		if(s)
-			return OK;
-		else
-			return SD_ERROR;
+		write<Os, Os::block_data_t, header>(rawData, head); //Writing the header back to the buffer
+#ifdef SPEED_MEASUREMENT
+		IOStopwatch.startMeasurement();
+#endif
+		int s = sd->write(rawData, blockNr);
+#ifdef SPEED_MEASUREMENT
+		IOStopwatch.stopMeasurement();
+#endif
+		return s;
 	}
 
 	void append(Block* nextBlock)
@@ -206,11 +233,11 @@ public:
 		this->setNextBlock(nextBlock->blockNr);
 	}
 
-	returnTypes removeFromChain()
+	int removeFromChain()
 	{
 		if(!hasPrevBlock() && !hasNextBlock()) //special case if we are not connected anyways not really necessary but it saves some io's
 		{
-			return OK;
+			return Os::SUCCESS;
 		}
 
 		if(!hasPrevBlock()) //special case if it is the first block
@@ -221,10 +248,7 @@ public:
 			head.nextBlock = blockNr;
 			head.prevBlock = blockNr;
 
-			if(nextBlock.writeBack() == SD_ERROR)
-				return SD_ERROR;
-			else
-				return OK;
+			return nextBlock.writeBack();
 		}
 
 		if(!hasNextBlock()) //special case if it is the last block
@@ -235,10 +259,7 @@ public:
 			head.nextBlock = blockNr;
 			head.prevBlock = blockNr;
 
-			if(prevBlock.writeBack() == SD_ERROR)
-				return SD_ERROR;
-			else
-				return OK;
+			return prevBlock.writeBack();
 		}
 
 		//all the other special cases:
@@ -248,10 +269,10 @@ public:
 		prevBlock.append(&nextBlock);
 		head.nextBlock = blockNr; //TODO: I want a "disconnect from next"/"disconnect from tail" for this
 		head.prevBlock = blockNr;
-		if(prevBlock.writeBack() == SD_ERROR || nextBlock.writeBack() == SD_ERROR)
-			return SD_ERROR;
+		if(prevBlock.writeBack() == Os::SUCCESS && nextBlock.writeBack() == Os::SUCCESS)
+			return Os::SUCCESS;
 		else
-			return OK;
+			return Os::ERR_UNSPEC; //TODO: where is the sd card error?
 	}
 
 private:
@@ -261,30 +282,22 @@ private:
 
 	Os::BlockMemory::self_pointer_t sd;
 
-	keyValuePair getKVPairByID(uint8_t id)
+	keyValuePair getKVPairByID(index_t id)
 	{
-		if(id < getNumValues() && id >= 0)
-		{
-#ifdef DEBUG
-			printf("reading id %d from pos %d\n", id, computePairOffset(id));
-#endif
-			return read<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id));
-		}
-#ifdef DEBUG
-		else
-			printf("tried to acess id %d which does not exist!\n", id);
-#endif
+		return read<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id));
 	}
 
-	int computePairOffset(uint8_t id)
+	int computePairOffset(index_t id)
 	{
 		return sizeof(header) + id * sizeof(keyValuePair);
 	}
 
-
+	/**
+	 * Returns the id for the given key or -1 if the key does not exist.
+	 */
 	int16_t getIDForKey(KeyType k) //we use a int16_t instead of uint_8 in case we want to return -1;
 	{
-		for(int i = 0; i < head.numKVPairs; ++i)
+		for(index_t i = 0; i < head.numKVPairs; ++i)
 		{
 			if(getKVPairByID(i).key == k)
 				return i;
@@ -292,7 +305,7 @@ private:
 		return -1;
 	}
 
-	void moveKVPair(uint8_t fromID, uint8_t toID)
+	void moveKVPair(index_t fromID, index_t toID)
 	{
 		if(fromID != toID)
 		{
@@ -301,7 +314,7 @@ private:
 		}
 	}
 
-	void insertKVPairAtID(keyValuePair kvp, uint8_t id)
+	void insertKVPairAtID(keyValuePair kvp, index_t id)
 	{
 		write<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id) , kvp);
 	}

@@ -44,6 +44,7 @@ public:
 
 		bm_->write(buffer, 0);
 
+
 		Os::block_data_t buffer2[BlOCK_SIZE];
 
 		bm_->read(buffer2, 0);

@@ -12,7 +12,7 @@ namespace wiselib {
 			typedef OsModel_P OsModel;
 			typedef typename OsModel::block_data_t block_data_t;
 			typedef typename OsModel::size_t size_type;
-			typedef ::uint32_t hash_t;
+			typedef uint32_t hash_t;
 			
 			enum { MAX_VALUE = (hash_t)(-1) };
 			

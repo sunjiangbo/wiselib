@@ -6,6 +6,7 @@
 #ifndef __VIRTSDCARD_H__
 #define	__VIRTSDCARD_H__
 #include <iostream>
+#include <stdio.h>
 #include <stdlib.h>
 #include "pc_os_model.h"
 
@@ -50,13 +51,10 @@ public:
 		resetStats();
 	}
 
-	/*
-	 * Not implemented yet! Who wants this anyways?
-	 */
 	int erase(address_t start_block, address_t blocks) {
-		for(int i = 0; i < blocks; i++)
+		for(unsigned int i = 0; i < blocks; i++)
 		{
-			for(int j = 0; j < blocksize; j++)
+			for(unsigned int j = 0; j < blocksize; j++)
 				memory[i + start_block][j] = 0;
 		}
 
@@ -175,15 +173,14 @@ public:
 	 * @param fromBlock The number of the block where to start displaying.
 	 * @param toBlock The number of the block where to stop displaying.
 	 */
-	void printGraphBytes(int fromBlock, int toBlock)
+	void printGraphBytes(int fromBlock, int toBlock, FILE* f)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
-
-		printf("digraph BM { \n\t node [shape=none, margin=0]; \n");
-		printf("\t sdcard [label=<");
-		printHTMLTableBytes(fromBlock, toBlock);
-		printf(">];\n");
-		printf("}\n");
+		fprintf(f, "digraph BM { \n\t node [shape=none, margin=0]; \n");
+		fprintf(f, "\t sdcard [label=<");
+		printHTMLTableBytes(fromBlock, toBlock, f);
+		fprintf(f, ">];\n");
+		fprintf(f, "}\n");
 	}
 
 	/*
@@ -192,53 +189,53 @@ public:
 	 * @param fromBlock The number of the block where to start displaying.
 	 * @param toBlock The number of the block where to stop displaying.
 	 */
-	void printGraphBlocks(int fromBlock, int toBlock)
+	void printGraphBlocks(int fromBlock, int toBlock, FILE* f)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
 
-		printf("digraph BM {\n\t node [shape=none, margin=0];\n");
-		printf("\t sdcard [label=<");
-		printHTMLTableBlocks(fromBlock, toBlock);
-		printf(">]\n");
-		printf("}\n");
+		fprintf(f, "digraph BM {\n\t node [shape=none, margin=0];\n");
+		fprintf(f, "\t sdcard [label=<");
+		printHTMLTableBlocks(fromBlock, toBlock, f);
+		fprintf(f, ">]\n");
+		fprintf(f, "}\n");
 	}
 
 	/*
 	 * Helper for printGraphBytes
 	 */
-	void printHTMLTableBytes(int fromBlock, int toBlock)
+	void printHTMLTableBytes(int fromBlock, int toBlock, FILE* f)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
-		printf("<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">");
+		fprintf(f, "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">");
 		for(int block = fromBlock; block <= toBlock; block++)
 		{
-			printf("\n\t\t<tr>\n");
+			fprintf(f, "\n\t\t<tr>\n");
 			for(int j = 0; j < blocksize; j++)
 			{
-				printf("\t\t\t<td bgcolor=\"%s\">%3d</td>\n", ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000"), (int)memory[block][j]);
+				fprintf(f, "\t\t\t<td bgcolor=\"%s\">%3d</td>\n", ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000"), (int)memory[block][j]);
 				//std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << " " << "</td>\n";
 			}
-			printf("\t\t</tr>\n");
+			fprintf(f, "\t\t</tr>\n");
 		}
-		printf("</table>");
+		fprintf(f, "</table>");
 	}
 
 	/*
 	 * Helper for printGraphBlocks
 	 */
-	void printHTMLTableBlocks(int fromBlock, int toBlock)
+	void printHTMLTableBlocks(int fromBlock, int toBlock, FILE* f)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
-		printf("<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">");
-		printf("\n\t\t<tr>\n");
+		fprintf(f, "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\">");
+		fprintf(f, "\n\t\t<tr>\n");
 		for(int block = fromBlock; block <= toBlock; block++)
 		{
-			printf("\t\t\t<td bgcolor=\"%s\">%d</td>\n", (!isWritten[block] ? "#FFFFFF" : "#FF0000"), isWritten[block]);
+			fprintf(f, "\t\t\t<td bgcolor=\"%s\">%d</td>\n", (!isWritten[block] ? "#FFFFFF" : "#FF0000"), isWritten[block]);
 			//std::cout << "\t\t\t<td bgcolor=\"" << ((int)memory[block][j] == 0 ? "#FFFFFF" : "#FF0000") << "\">" << " " << "</td>\n";
 
 		}
-		printf("\t\t</tr>\n");
-		printf("</table>");
+		fprintf(f, "\t\t</tr>\n");
+		fprintf(f, "</table>");
 	}
 
 	void printASCIIOutputBytes(int fromBlock, int toBlock)
@@ -266,12 +263,11 @@ public:
 
 	void reset()
 	{
-		for (int i = 0; i < nrOfBlocks; i++)
+		for (int unsigned i = 0; i < nrOfBlocks; i++)
 			isWritten[i] = false;
 		resetStats();
 
 		erase(0, nrOfBlocks);
-
 	}
 
 private:

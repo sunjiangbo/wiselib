@@ -27,7 +27,7 @@ public:
 
 	ValueType operator*() const
 	{
-		return block->getValueByID(currentPos);
+		return (*block)[currentPos];
 	}
 
 	BlockIterator<KeyType, ValueType>& operator++()
