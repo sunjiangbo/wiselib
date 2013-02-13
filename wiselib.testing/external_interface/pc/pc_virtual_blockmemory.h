@@ -51,9 +51,6 @@ public:
 		resetStats();
 	}
 
-	/*
-	 * Not implemented yet! Who wants this anyways?
-	 */
 	int erase(address_t start_block, address_t blocks) {
 		for(unsigned int i = 0; i < blocks; i++)
 		{

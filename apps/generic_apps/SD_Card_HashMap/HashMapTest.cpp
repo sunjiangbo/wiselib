@@ -24,12 +24,6 @@ struct Message
 
 class App {
 public:
-
-	// NOTE: this uses up a *lot* of RAM, way too much for uno!
-	enum {
-		BlOCK_SIZE = 512, BLOCKS_IN_1GB = 2097152
-	};
-
 	struct Value1
 	{
 		long load;
@@ -130,190 +124,256 @@ public:
 		sd = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 
 		sd->init();
-		if(!blockTest()) debug_->debug("blockTest failed!");
-		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
-		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
-		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
-
+		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
+//		if(!blockTest()) debug_->debug("blockTest failed!");
+//		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
+//		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
+//		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
 //		maxLoadFactorTest();
 //		generateGNUPLOTScripts();
 		//generateFillupAnimation();
 		exit(0);
 	}
 
+	bool stupidSDCardTest()
+	{
+		//Make sure that the sd card gets wiped
+		if(sd->erase(0, 1000) != Os::SUCCESS)
+		{
+			debug_->debug("Failed to erase the first 1000 blocks of the sd card!");
+			return false;
+		}
+
+		Os::block_data_t buffer[sd->BLOCK_SIZE]; //create a buffer with the right size
+		for(int i = 0; i < sd->BLOCK_SIZE; ++i) buffer[i] = 0; //make sure that the buffer really only contains zeros!
+
+		long value = 123456789; //create a magic value
+
+		wiselib::write<Os, Os::block_data_t, long>(buffer, value); //write the magic value to the buffer using wiselib magic
+
+		if(sd->write(buffer, 2) != Os::SUCCESS) //write the buffer to block 2
+		{
+			debug_->debug("failed to write onto the sd card");
+			return false;
+		}
+
+		for(int i = 0; i < sd->BLOCK_SIZE; ++i) buffer[i] = 0; //again make sure that the buffer really only contains zeros
+
+		if(sd->read(buffer, 2) != Os::SUCCESS) //read the buffer again from the sd card
+		{
+			debug_->debug("failed to read from the sd card");
+			return false;
+		}
+
+		long read = wiselib::read<Os, Os::block_data_t, long>(buffer); //retrieve the magic value from the buffer
+
+		if(value != read) //compare with original magic value //< -----------------------------------    this fails
+		{
+			debug_->debug("failed to write and retrieve a simple value!");
+			return false;
+		}
+		debug_->debug("stupidSDCardTest succeeds!");
+		return true;
+	}
+
 	bool blockTest()
 	{
-		sd->reset();
-		wiselib::Block<int, long> block(0, sd);
-
-		if(block.getNumValues() != 0)
-		{
-			debug_->debug("A new block should contain 0 values!");
-			return false;
-		}
-
 		const int initialLen = 8;
-		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
-		int keys1[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
+		{
+			//sd->reset();
+			sd->erase(0, 1000);
+			wiselib::Block<int, long> block(0, sd);
 
-		// --- test if insertion works ---
-		for(int i = 0; i < initialLen; ++i)
-			if(block.insertValue(keys1[i], values1[i]) == BLOCK_FULL)
+			if(block.getNumValues() != 0)
 			{
-				debug_->debug("Block was full while it should not be!");
+				debug_->debug("A new block should contain 0 values!");
 				return false;
 			}
 
-		if(!blockContainsValues(&block, values1, initialLen))
-		{
-			debug_->debug("The block did not contain the values in the order it was supposed to after insertion!");
-			return false;
-		}
+			long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
+			int keys1[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
 
-		if(block.getNumValues() != initialLen)
-		{
-			debug_->debug("The block failed to count its elements!");
-			return false;
-		}
+			// --- test if insertion works ---
+			for(int i = 0; i < initialLen; ++i)
+				if(block.insertValue(keys1[i], values1[i]) == Os::ERR_NOMEM)
+				{
+					debug_->debug("Block was full while it should not be!");
+					return false;
+				}
 
-		// --- test if contains key works ---
-
-		for(int i = 0; i < initialLen; i++)
-			if(!block.containsKey(keys1[i]))
+			if(!blockContainsValues(&block, values1, initialLen))
 			{
-				debug_->debug("The block.containsKey claims that the key %d is not in the block while it should be in there", keys1[i]);
+				debug_->debug("The block did not contain the values in the order it was supposed to after insertion!");
 				return false;
 			}
 
-		for(int i = 9; i < 20; i++)
-			if(block.containsKey(i))
+			if(block.getNumValues() != initialLen)
 			{
-				debug_->debug("The block.containsKey claims that the block contains %d while it should not!", i);
+				debug_->debug("The block failed to count its elements!");
 				return false;
 			}
 
-		// --- test if deletion works ---
+			// --- test if contains key works ---
 
-		// --- deletion in the middle
-		long values2[initialLen - 1]	= {1, 1, 2, 3, 21, 8, 13};
-		int keys2[initialLen - 1]		= {8, 7, 6, 5,  1, 3,  2};
+			for(int i = 0; i < initialLen; i++)
+				if(!block.containsKey(keys1[i]))
+				{
+					debug_->debug("The block.containsKey claims that the key %d is not in the block while it should be in there", keys1[i]);
+					return false;
+				}
 
-		block.removeValue(4);
-		if(!blockContainsValues(&block, values2, initialLen -1))
-		{
-			debug_->debug("The block did not contain the values in the order it was supposed to after deletion in the middle!");
-			return false;
-		}
+			// --- test contains key for false positives ---
+			for(int i = 9; i < 20; i++)
+				if(block.containsKey(i))
+				{
+					debug_->debug("The block.containsKey claims that the block contains %d while it should not!", i);
+					return false;
+				}
 
-		if(block.getNumValues() != initialLen - 1)
-		{
-			debug_->debug("The block failed to count its elements!");
-			return false;
-		}
+			// --- test if deletion works ---
 
-		// --- deletion at the beginning ---
-		long values3[initialLen - 2]	= {13, 1, 2, 3, 21, 8};
-		int keys3[initialLen - 2]		= { 2, 7, 6, 5,  1, 3};
+			// --- deletion in the middle
+			long values2[initialLen - 1]	= {1, 1, 2, 3, 21, 8, 13};
+			int keys2[initialLen - 1]		= {8, 7, 6, 5,  1, 3,  2};
 
-		block.removeValue(8);
-		if(!blockContainsValues(&block, values3, initialLen - 2))
-		{
-			debug_->debug("The block did not contain the values in the order it was supposed to after deletion at the beginning!");
-			return false;
-		}
-
-		if(block.getNumValues() != initialLen - 2)
-		{
-			debug_->debug("The block failed to count its elements!");
-			return false;
-		}
-
-		// --- deletion at the end ---
-		long values4[initialLen - 3]	= {13, 1, 2, 3, 21};
-		int keys4[initialLen - 3]		= { 2, 7, 6, 5,  1};
-
-		block.removeValue(3);
-		if(!blockContainsValues(&block, values4, initialLen - 3))
-		{
-			debug_->debug("The block did not contain the values in the order it was supposed to after deletion at the end!");
-			return false;
-		}
-
-		if(block.getNumValues() != initialLen - 3)
-		{
-			debug_->debug("The block failed to count its elements!");
-			return false;
-		}
-
-		// --- writing to the block interface and reading again, also reading the meta info ---
-		block.setNextBlock(5);
-		block.setPrevBlock(7);
-
-		block.writeBack();
-
-		wiselib::Block<int, long> readBlock(0, sd);
-		if(readBlock.getNextBlock() != 5)
-		{
-			debug_->debug("The block did not properly store the next block");
-			return false;
-		}
-		if(readBlock.getPrevBlock() != 7)
-		{
-			debug_->debug("The block did not properly store the prev block");
-			return false;
-		}
-
-		if(block.getNumValues() != initialLen - 3)
-		{
-			debug_->debug("The block failed to count its elements after reading again from the sd card!");
-			return false;
-		}
-
-		if(!blockContainsValues(&readBlock, values4, initialLen - 3))
-		{
-			debug_->debug("The block could not retrieve the proper values after writing and reading from sd");
-			return false;
-		}
-
-		sd->reset();
-		// --- test appending ---
-		{
-			wiselib::Block<int, long> b1(1, sd);
-			wiselib::Block<int, long> b2(2, sd);
-			wiselib::Block<int, long> b3(3, sd);
-
-			b1.append(&b2);
-			b2.append(&b3);
-
-			b1.writeBack();
-			b2.writeBack();
-			b3.writeBack();
-
-			b1.initFromSD();
-			b2.initFromSD();
-			b3.initFromSD();
-
-			if(b1.hasPrevBlock() == true || b1.hasNextBlock() == false || b1.getNextBlock() != 2)
+			block.removeValue(4);
+			if(!blockContainsValues(&block, values2, initialLen -1))
 			{
-				debug_->debug("appending on b1 failed!");
+				debug_->debug("The block did not contain the values in the order it was supposed to after deletion in the middle!");
 				return false;
 			}
 
-			if(b2.hasPrevBlock() == false || b2.hasNextBlock() == false || b2.getPrevBlock() != 1 || b2.getNextBlock() != 3)
+			if(block.getNumValues() != initialLen - 1)
 			{
-				debug_->debug("appending on b2 failed!");
+				debug_->debug("The block failed to count its elements!");
 				return false;
 			}
 
-			if(b3.hasPrevBlock() == false || b3.hasNextBlock() == true || b3.getPrevBlock() != 2)
+			// --- deletion at the beginning ---
+			long values3[initialLen - 2]	= {13, 1, 2, 3, 21, 8};
+			int keys3[initialLen - 2]		= { 2, 7, 6, 5,  1, 3};
+
+			block.removeValue(8);
+			if(!blockContainsValues(&block, values3, initialLen - 2))
 			{
-				debug_->debug("appending on b3 failed!");
+				debug_->debug("The block did not contain the values in the order it was supposed to after deletion at the beginning!");
 				return false;
+			}
+
+			if(block.getNumValues() != initialLen - 2)
+			{
+				debug_->debug("The block failed to count its elements!");
+				return false;
+			}
+
+			// --- deletion at the end ---
+			long values4[initialLen - 3]	= {13, 1, 2, 3, 21};
+			int keys4[initialLen - 3]		= { 2, 7, 6, 5,  1};
+
+			block.removeValue(3);
+			if(!blockContainsValues(&block, values4, initialLen - 3))
+			{
+				debug_->debug("The block did not contain the values in the order it was supposed to after deletion at the end!");
+				return false;
+			}
+
+			if(block.getNumValues() != initialLen - 3)
+			{
+				debug_->debug("The block failed to count its elements!");
+				return false;
+			}
+
+			// --- writing to the block interface and reading again, also reading the meta info ---
+			block.setNextBlock(5);
+			block.setPrevBlock(7);
+			debug_->debug("raw block before writing:");
+			printRawBlock(0);
+			if(block.writeBack() != Os::SUCCESS)
+			{
+				debug_->debug("Writhing back the block to the sd card failed");
+				return false;
+			}
+			debug_->debug("raw block after writing:");
+			printRawBlock(0);
+
+			debug_->debug("Block before writing to sd:");
+			printBlock(block);
+		}
+
+		{
+			wiselib::Block<int, long> readBlock(0, sd);
+			debug_->debug("block after reading from sd:");
+			printBlock(readBlock);
+			long values4[initialLen - 3]	= {13, 1, 2, 3, 21};
+			int keys4[initialLen - 3]		= { 2, 7, 6, 5,  1};
+
+			if(!blockContainsValues(&readBlock, values4, initialLen - 3))
+			{
+				debug_->debug("The block could not retrieve the proper values after writing and reading from sd");
+				return false;
+			}
+
+			if(readBlock.getNextBlock() != 5)
+			{
+				debug_->debug("The block did not properly store the next block after reading again from the sd card!");
+				return false;
+			}
+			if(readBlock.getPrevBlock() != 7)
+			{
+				debug_->debug("The block did not properly store the prev block after reading again from the sd card!");
+				return false;
+			}
+
+			if(readBlock.getNumValues() != initialLen - 3)
+			{
+				debug_->debug("The block failed to count its elements after reading again from the sd card!");
+				return false;
+			}
+
+
+			//sd->reset();
+			sd->erase(0, 1000);
+
+			// --- test appending ---
+			{
+				wiselib::Block<int, long> b1(1, sd);
+				wiselib::Block<int, long> b2(2, sd);
+				wiselib::Block<int, long> b3(3, sd);
+
+				b1.append(&b2);
+				b2.append(&b3);
+
+				b1.writeBack();
+				b2.writeBack();
+				b3.writeBack();
+
+				b1.initFromSD();
+				b2.initFromSD();
+				b3.initFromSD();
+
+				if(b1.hasPrevBlock() == true || b1.hasNextBlock() == false || b1.getNextBlock() != 2)
+				{
+					debug_->debug("appending on b1 failed!");
+					return false;
+				}
+
+				if(b2.hasPrevBlock() == false || b2.hasNextBlock() == false || b2.getPrevBlock() != 1 || b2.getNextBlock() != 3)
+				{
+					debug_->debug("appending on b2 failed!");
+					return false;
+				}
+
+				if(b3.hasPrevBlock() == false || b3.hasNextBlock() == true || b3.getPrevBlock() != 2)
+				{
+					debug_->debug("appending on b3 failed!");
+					return false;
+				}
 			}
 		}
 
 		// --- test removing from block chain ---
-		sd->reset();
+		//sd->reset();
+		sd->erase(0, 1000);
 		// --- removing block at the beginning of the chain---
 		{
 			wiselib::Block<int, long> b1(1, sd);
@@ -352,7 +412,8 @@ public:
 				return false;
 			}
 		}
-		sd->reset();
+		//sd->reset();
+		sd->erase(0, 1000);
 		// --- remove block in the middle of the chain ---
 		{
 			wiselib::Block<int, long> b1(1, sd);
@@ -388,7 +449,8 @@ public:
 			}
 		}
 
-		sd->reset();
+		//sd->reset();
+		sd->erase(0, 1000);
 		// --- remove block at the end of the chain---
 		{
 			wiselib::Block<int, long> b1(1, sd);
@@ -425,7 +487,8 @@ public:
 			}
 		}
 
-		sd->reset();
+		//sd->reset();
+		sd->erase(0, 1000);
 		// --- remove free floating block from the chain ---
 		{
 			wiselib::Block<int, long> b1(1, sd);
@@ -448,7 +511,8 @@ public:
 
 	bool blockIteratorTest()
 	{
-		sd->reset();
+		//sd->reset();
+		sd->erase(0, 1000);
 		wiselib::Block<int, long> block(0, sd);
 		const int initialLen = 8;
 		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
@@ -501,7 +565,8 @@ public:
 	bool hashMapTest()
 	{
 		// --- simple insertion and retrieval of known values test ---
-		sd->reset();
+		//sd->reset();
+		sd->erase(0, 1000);
 		wiselib::HashMap<int, long> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 100);
 		const int initialLen = 8;
 		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
@@ -563,7 +628,8 @@ public:
 
 	bool hashMapIteratorTest()
 	{
-		sd->reset();
+		//sd->reset();
+		sd->erase(0, 1000);
 		wiselib::HashMap<int, long> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 100);
 		const int initialLen = 8;
 		long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
@@ -629,14 +695,14 @@ public:
 	{
 		for(int i = 0; i < numValues; ++i)
 		{
-			if(b->getValueByID(i) != values[i])
+			if((*b)[i] != values[i])
 			{
 				return false;
 			}
 		}
 		return true;
 	}
-
+/*
 	void maxLoadFactorTest()
 	{
 		for(int hashFunction = 0; hashFunction <=2; ++hashFunction)
@@ -647,52 +713,62 @@ public:
 			fprintf(file, "#numblocks loadfactor\n");
 			for(int numBlocks = 1; numBlocks < 700; ++numBlocks)
 			{
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value1> hashMap1(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value1>(&hashMap1);
 				float lf1 = hashMap1.getLoadFactor();
 
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value2> hashMap2(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value2>(&hashMap2);
 				float lf2 = hashMap2.getLoadFactor();
 
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value3> hashMap3(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value3>(&hashMap3);
 				float lf3 = hashMap3.getLoadFactor();
 
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value4> hashMap4(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value4>(&hashMap4);
 				float lf4 = hashMap4.getLoadFactor();
 
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value5> hashMap5(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value5>(&hashMap5);
 				float lf5 = hashMap5.getLoadFactor();
 
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value6> hashMap6(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value6>(&hashMap6);
 				float lf6 = hashMap6.getLoadFactor();
 
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value7> hashMap7(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value7>(&hashMap7);
 				float lf7 = hashMap7.getLoadFactor();
 
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value8> hashMap8(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value8>(&hashMap8);
 				float lf8 = hashMap8.getLoadFactor();
 
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value9> hashMap9(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value9>(&hashMap9);
 				float lf9 = hashMap9.getLoadFactor();
 
-				sd->reset();
+				//sd->reset();
+		sd->erase(0, 1000);
 				wiselib::HashMap<long, Value10> hashMap10(debug_, sd, wiselib::HashFunctionProvider<Os, long>::getHashFunction(hashFunction), 0, numBlocks);
 				fillupHashMap<Value10>(&hashMap10);
 				float lf10 = hashMap10.getLoadFactor();
@@ -704,7 +780,8 @@ public:
 		}
 
 	}
-
+*/
+	/*
 	void generateGNUPLOTScripts()
 	{
 		for(int hashFunction = 0; hashFunction <= 4; ++hashFunction)
@@ -730,28 +807,28 @@ public:
 			fprintf(file, "\n");
 			fclose(file);
 		}
-
 	}
+	*/
 
 	template<typename ValueType>
 	void fillupHashMap(wiselib::HashMap<long, ValueType>* hashMap)
 	{
 		ValueType dummyValue;
 		long counter = 0;
-		while(hashMap->putEntry(counter, dummyValue) == OK)
+		while(hashMap->putEntry(counter, dummyValue) == Os::SUCCESS)
 		{
 			counter++;
 		}
 
 	}
-
+/*
 	void generateFillupAnimation()
 	{
 		wiselib::HashMap<int, long> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 50);
 
 		int counter = 0;
 		long value = 0xFFFFFFFFL;
-		while(hashMap.putEntry(counter, value) == OK)
+		while(hashMap.putEntry(counter, value) == Os::SUCCESS)
 		{
 			char filename[20];
 			sprintf(filename, "bild%d.dot", counter);
@@ -762,7 +839,7 @@ public:
 			counter++;
 		}
 	}
-
+*/
 
 	Message makeMessage(int m1, int m2)
 	{
@@ -785,9 +862,29 @@ public:
 		debug_->debug("\n\nBlock:__________");
 		for(int i = 0; i < numValues; i++)
 		{
-			printMessage(b.getValueByID(i));
+			printMessage(b[i]);
 			debug_->debug("________________");
 		}
+	}
+
+	void printBlock(wiselib::Block<int, long> b)
+	{
+		int numValues = b.getNumValues();
+		debug_->debug("\n\nBlock:__________");
+		for(int i = 0; i < numValues; i++)
+		{
+			debug_->debug("%d",b[i]);
+		}
+		debug_->debug("________________");
+	}
+
+	void printRawBlock(size_t nr)
+	{
+		debug_->debug("Block %d:", nr);
+		Os::block_data_t buffer[sd->BLOCK_SIZE];
+		//sd->read(buffer, nr);
+		for(int i = 0; i < 50; i++)
+			debug_->debug("%3d", ((int)buffer[i]));
 	}
 
 	void sequentialTestHashMap()

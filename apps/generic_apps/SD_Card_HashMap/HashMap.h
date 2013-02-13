@@ -13,7 +13,6 @@
 #include <util/serialization/serialization.h>
 #include <algorithms/hash/fnv.h>
 #include "Block.h"
-#include "ReturnTypes.h"
 
 namespace wiselib {
 
@@ -48,11 +47,11 @@ public:
 	 * Inserts a new key value pair into the hashmap.
 	 * Returns SD_ERROR if there was an IO problem and HASHMAP_FULL when there is no space left in the hashmap.
 	 */
-	returnTypes putEntry(KeyType key, ValueType& value)
+	int putEntry(KeyType key, ValueType& value)
 	{
 		size_t blockNr = computeHash(key);
 		Block<KeyType, ValueType> block(blockNr, sd);
-		if(block.insertValue(key, value) == BLOCK_FULL) return HASHMAP_FULL;
+		if(block.insertValue(key, value) == Os::ERR_NOMEM) return Os::ERR_NOMEM;
 
 		if(insertedElements == 0) //it was the first block that we ever inserted
 		{
@@ -65,14 +64,43 @@ public:
 			{
 				Block<KeyType, ValueType> headBlock(lastNewBlock, sd);
 				headBlock.append(&block);
-				if(headBlock.writeBack() == SD_ERROR) currentState = BROKEN;
+				if(headBlock.writeBack() == Os::ERR_UNSPEC) currentState = BROKEN;
 				lastNewBlock = blockNr;
 			}
 		}
 
-		returnTypes writingToSd = block.writeBack();
-		if(writingToSd == OK)
+		int writingToSd = block.writeBack();
+		if(writingToSd == Os::SUCCESS)
 			insertedElements++;
+		else
+			currentState = BROKEN;
+		return writingToSd;
+	}
+
+	int getEntry(KeyType key, ValueType* value)
+	{
+		Block<KeyType, ValueType> block(computeHash(key), sd);
+		return block.getValueByKey(key, value);
+	}
+
+	/*
+	 * Removes an entry from the hashmap based on a given key.
+	 * Returns NO_VALUE_FOR_THAT_KEY if the hashmap did not contain the key.
+	 * Return SD_ERROR if there was an IO error.
+	 */
+	int removeEntry(KeyType key)
+	{
+		Block<KeyType, ValueType> block(computeHash(key), sd);
+		if(block.removeValue(key) == Os::NO_VALUE) return Os::NO_VALUE;
+
+		if(block.isEmpty())
+		{
+			if(block.removeFromChain() == Os::ERR_UNSPEC) currentState = BROKEN;
+		}
+
+		int writingToSd = block.writeBack();
+		if(writingToSd == Os::SUCCESS)
+			insertedElements--;
 		else
 			currentState = BROKEN;
 		return writingToSd;
@@ -82,38 +110,11 @@ public:
 	 * Retrives an entry from the hashmap based on a given key.
 	 * Only keys that are already in the hashmap might be retrieved, otherwise the behavior is undefined.
 	 */
-	ValueType getEntry(KeyType key)
+	const ValueType operator[](KeyType key)
 	{
-		Block<KeyType, ValueType> block(computeHash(key), sd);
-		return block.getValueByKey(key);
-	}
-
-	/*
-	 * Removes an entry from the hashmap based on a given key.
-	 * Returns NO_VALUE_FOR_THAT_KEY if the hashmap did not contain the key.
-	 * Return SD_ERROR if there was an IO error.
-	 */
-	returnTypes removeEntry(KeyType key)
-	{
-		Block<KeyType, ValueType> block(computeHash(key), sd);
-		if(block.removeValue(key) == NO_VALUE_FOR_THAT_KEY) return NO_VALUE_FOR_THAT_KEY;
-
-		if(block.isEmpty())
-		{
-			if(block.removeFromChain() == SD_ERROR) currentState = BROKEN;
-		}
-
-		returnTypes writingToSd = block.writeBack();
-		if(writingToSd == OK)
-			insertedElements--;
-		else
-			currentState = BROKEN;
-		return writingToSd;
-	}
-
-	const ValueType operator[](KeyType idx)
-	{
-		return getEntry(idx);
+		ValueType value;
+		getEntry(key, &value);
+		return value;
 	}
 
 	/*
