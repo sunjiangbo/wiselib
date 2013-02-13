@@ -40,6 +40,7 @@
 #include "util/serialization/endian.h"
 
 #include "algorithms/block_memory/ram_block_memory.h"
+#include "pc_virtual_blockmemory.h"
 
 namespace wiselib {
 	class PCOsModel
@@ -69,7 +70,7 @@ namespace wiselib {
 			typedef PCComUartModel<PCOsModel, false> Uart;
 			typedef ComISenseRadioModel<PCOsModel, ISenseUart> Radio;
 			
-			typedef RamBlockMemory<PCOsModel> BlockMemory;
+			typedef VirtualSD<PCOsModel> BlockMemory;
 			
 			static const Endianness endianness = WISELIB_ENDIANNESS;
 	};

@@ -29,12 +29,6 @@ public:
 
 	typedef struct
 	{
-		long pi;
-		uint8_t numKVPairs;
-	} header;
-
-	typedef struct
-	{
 		KeyType key;
 		ValueType value;
 	} keyValuePair;
