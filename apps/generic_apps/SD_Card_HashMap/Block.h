@@ -34,7 +34,7 @@ public:
 	} keyValuePair;
 
 //	typedef SmallUint<(blocksize - sizeof(header)) / sizeof(keyValuePair)>  index_t; //TODO: how to solve this with template magic? we have circular references there!
-	typedef SmallUint<(blocksize - (sizeof(Os::size_t) * 2 + sizeof(long) + 8)) / sizeof(keyValuePair)> index_t; //TODO: not working
+	typedef typename SmallUint<(blocksize - (sizeof(Os::size_t) * 2 + sizeof(long) + 8)) / sizeof(keyValuePair)>::t index_t; //TODO: not working
 //	typedef uint16_t index_t;
 
 	/*
@@ -54,10 +54,8 @@ public:
 	 * Also loads the block data from the block memory.
 	 */
 	Block(Os::size_t nr, Os::BlockMemory::self_pointer_t sd)
+	: sd(sd), blockNr(nr)
 	{
-		this->blockNr = nr;
-		this->sd = sd;
-
 		initFromSD();
 	}
 
@@ -147,7 +145,7 @@ public:
 
 	int getValueByKey(KeyType key, ValueType* value)
 	{
-		for(int i = 0; i < getNumValues(); i++)
+		for(index_t i = 0; i < getNumValues(); i++)
 		{
 			keyValuePair kvPair = getKVPairByID(i);
 			if(kvPair.key == key)
@@ -188,17 +186,17 @@ public:
 
 	int removeValue(KeyType key)
 	{
-		int valueID = getIDForKey(key);
+		index_t valueID = getIDForKey(key);
 		if(valueID == -1)
 			return Os::NO_VALUE;
 
 		//we just put the last element in place of the current element.
-		moveKVPair(head.numKVPairs -1, valueID);
+		moveKVPair(head.numKVPairs - 1, valueID);
 		head.numKVPairs--;
 		return Os::SUCCESS;
 	}
 
-	int getNumValues()
+	index_t getNumValues()
 	{
 		return head.numKVPairs;
 	}
@@ -266,22 +264,22 @@ public:
 		if(prevBlock.writeBack() == Os::SUCCESS && nextBlock.writeBack() == Os::SUCCESS)
 			return Os::SUCCESS;
 		else
-			return Os::ERR_UNSPEC; //TODO: where is the sd card error?
+			return Os::ERR_IO_HATES_YOU;
 	}
 
 private:
 	Os::block_data_t rawData[blocksize];
+	Os::BlockMemory::self_pointer_t sd;
 	Os::size_t blockNr;
 	header head;
 
-	Os::BlockMemory::self_pointer_t sd;
 
 	keyValuePair getKVPairByID(index_t id)
 	{
 		return read<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id));
 	}
 
-	int computePairOffset(index_t id)
+	index_t computePairOffset(index_t id)
 	{
 		return sizeof(header) + id * sizeof(keyValuePair);
 	}
