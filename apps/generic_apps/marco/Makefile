@@ -2,7 +2,7 @@
 # Environment variable WISELIB_PATH needed
 # ----------------------------------------
 
-all: shawn
+# all: shawn
 # all: scw_msb
 # all: contiki_msb
 # all: contiki_micaz
@@ -10,17 +10,18 @@ all: shawn
 # all: tinyos-tossim
 # all: tinyos-micaz
 
-export APP_SRC=example_app.cpp
-export BIN_OUT=example_app
-
+export APP_SRC=bdmmu_test_app.cpp
+export BIN_OUT=bdmmu_test_app
 
 include ../Makefile
+
+all: compile flash run
 
 compile:
 	make arduino BOARD=mega2560
 
-write:
+flash:
 	killall screen; make flash-arduino BOARD=mega2560 PORT=/dev/ttyACM0
 
-show:
-	killall screen; make monitor-arduino BOARD=mega2560 PORT=/dev/ttyACM0	
+run:
+	killall screen; make monitor-arduino BOARD=mega2560 PORT=/dev/ttyACM0
