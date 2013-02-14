@@ -1,4 +1,6 @@
 //define DEBUG
+#define USE_RAM_BLOCK_MEMORY 1
+
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
 #include "HashMap.h"
@@ -9,7 +11,6 @@
 #include "HashFunctionProvider.h"
 #include <stdio.h>
 
-#define NR_OF_BLOCKS_TO_TEST 8
 
 typedef wiselib::OSMODEL Os;
 
@@ -129,11 +130,11 @@ public:
 		//testBlock();
 		sd->init();
 		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
-//		if(!blockTest()) debug_->debug("blockTest failed!");
-//		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
-//		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
-//		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
-		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
+		if(!blockTest()) debug_->debug("blockTest failed!");
+		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
+		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
+		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+//		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
 //		maxLoadFactorTest();
 //		generateGNUPLOTScripts();
 		//generateFillupAnimation();
@@ -159,7 +160,7 @@ public:
 		{
 			hashMap.putEntry(myfnv(i), i);
 			//debug_->debug("fnv %u : %u", i, myfnv(i));
-			if(i%10 == 0) debug_->debug("%u", i);
+			//if(i%10 == 0) debug_->debug("%u", i);
 		}
 
 		debug_->debug("reverseFNVTest test succeeds");
@@ -863,32 +864,6 @@ public:
 	}
 */
 
-	Message makeMessage(int m1, int m2)
-	{
-		Message m;
-		m.m1 = m1;
-		m.m2 = m2;
-		return m;
-	}
-
-	void printMessage(Message m)
-	{
-		debug_->debug("m1: %d\nm2: %d", m.m1, m.m2);
-		//debug_->debug("%s", m.string);
-		//debug_->debug("%f", m.pi);
-	}
-
-	void printBlock(wiselib::Block<int, Message> b)
-	{
-		int numValues = b.getNumValues();
-		debug_->debug("\n\nBlock:__________");
-		for(int i = 0; i < numValues; i++)
-		{
-			printMessage(b[i]);
-			debug_->debug("________________");
-		}
-	}
-
 	void printBlock(wiselib::Block<int, long> b)
 	{
 		int numValues = b.getNumValues();
@@ -904,19 +879,15 @@ public:
 	{
 		debug_->debug("Block %d:", nr);
 		Os::block_data_t buffer[sd->BLOCK_SIZE];
-		//sd->read(buffer, nr);
-		for(int i = 0; i < 50; i++)
+		sd->read(buffer, nr);
+		for(int i = 0; i < 50; i++) //only the first 50 bytes
 			debug_->debug("%3d", ((int)buffer[i]));
 	}
 
-
 private:
-	//static Os::Debug dbg;
 	Os::Debug::self_pointer_t debug_;
 	Os::BlockMemory::self_pointer_t sd;
 };
-
-//Os::Debug App::dbg = Os::Debug();
 
 wiselib::WiselibApplication<Os, App> app;
 void application_main(Os::AppMainParameter& value) {
