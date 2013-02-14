@@ -96,7 +96,9 @@ namespace wiselib {
 			}
 			
 			key_type find(mapped_type value) {
+				DBG("bpd.find %s", (char*)value);
 				typename HashSet::iterator it = hash_set_.find(value);
+				DBG("bpd.find %s done", (char*)value);
 				return it.chunk_address();
 			}
 			
@@ -108,6 +110,7 @@ namespace wiselib {
 			} // erase(k)
 			
 			mapped_type operator[](key_type k) {
+				//DBG("bpt: op[](%d)", k);
 				Entry& e = *reinterpret_cast<Entry*>(entry_buffer_);
 				read_entry(e, k);
 				e.check();

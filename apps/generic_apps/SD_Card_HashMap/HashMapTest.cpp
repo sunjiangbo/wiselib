@@ -133,10 +133,37 @@ public:
 //		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
 //		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
 //		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
 //		maxLoadFactorTest();
 //		generateGNUPLOTScripts();
 		//generateFillupAnimation();
 		exit(0);
+	}
+
+	uint32_t fib(uint16_t i)
+	{
+		if(i < 3)
+			return 1;
+		else
+			return fib(i-1) + fib(i-2);
+	}
+
+	bool reverseFNVTest()
+	{
+		sd->erase(0, 1000);
+		wiselib::HashMap<uint32_t, uint16_t> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, uint32_t>::fnv, 0, 1000);
+
+		wiselib::HashFunctionProvider<Os, uint16_t>::hashFunction myfnv = wiselib::HashFunctionProvider<Os, uint16_t>::fnv;
+
+		for(uint16_t i = 0; i < 1000; i++)
+		{
+			hashMap.putEntry(myfnv(i), i);
+			//debug_->debug("fnv %u : %u", i, myfnv(i));
+			if(i%10 == 0) debug_->debug("%u", i);
+		}
+
+		debug_->debug("reverseFNVTest test succeeds");
+		return true;
 	}
 
 	bool stupidSDCardTest()
@@ -290,24 +317,15 @@ public:
 			// --- writing to the block interface and reading again, also reading the meta info ---
 			block.setNextBlock(5);
 			block.setPrevBlock(7);
-			debug_->debug("raw block before writing:");
-			printRawBlock(0);
 			if(block.writeBack() != Os::SUCCESS)
 			{
 				debug_->debug("Writhing back the block to the sd card failed");
 				return false;
 			}
-			debug_->debug("raw block after writing:");
-			printRawBlock(0);
-
-			debug_->debug("Block before writing to sd:");
-			printBlock(block);
 		}
 
 		{
 			wiselib::Block<int, long> readBlock(0, sd);
-			debug_->debug("block after reading from sd:");
-			printBlock(readBlock);
 			long values4[initialLen - 3]	= {13, 1, 2, 3, 21};
 			int keys4[initialLen - 3]		= { 2, 7, 6, 5,  1};
 

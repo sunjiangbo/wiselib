@@ -25,10 +25,12 @@
 #include <boost/detail/endian.hpp>
 #include <stdint.h>
 
-#define _WHERESTR "%s:%d: "
-#define _WHEREARG __FILE__, __LINE__
-#define DBG2(...) printf(__VA_ARGS__); fflush(stdout);
-#define DBG(_fmt, ...) DBG2(_WHERESTR _fmt "\n", _WHEREARG, __VA_ARGS__)
+#define _WHERESTR "...%s:%d: "
+#define _WHEREARG (&__FILE__ [ (strlen(__FILE__) < 30) ? 0 : (strlen(__FILE__) - 30)]), __LINE__
+//#define _WHEREARG __FILE__, __LINE__
+#define DBG3(...) printf(__VA_ARGS__); fflush(stdout);
+#define DBG2(_fmt, ...) DBG3(_WHERESTR _fmt "%s\n", _WHEREARG, __VA_ARGS__)
+#define DBG(...) DBG2(__VA_ARGS__, "")
 
 #include "external_interface/default_return_values.h"
 #include "com_isense_radio.h"
@@ -39,8 +41,13 @@
 #include "pc_com_uart.h"
 #include "util/serialization/endian.h"
 
+#if USE_RAM_BLOCK_MEMORY
 #include "algorithms/block_memory/ram_block_memory.h"
-#include "pc_virtual_blockmemory.h"
+#endif
+
+#if USE_FILE_BLOCK_MEMORY
+#include "algorithms/block_memory/file_block_memory.h"
+#endif
 
 namespace wiselib {
 	class PCOsModel
@@ -70,8 +77,13 @@ namespace wiselib {
 			typedef PCComUartModel<PCOsModel, false> Uart;
 			typedef ComISenseRadioModel<PCOsModel, ISenseUart> Radio;
 			
-			typedef VirtualSD<PCOsModel> BlockMemory;
-			
+#if USE_RAM_BLOCK_MEMORY
+			typedef RamBlockMemory<PCOsModel> BlockMemory;
+#endif
+#if USE_FILE_BLOCK_MEMORY
+			typedef FileBlockMemory<PCOsModel> BlockMemory;
+#endif
+
 			static const Endianness endianness = WISELIB_ENDIANNESS;
 	};
 } // ns wiselib

@@ -165,6 +165,7 @@ namespace wiselib {
 							a = tree_->root_ = tree_->create_block(leaf);
 						}
 						else {
+							DBG("bpt ins read");
 							tree_->read_block(block_, a);
 						}
 						
@@ -194,6 +195,7 @@ namespace wiselib {
 							size_type p = block_.find(inner_kv_.key());
 							insert(block_[p].value(), a);
 							if(insert_up_) {
+								DBG("bpt ins read 2");
 								tree_->read_block(block_, a);
 								if(block_.full()) {
 									split<InnerBlock>(a, inner_kv_, parent);
@@ -287,6 +289,7 @@ namespace wiselib {
 							Block block_next; // = block; // re-use the cache for block
 							
 							// - load block1.next
+							DBG("bpt split read");
 							tree_->read_block(block_next, next);
 							block_next.set_prev(a2);
 							tree_->write_block(block_next, next);
@@ -329,6 +332,7 @@ namespace wiselib {
 							return;
 						}
 						else {
+							DBG("bpt erase read");
 							tree_->read_block(block_, a);
 						}
 						
@@ -357,6 +361,7 @@ namespace wiselib {
 							erase(block_[p].value(), a, new_left, new_right);
 							
 							if(erase_up_) {
+								DBG("bpt erase read 2");
 								tree_->read_block(block_, a);
 								p = block_.find(erase_key_);
 								block_.erase(p);
@@ -395,6 +400,7 @@ namespace wiselib {
 						key_type pivot_old, pivot_new;
 						
 						if(a_right != NO_ADDRESS) {
+							DBG("bpt merge read");
 							tree_->read_block(other, a_right);
 							a_other = a_right;
 							if(other.enough_for_borrow()) {
@@ -408,6 +414,7 @@ namespace wiselib {
 						}
 						
 						if(!could_borrow && a_left != NO_ADDRESS) {
+							DBG("merge read 2");
 							tree_->read_block(other, a_left);
 							a_other = a_left;
 							if(other.enough_for_borrow()) {
@@ -424,6 +431,7 @@ namespace wiselib {
 							tree_->write_block(block, a);
 							
 							InnerBlock &parent = *reinterpret_cast<InnerBlock*>(&other);
+							DBG("merge read 3");
 							tree_->read_block(parent, a_parent);
 							size_type idx = parent.find(pivot_old);
 							parent[idx].key() = pivot_new;
@@ -442,6 +450,7 @@ namespace wiselib {
 							
 								address_t block_next = block.next();
 								if(block_next != NO_ADDRESS) {
+							DBG("merge read 4");
 									tree_->read_block(other, block_next);
 									other.set_prev(a);
 									tree_->write_block(other, block_next);
@@ -455,6 +464,7 @@ namespace wiselib {
 								address_t other_next = other.next();
 								erase_key_ = other[0].key();
 								if(other_next != NO_ADDRESS) {
+							DBG("merge read 5");
 									tree_->read_block(other, other_next);
 									other.set_prev(a);
 									tree_->write_block(other, other_next);
@@ -506,6 +516,8 @@ namespace wiselib {
 			void clear(address_t a) {
 				if(a == NO_ADDRESS) { return; }
 				InnerBlock block;
+											DBG("clear read !!!");
+
 				read_block(block, a);
 				
 				if(block.marker_is(LEAF_MARKER)) {
@@ -610,6 +622,7 @@ namespace wiselib {
 			void update(iterator it, const mapped_type& new_value) {
 				if(it == end()) { return; }
 				LeafBlock block;
+				DBG("update read");
 				read_block(block, it.block_address());
 				block[it.index()] = typename LeafBlock::KVPair(block[it.index()].key(), new_value);
 				write_block(block, it.block_address());
@@ -735,6 +748,7 @@ namespace wiselib {
 				if(a == NO_ADDRESS) { return; }
 				
 				InnerBlock b;
+				DBG("bpt check read");
 				read_block(b, a);
 				if(b.marker_is(LEAF_MARKER)) {
 					LeafBlock &leaf = *reinterpret_cast<LeafBlock*>(&b);
@@ -798,9 +812,7 @@ namespace wiselib {
 			
 			template<typename Block>
 			void write_block(Block& b, address_t a) {
-				assert(a < BlockMemory::SIZE || a == NO_ADDRESS);
-				
-				block_memory_->invalidate(a);
+				assert(a < BlockMemory::SIZE || a == NO_ADDRESS);				
 				block_memory_->write(reinterpret_cast<block_data_t*>(&b), a);
 			}
 			
@@ -832,6 +844,7 @@ namespace wiselib {
 				InnerBlock &inner = *reinterpret_cast<InnerBlock*>(&block);
 				
 				while(a != NO_ADDRESS) {
+					DBG("find leaf read");
 					read_block(inner, a);
 					if(is_leaf(inner)) {
 						return a;

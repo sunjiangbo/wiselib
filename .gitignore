@@ -3,4 +3,16 @@
 *.swp
 *.pyc
 Makefile.local
-out*
+wiselib.testing/config_testing.h
+wiselib.stable/config.h
+bin/
+out/
+build/
+*.so
+*.pdf
+doxygen_output/
+Wiselib.config
+Wiselib.creator
+Wiselib.creator.user
+Wiselib.files
+Wiselib.includes

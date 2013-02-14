@@ -215,6 +215,15 @@ namespace wiselib
       {
          finish_ = start_;
       }
+      // --------------------------------------------------------------------
+      iterator find( const value_type& x )
+      {
+         for(iterator it = begin(); it != end(); ++it) {
+            if(*it == x) { return it; }
+         }
+         return end();
+      }
+
       ///@}
 
    protected:

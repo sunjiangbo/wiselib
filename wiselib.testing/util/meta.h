@@ -13,8 +13,8 @@
  */
 #define BIN(X) Binary< 0 ## X >::value
 
-template<unsigned long long N>
-struct Binary { enum { value = (N % 8) + 2 * Binary<N / 8>::value }; };
+template<unsigned long long N_>
+struct Binary { enum { value = (N_ % 8) + 2 * Binary<N_ / 8>::value }; };
 template<>
 struct Binary<0> { enum { value = 0}; };
 
@@ -33,7 +33,7 @@ struct Binary<0> { enum { value = 0}; };
 
 #define ENABLE_IF(C, T) typename enable_if_c<C, T>::type
 
-template<bool C, typename T = void>
+template<bool C_, typename T = void>
 struct enable_if_c; // { typedef T type; };
 
 template<typename T>
@@ -41,7 +41,6 @@ struct enable_if_c<true, T> { typedef T type; };
 
 template<typename Cond, class T = void>
 struct enable_if : public enable_if_c<Cond::value, T> { };
-
 
 /*
  * STATIC PRINT
@@ -100,6 +99,10 @@ struct TreeNodes<x, base, true> { static const size_t value = 1; };
 /**
  * Find the smallest unsigned integer type that can represent at least
  * \ref N_ different values.
+ * 
+ * 
+ * typedef SmallUint< 300 >::t type_that_holds_300_values;
+ * 
  */
 template< unsigned long long N_>
 struct SmallUint {
@@ -125,7 +128,7 @@ template<> struct SmallUint<0x100000001LL> { typedef ::uint64_t t; };
 
 
 /**
- * Find the unisigned integer type that has exactly N bytes (if exists).
+ * Find the unisigned integer type that has exactly N_ bytes (if exists).
  */
 template<int N_> struct Uint { };
 template<> struct Uint<1> { typedef ::uint8_t t; };

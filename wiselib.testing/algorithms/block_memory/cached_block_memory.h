@@ -20,6 +20,8 @@
 #ifndef CACHED_BLOCK_MEMORY_H
 #define CACHED_BLOCK_MEMORY_H
 
+#include <util/meta.h>
+
 namespace wiselib {
 	
 	/**
@@ -32,10 +34,11 @@ namespace wiselib {
 	template<
 		typename OsModel_P,
 		typename BlockMemory_P,
-		int CACHE_SIZE_P
+		int CACHE_SIZE_P,
+		int SPECIAL_AREA_SIZE_P,
+		bool WRITE_THROUGH_P = false
 	>
-	class CachedBlockMemory : public BlockMemory_P {
-		
+	class CachedBlockMemory : protected BlockMemory_P {
 		public:
 			typedef OsModel_P OsModel;
 			typedef typename OsModel::block_data_t block_data_t;
@@ -43,16 +46,26 @@ namespace wiselib {
 			
 			typedef BlockMemory_P BlockMemory;
 			typedef typename BlockMemory::address_t address_t;
-			typedef typename BlockMemory::ChunkAddress ChunkAddress;
-			
-			typedef CachedBlockMemory<OsModel_P, BlockMemory_P, CACHE_SIZE_P> self_type;
+//			typedef typename BlockMemory::ChunkAddress ChunkAddress;
+
+			typedef CachedBlockMemory<OsModel_P, BlockMemory_P, CACHE_SIZE_P, SPECIAL_AREA_SIZE_P, WRITE_THROUGH_P> self_type;
 			typedef self_type* self_pointer_t;
 			
 			enum {
 				CACHE_SIZE = CACHE_SIZE_P,
-				BLOCK_SIZE = BlockMemory::BLOCK_SIZE
+				SPECIAL_AREA_SIZE = SPECIAL_AREA_SIZE_P,
+				WRITE_THROUGH = WRITE_THROUGH_P,
+				BLOCK_SIZE = BlockMemory::BLOCK_SIZE,
+				SIZE = BlockMemory::SIZE,
+				BUFFER_SIZE = BlockMemory::BUFFER_SIZE,
+				NO_ADDRESS = BlockMemory::NO_ADDRESS
 			};
 			
+			enum {
+				SUCCESS = BlockMemory::SUCCESS,
+				ERR_UNSPEC = BlockMemory::ERR_UNSPEC
+			};
+
 			class CacheEntry {
 				public:
 					void mark_used() {
@@ -75,26 +88,6 @@ namespace wiselib {
 					size_type date_;
 			};
 			
-			
-			/*
-			typedef CachedBlockMemory<OsModel_P, BlockMemory_P> self_type;
-			typedef self_type* self_pointer_t;
-			
-			enum {
-				BLOCK_SIZE = BlockMemory::BLOCK_SIZE,
-				BUFFER_SIZE = BlockMemory::BUFFER_SIZE,
-				SIZE = BlockMemory::SIZE
-			};
-			
-			enum {
-				SUCCESS = BlockMemory::SUCCESS,
-				ERR_UNSPEC = BlockMemory::ERR_UNSPEC
-			};
-			
-			enum {
-				NO_ADDRESS = BlockMemory::NO_ADDRESS
-			*/
-			
 			/*
 			 * Dirty hack:
 			 * this init() method is tailored to specifically copy
@@ -104,51 +97,93 @@ namespace wiselib {
 			 * (then we need to care about whether the 'parent' class is
 			 * allocating or not!)
 			 */
-			template<typename BM>
+			/*template<typename BM>
 			int init(BM* block_memory, typename OsModel::Debug *debug) {
 				memset(cache_, 0, sizeof(cache_));
 				BlockMemory::init(block_memory, debug);
-				return OsModel::SUCCESS;
+				start_ = 0;
+				end_ = (address_t)(-1);
+				return SUCCESS;
+			}*/
+			int init() {
+				memset(cache_, 0, sizeof(cache_));
+				start_ = 0;
+				end_ = (address_t)(-1);
+				reads_ = 0;
+				writes_ = 0;
+				return SUCCESS;
 			}
 			
+			//
+			// Chunk operations
+			//
+
+			// Make sure this is not being used on top of a chunk
+			// allocator, as the chunk-wise access would undermine
+			// our cache and lead to inconsintencies!
+
+//			void create_chunks(block_data_t*, size_type) { BlockMemory::READ_THE_SOURCE_LUKE; }
+//			void allocate_chunks(size_type) { BlockMemory::READ_THE_SOURCE_LUKE; }
+//			void free_chunks(int, size_type) { BlockMemory::READ_THE_SOURCE_LUKE; }
+//			void write_chunks(block_data_t*, int,  size_type) { BlockMemory::READ_THE_SOURCE_LUKE; }
+
+/*
 			ChunkAddress create_chunks(block_data_t* buffer, size_type bytes) {
 				ChunkAddress r = BlockMemory::create_chunks(buffer, bytes);
 				invalidate(r.address());
 				return r;
 			}
 			
+			ChunkAddress allocate_chunks(size_type n) {
+				ChunkAddress r = BlockMemory::allocate_chunks(n);
+				invalidate(r.address());
+				return r;
+			}
+
+			void free_chunks(ChunkAddress a, size_type bytes) {
+				invalidate(a.address());
+				BlockMemory::free_chunks(a, bytes);
+			}
+
 			void write_chunks(block_data_t* buffer, ChunkAddress addr, size_type bytes) {
 				BlockMemory::write_chunks(buffer, addr, bytes);
 				invalidate(addr.address());
 			}
-			
+*/
+			//
+			// Block operations
+			//
+
 			int write(block_data_t* buffer, address_t a) {
 				update(buffer, a);
-				BlockMemory::write(buffer, a);
-				return OsModel::SUCCESS;
+				if(WRITE_THROUGH) {
+					physical_write(buffer, a);
+				}
+				else {
+					assert(cache_[find(a)].used() && cache_[find(a)].address() == a);
+				}
+				return SUCCESS;
+			}
+
+			int read(block_data_t* buffer, address_t a) {
+				memcpy(buffer, get(a), BLOCK_SIZE);
+				return SUCCESS;
 			}
 			
 			block_data_t* get(address_t a) {
 				size_type i = find(a);
 				if(cache_[i].used() && cache_[i].address() == a) {
-					// <DEBUG>
-					block_data_t buf[BlockMemory::BUFFER_SIZE];
-					BlockMemory::read(buf, a);
-					for(size_type j = 0; j < BlockMemory::BUFFER_SIZE; j++) {
-						assert(buf[j] == cache_[i].data()[j]);
-					}
-					// </DEBUG>
-				
-					return cache_[i].data();
+					// cache hit
 				}
-				
-				cache_[i].mark_used();
-				cache_[i].address() = a;
-				BlockMemory::read(cache_[i].data(), a);
-				
-				
-				
-				
+				else {
+					// cache miss
+					if(!WRITE_THROUGH && cache_[i].used()) {
+						physical_write(cache_[i].data(), cache_[i].address());
+					}
+					cache_[i].mark_used();
+					cache_[i].address() = a;
+					physical_read(cache_[i].data(), a);
+				}
 				return cache_[i].data();
 			}
 			
@@ -156,15 +191,29 @@ namespace wiselib {
 				size_type i = find(a);
 				CacheEntry &e = cache_[i];
 				
-				// only update if a already in the cache or
-				// free slot available!
-				if(e.used() && (e.address() != a)) { return; }
-				
+				if((e.used() && (e.address() != a))) {
+					// only update if a already in the cache or
+					// free slot available for write-through.
+					// for write-back, force the update
+					if(WRITE_THROUGH) {
+						return;
+					}
+					else {
+						physical_write(e.data(), e.address());
+					}
+				}
+
 				memcpy(e.data(), new_data, BLOCK_SIZE);
 				e.mark_used();
 				e.address() = a;
 			}
 			
+			/**
+			 * @brief Throw away any cached version of the block at a without
+			 * writing it back. Useful to free cache space if you know you
+			 * will not use the block anymore.
+			 * @param a
+			 */
 			void invalidate(address_t a) {
 				size_type i = find(a);
 				CacheEntry &e = cache_[i];
@@ -178,8 +227,17 @@ namespace wiselib {
 					(cache_[find(a)].address() != a)
 				);
 			}
+
+			void set_special_range(address_t start, address_t end) {
+				start_ = start;
+				end_ = end;
+			}
+
+			BlockMemory& block_memory() { return *(BlockMemory*)this; }
 		
 		private:
+
+			bool in_special_area(address_t a) { return a >= start_ && a < end_; }
 				
 			/**
 			 * Returns slot containing block for given address a.
@@ -190,8 +248,17 @@ namespace wiselib {
 			size_type find(address_t a) {
 				size_type lowest_idx = 0, lowest_date = -1;
 				size_type unused_idx = -1;
-				
-				for(size_type i = 0; i < CACHE_SIZE; i++) {
+
+				size_type start, end;
+				if(in_special_area(a)) {
+					start = 0; end = SPECIAL_AREA_SIZE;
+				}
+				else {
+					start = SPECIAL_AREA_SIZE;
+					end = CACHE_SIZE;
+				}
+
+				for(size_type i = start; i < end; i++) {
 					CacheEntry &e = cache_[i];
 					
 					if(e.used()) {
@@ -207,18 +274,43 @@ namespace wiselib {
 				if(unused_idx != (size_type)-1) { return unused_idx; }
 				return lowest_idx;
 			}
+
+			int physical_write(block_data_t* data, address_t a) {
+				DBG("write %ld", a);
+				writes_++;
+				if(writes_ % 100 == 0) { print_stats();	}
+				return BlockMemory::write(data, a);
+			}
+
+			int physical_read(block_data_t* data, address_t a) {
+				DBG("read %ld", a);
+				reads_++;
+				if(reads_ % 100 == 0) { print_stats();	}
+				return BlockMemory::read(data, a);
+			}
+
+
+			void print_stats() {
+				DBG("CBM phys reads: %ld phys writes: %ld", reads_, writes_);
+			}
 			
 			CacheEntry cache_[CACHE_SIZE];
+			address_t start_;
+			address_t end_;
+			size_type reads_;
+			size_type writes_;
 			
 	}; // CachedBlockMemory
 	
 	template<
 		typename OsModel_P,
 		typename BlockMemory_P,
-		int CACHE_SIZE_P
+		int CACHE_SIZE_P,
+		int SPECIAL_AREA_SIZE_P,
+		bool WRITE_THROUGH_P
 	>
-	typename CachedBlockMemory<OsModel_P, BlockMemory_P, CACHE_SIZE_P>::size_type
-	CachedBlockMemory<OsModel_P, BlockMemory_P, CACHE_SIZE_P>::CacheEntry::current_date_ = 0;
+	typename CachedBlockMemory<OsModel_P, BlockMemory_P, CACHE_SIZE_P, SPECIAL_AREA_SIZE_P, WRITE_THROUGH_P>::size_type
+	CachedBlockMemory<OsModel_P, BlockMemory_P, CACHE_SIZE_P, SPECIAL_AREA_SIZE_P, WRITE_THROUGH_P>::CacheEntry::current_date_ = 0;
 }
 
 #endif // CACHED_BLOCK_MEMORY_H

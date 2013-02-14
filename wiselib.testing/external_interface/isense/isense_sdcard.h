@@ -49,6 +49,7 @@ namespace wiselib {
 			typedef typename OsModel::block_data_t block_data_t;
 			typedef typename OsModel::size_t size_type;
 			typedef ::uint32_t address_t;
+			typedef address_t ChunkAddress;
 			typedef iSenseSdCard<OsModel> self_type;
 			typedef self_type* self_pointer_t;
 			
@@ -64,6 +65,9 @@ namespace wiselib {
 				ERR_UNSPEC = OsModel::ERR_UNSPEC
 			};
 			
+			iSenseSdCard() : sdcard_(GET_OS) {
+			}
+
 			iSenseSdCard(isense::Os& os) : sdcard_(os) {
 			}
 			
@@ -124,6 +128,8 @@ namespace wiselib {
 			
 			int write(block_data_t* buffer, address_t start_block) { return write(buffer, start_block, 1); }
 		
+			isense::SDCard& isense_sd() { return sdcard_; }
+
 		private:
 			isense::SDCard sdcard_;
 		

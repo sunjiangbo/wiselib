@@ -33,9 +33,9 @@ public:
 		ValueType value;
 	} keyValuePair;
 
-	//typedef SmallUint<(blocksize - sizeof(header)) / sizeof(keyValuePair)>  IndexType; //TODO: how to solve this with template magic? we have circular references there!
-	//typedef SmallUint<(blocksize - (sizeof(Os::size_t) * 2 + sizeof(long) + 8)) / sizeof(keyValuePair)> index_t; //TODO: not working
-	typedef uint16_t index_t;
+//	typedef SmallUint<(blocksize - sizeof(header)) / sizeof(keyValuePair)>  index_t; //TODO: how to solve this with template magic? we have circular references there!
+	typedef SmallUint<(blocksize - (sizeof(Os::size_t) * 2 + sizeof(long) + 8)) / sizeof(keyValuePair)> index_t; //TODO: not working
+//	typedef uint16_t index_t;
 
 	/*
 	 * The header to be stored at the beginning of each block

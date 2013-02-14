@@ -27,6 +27,9 @@
 #include "external_interface/isense/isense_distance.h"
 #include "external_interface/isense/isense_duty_cycling.h"
 #include "external_interface/isense/isense_extended_debug.h"
+#include "external_interface/isense/isense_radio.h"
+#include "external_interface/isense/isense_debug.h"
+#include "external_interface/isense/isense_clock.h"
 #include "external_interface/isense/isense_extended_time.h"
 #include "external_interface/isense/isense_extended_txradio.h"
 #include "external_interface/isense/isense_extended_txradio_isensestyle.h"
@@ -47,11 +50,17 @@
 #include <util/allocators/malloc_free_allocator.h>
 
 #include <isense/util/get_os.h>
-#define _WHERESTR "%s:%d: "
-#define _WHEREARG __FILE__, __LINE__
-#define DBG2(...) GET_OS.debug(__VA_ARGS__)
-#define DBG(_fmt, ...) DBG2(_WHERESTR _fmt, _WHEREARG, __VA_ARGS__)
 
+#if WISELIB_DISABLE_DEBUG_MESSAGES
+	#define DBG(...)
+#else
+	#define _WHERESTR "...%s:%d: "
+	#define _WHEREARG (&__FILE__ [ (strlen(__FILE__) < 30) ? 0 : (strlen(__FILE__) - 30)]), __LINE__
+	//#define _WHEREARG __FILE__, __LINE__
+	#define DBG3(...) GET_OS.debug(__VA_ARGS__);
+	#define DBG2(_fmt, ...) DBG3(_WHERESTR _fmt "%s", _WHEREARG, __VA_ARGS__)
+	#define DBG(...) DBG2(__VA_ARGS__, "")
+#endif
 
 namespace wiselib
 {
@@ -83,6 +92,7 @@ namespace wiselib
       typedef iSenseRandModel<iSenseOsModel> Rand;
       typedef iSenseTimerModel<iSenseOsModel> Timer;
       typedef iSenseSerialComUartModel<iSenseOsModel> Uart;
+      typedef iSenseDistanceModel<iSenseOsModel> Distance;
       typedef iSenseSerialComBufferUartModel<iSenseOsModel> B_Uart;
       typedef iSenseDutyCycling<iSenseOsModel> DutyCycling;
 

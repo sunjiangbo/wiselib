@@ -32,18 +32,20 @@ namespace wiselib {
 	}
 	
 	/**
-	 * @brief MultiSet implementation that utilizes a map and hash values of the
-	 * set elements.
+	 * @brief MultiSet implementation that utilizes a B+ tree and hash values of
+	 * the contained elements.
 	 * 
 	 * @ingroup
 	 * 
-	 * @tparam Map_P A hash_t -> value_type map.
+	 * @tparam UNIQUE_P if true, only ever insert each value at most once into
+	 * the set (i.e. in this case this is not a multiset but a normal set.)
 	 */
 	template<
 		typename OsModel_P,
 		typename BlockMemory_P,
 		typename Hash_P,
 		typename Value_P,
+		bool UNIQUE_P = false,
 		typename Debug_P = typename OsModel_P::Debug
 	>
 	class BPlusHashSet {
@@ -59,13 +61,14 @@ namespace wiselib {
 			typedef typename Hash::hash_t hash_t;
 			typedef Debug_P Debug;
 			
-			typedef BPlusHashSet<OsModel_P, BlockMemory_P, Hash_P, Value_P> self_type;
+			typedef BPlusHashSet<OsModel_P, BlockMemory_P, Hash_P, Value_P, UNIQUE_P, Debug_P> self_type;
 			typedef self_type self_pointer_t;
 			
 			typedef BPlusTree<OsModel, BlockMemory, hash_t, ChunkAddress> Tree;
 			typedef size_type refcount_t;
 			typedef Payload<value_type> PL;
 			
+			enum { UNIQUE = UNIQUE_P };
 			enum { SUCCESS = OsModel::SUCCESS, ERR_UNSPEC = OsModel::ERR_UNSPEC };
 			
 		public:
@@ -166,10 +169,10 @@ namespace wiselib {
 				public:
 					iterator() : entry_address_(ChunkAddress::invalid()) {
 					}
-					iterator(self_type *set, typename Tree::iterator tree_iterator,
+					iterator(self_type *set, const typename Tree::iterator& tree_iterator,
 							ChunkAddress entry_address = ChunkAddress::invalid())
 						: set_(set), tree_iterator_(tree_iterator), entry_address_(entry_address) {
-						if(tree_iterator_ == set->tree_.end()) {
+						if(tree_iterator_ == set->tree().end()) {
 							assert(entry_address == ChunkAddress::invalid());
 							entry_address_ = ChunkAddress::invalid();
 						}
@@ -198,7 +201,7 @@ namespace wiselib {
 						}
 						else {
 							++tree_iterator_;
-							if(tree_iterator_ == set_->tree_.end()) {
+							if(tree_iterator_ == set_->tree().end()) {
 								entry_address_ = ChunkAddress::invalid();
 							}
 							else {
@@ -269,11 +272,12 @@ namespace wiselib {
 			iterator begin() { return iterator(this, tree_.begin()); }
 			iterator end() { return iterator(this, tree_.end()); }
 			
-			size_type size() const { return tree_.size(); }
+			size_type size() { return tree_.size(); }
 			size_type max_size() const { return tree_.max_size(); }
 			bool empty() { return size() == 0; }
 			
 			iterator insert(const value_type& v) {
+			//iterator insert(value_type v) {
 				check();
 				hash_t h = hash_value(v);
 				
@@ -284,24 +288,31 @@ namespace wiselib {
 				typename Tree::iterator it = tree_.find(h);
 				if(it == tree_.end()) {
 					addr = create_entry(entry, v);
+					assert(addr != ChunkAddress::invalid());
 					it = tree_.insert(typename Tree::value_type(h, addr)).first;
 				}
 				else {
+					// See if we can find the entry in the linked list of entries with this hash
 					ChunkAddress prev = ChunkAddress::invalid();
 					for(addr = it->value(); addr != ChunkAddress::invalid(); addr = entry.next()) {
+						DBG("insert list read entry");
 						read_entry(entry, addr);
 						if(Compare<value_type>::cmp(entry.payload(), v) == 0) {
-							entry.set_refcount(entry.refcount() + 1);
-							write_entry(entry, addr);
+							if(!UNIQUE) {
+								entry.set_refcount(entry.refcount() + 1);
+								write_entry(entry, addr);
+							}
 							break;
 						}
 						prev = addr;
 					} // for addr
 					
+					// no --> create a new entry
 					if(addr == ChunkAddress::invalid()) {
 						block_data_t buffer2[BlockMemory::BUFFER_SIZE];
 						Entry &entry2 = *reinterpret_cast<Entry*>(buffer2);
 						addr = create_entry(entry2, v);
+						assert(addr != ChunkAddress::invalid());
 						write_entry(entry2, addr);
 						
 						if(prev != ChunkAddress::invalid()) {
@@ -311,7 +322,7 @@ namespace wiselib {
 					} // if addr == ChunkAddress::invalid()
 				} // if it == end()
 				
-				assert(addr == ChunkAddress::invalid() || addr.address() >= 6000);
+				//assert(addr == ChunkAddress::invalid() || addr.address() >= 6000);
 				
 				iterator r = iterator(this, it, addr); 
 				r.check();
@@ -325,6 +336,7 @@ namespace wiselib {
 				Entry &entry = *reinterpret_cast<Entry*>(buffer);
 				ChunkAddress k = it.chunk_address();
 				
+				DBG("erase read entry");
 				read_entry(entry, k);
 				assert(entry.refcount() > 0);
 				entry.set_refcount(entry.refcount() - 1);
@@ -337,12 +349,14 @@ namespace wiselib {
 					assert(tree_it != tree_.end());
 					ChunkAddress addr, prev = ChunkAddress::invalid();
 					for(addr = tree_it->value(); addr != ChunkAddress::invalid() && addr != k; addr = entry.next()) {
+						DBG("erase read entry list");
 						read_entry(entry, addr);
 						prev = addr;
 					} // for
 					assert(addr == k);
 					
 					if(prev == ChunkAddress::invalid()) {
+						DBG("erase read entry noprev");
 						read_entry(entry, k);
 						if(entry.next() == ChunkAddress::invalid()) {
 							tree_.erase(tree_it);
@@ -354,10 +368,12 @@ namespace wiselib {
 					else {
 						block_data_t buffer2[BlockMemory::BUFFER_SIZE];
 						Entry &entry2 = *reinterpret_cast<Entry*>(buffer2);
+						DBG("erase read entry prev");
 						read_entry(entry2, k);
 						entry.set_next(entry2.next());
 						write_entry(entry, prev);
 					}
+					DBG("erase read entry free");
 					read_entry(entry, k);
 					block_memory_->free_chunks(k, entry.total_length());
 				
@@ -372,15 +388,22 @@ namespace wiselib {
 				
 				hash_t h = hash_value(v);
 				typename Tree::iterator it = tree_.find(h);
+
+				if(it == tree().end()) {
+					return end();
+				}
+
 				ChunkAddress k = it->second;
 				ChunkAddress addr;
 				block_data_t buffer[BlockMemory::BUFFER_SIZE];
 				Entry &entry = *reinterpret_cast<Entry*>(buffer);
+				DBG("find read entry");
 				read_entry(entry, k);
 				
 				for(addr = it->value();
 						addr != ChunkAddress::invalid() && Compare<value_type>::cmp(entry.payload(), v) != 0;
 						addr = entry.next()) {
+					DBG("find read entry list");
 					read_entry(entry, addr);
 				} // for
 				return iterator(this, it, addr);
@@ -395,11 +418,13 @@ namespace wiselib {
 				ChunkAddress addr;
 				block_data_t buffer[BlockMemory::BUFFER_SIZE];
 				Entry &entry = *reinterpret_cast<Entry*>(buffer);
+				DBG("count read entry");
 				read_entry(entry, k);
 				
 				for(addr = it->value();
 						addr != ChunkAddress::invalid() && Compare<value_type>::cmp(entry.payload(), v) != 0;
 						addr = entry.next()) {
+					DBG("count list read entry");
 					read_entry(entry, addr);
 				} // for
 				return entry.refcount();
@@ -419,22 +444,18 @@ namespace wiselib {
 			}
 			
 			ChunkAddress create_entry(Entry& e, const value_type& value) {
-				
 				e.set_payload(value);
 				e.set_next(ChunkAddress::invalid());
 				e.set_refcount(1);
 				e.check();
 				ChunkAddress r = block_memory_->create_chunks(reinterpret_cast<block_data_t*>(&e), e.total_length());
 				
-			#if DEBUG_OSTREAM
-				std::cout << "creating entry: " << e << " -> " << r << std::endl;
-			#endif
-				
 				e.check();
 				return r;
 			}
 			
 			void read_entry(Entry& e, ChunkAddress addr) {
+				assert(addr != ChunkAddress::invalid());
 				block_memory_->read_chunks(reinterpret_cast<block_data_t*>(&e), addr, sizeof(Entry));
 				block_memory_->read_chunks(reinterpret_cast<block_data_t*>(&e), addr, e.total_length());
 				e.check();
@@ -442,17 +463,6 @@ namespace wiselib {
 			
 			void write_entry(Entry& e, ChunkAddress addr) {
 				e.check();
-				//block_memory().invalidate(addr.address());
-				
-			#if DEBUG_OSTREAM
-				std::cout << "writing entry: " << e << " to " << addr << std::endl;
-			#endif
-				//DBG("write entry l=%d [%x %x %x %x ...] -> %d.%d",
-						//e.total_length(),
-						//reinterpret_cast<block_data_t*>(&e)[0],
-						//reinterpret_cast<block_data_t*>(&e)[1],
-						//reinterpret_cast<block_data_t*>(&e)[2],
-						//reinterpret_cast<block_data_t*>(&e)[3], addr.address(), addr.offset());
 				block_memory_->write_chunks(reinterpret_cast<block_data_t*>(&e), addr, e.total_length());
 			}
 			
