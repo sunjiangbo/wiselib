@@ -2,9 +2,7 @@
 #define EXTERNAL_STACK_HPP
 
 #include <external_interface/external_interface.h>
-#include <external_interface/arduino/arduino_sdcard.h>
-#include <external_interface/arduino/arduino_debug.h>
-#include <external_interface/arduino/arduino_clock.h>
+//#include <external_interface/arduino/arduino_clock.h>
 #define BLOCK_SIZE 512
 //#define DEBUG
 #define INFO
@@ -13,12 +11,16 @@
 
 using namespace wiselib;
 //14011050
-typedef wiselib::OSMODEL Os;
-typedef typename Os::block_data_t block_data_t;
+
 
 
 template<typename Type_P, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
 class ExternalStack{
+
+    public:
+	typedef wiselib::OSMODEL Os;
+	typedef typename Os::block_data_t block_data_t;
+
     private:
 	typedef Type_P T;
 
