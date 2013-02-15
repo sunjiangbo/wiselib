@@ -129,11 +129,12 @@ public:
 		//testBlockRemoving();
 		//testBlock();
 		sd->init();
-		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
-		if(!blockTest()) debug_->debug("blockTest failed!");
-		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
-		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
-		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+		generateGNUPLOTData();
+//		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
+//		if(!blockTest()) debug_->debug("blockTest failed!");
+//		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
+//		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
+//		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
 //		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
 //		maxLoadFactorTest();
 //		generateGNUPLOTScripts();
@@ -843,6 +844,24 @@ public:
 			counter++;
 		}
 
+	}
+
+	void generateGNUPLOTData()
+	{
+		FILE* file = fopen("blockmem.dat", "w");
+		sd->erase(0, 1000);
+		wiselib::HashMap<long, Value3> hashMap4(debug_, sd, wiselib::HashFunctionProvider<Os, long>::fnv, 0, 300);
+
+		Value3 dummy;
+		for(long i = 0; i < 300; i++)
+		{
+			hashMap4.putEntry(i, dummy);
+		}
+
+//		fillupHashMap<Value3>(&hashMap4);
+
+		sd->printGNUPLOTOutputBytes(0, 100, file);
+		fclose(file);
 	}
 /*
 	void generateFillupAnimation()

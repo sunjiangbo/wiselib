@@ -261,6 +261,19 @@ public:
 		printf("|\n");
 	}
 
+	void printGNUPLOTOutputBytes(int fromBlock, int toBlock, FILE* f)
+	{
+		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
+		for(int block = toBlock; block >= fromBlock; block--)
+			{
+				for(int j = 0; j < blocksize; j++)
+				{
+					fprintf(f, "%s ", ((int)memory[block][j] == 0 ? "1" : "0"));
+				}
+				fprintf(f, "\n");
+			}
+	}
+
 	void reset()
 	{
 		for (int unsigned i = 0; i < nrOfBlocks; i++)
