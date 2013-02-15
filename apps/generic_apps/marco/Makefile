@@ -17,6 +17,9 @@ include ../Makefile
 
 all: compile flash run
 
+allpc: pc
+	out/pc/./bdmmu_test_app
+
 compile:
 	make arduino BOARD=mega2560
 
@@ -25,3 +28,6 @@ flash:
 
 run:
 	killall screen; make monitor-arduino BOARD=mega2560 PORT=/dev/ttyACM0
+
+clean4git:
+	rm -f *~; rm -rf out;

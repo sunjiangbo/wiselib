@@ -1,8 +1,12 @@
+#define USE_RAM_BLOCK_MEMORY 1
+
 /*
  * Test application for BDMMU
  */
 #include <external_interface/external_interface.h>
 #include "BDMMU.hpp"
+//#include <external_interface/default_return_values.h>
+
 
 typedef wiselib::OSMODEL OsModel;
 
@@ -68,7 +72,7 @@ class BDMMUTestApp
 		debug_->debug("txt_in:\n");
 		
 		for (int i = 0; i < 9; ++i) {
-			debug_->debug("       %s\n", &txt_in[120*i]);
+			debug_->debug("	 %s\n", &txt_in[120*i]);
 		}
 		
 		//debug_->debug("Write status = %d\n", mmu.write(txt_in, persistence_test_block2, 1));
@@ -122,7 +126,7 @@ class BDMMUTestApp
 		debug_->debug("txt_out:\n");
 		
 		for (int i = 0; i < 9; ++i) {
-			debug_->debug("       %s\n", &txt_out[120*i]);
+			debug_->debug("	 %s\n", &txt_out[120*i]);
 		}
 		
 		debug_->debug("rw_sucess = %d\n", rw_success);
@@ -131,9 +135,19 @@ class BDMMUTestApp
 		
 		debug_->debug("free vBlock 20 = %d", mmu.block_free(20));
 		
+		debug_->debug("Test: ERR_IO_HATES_YOU = %d\n", return_value_test());
+		
+		
+		exit(0);
+		
 	}
-      // --------------------------------------------------------------------
-      
+	
+	int return_value_test() {
+		return OsModel::ERR_IO_HATES_YOU;
+	}
+		
+	// --------------------------------------------------------------------
+	
    private:
 
 	OsModel::Debug::self_pointer_t debug_;
