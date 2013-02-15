@@ -1,1 +1,0 @@
-Alle Dateien in diesem Ordner sind Fragmente, teils unfertig. Sie sind nicht annaehrend abgabefertig, enthalten aber bereits die wichtigsten Dinge. Man kann die Dateien also eher als eine Vorschau sehen. Die Dateien werden nun iterativ bis zu 'abgabefertigkeit' verbessert. 
