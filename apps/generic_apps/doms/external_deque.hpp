@@ -1,9 +1,9 @@
 #ifndef EXTERNAL_QUEUE_HPP
 #define EXTERNAL_QUEUE_HPP
 #include <external_interface/external_interface.h>
-#include <external_interface/arduino/arduino_sdcard.h>
-#include <external_interface/arduino/arduino_debug.h>
-#include <external_interface/arduino/arduino_clock.h>
+//#include <external_interface/arduino/arduino_sdcard.h>
+//#include <external_interface/arduino/arduino_debug.h>
+//#include <external_interface/arduino/arduino_clock.h>
 #define BLOCK_SIZE 512
 
 //#define DEBUG
@@ -11,8 +11,7 @@
 
 using namespace wiselib;
 //14011050
-typedef wiselib::OSMODEL Os;
-typedef typename Os::block_data_t block_data_t;
+
 
 /**
  * Eine extrem IO-effiziente Implementierung einer Queue fuer die Wiselib. Ihr Nachteil ist leider ein relativ hoher RAM-Verbrauch 
@@ -24,6 +23,11 @@ typedef typename Os::block_data_t block_data_t;
  */
 template<class T, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
 class ExternalQueue{
+
+    public:
+	typedef wiselib::OSMODEL Os;
+	typedef typename Os::block_data_t block_data_t;
+
     private:
 	wiselib::ArduinoSdCard<Os>* sd_;
 	const uint16_t MAX_ITEMS_PER_BLOCK = BLOCK_SIZE /sizeof(T);

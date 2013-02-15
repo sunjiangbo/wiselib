@@ -2,8 +2,6 @@
  * Test application for BDMMU
  */
 #include <external_interface/external_interface.h>
-#include <external_interface/arduino/arduino_sdcard.h>
-#include <external_interface/arduino/arduino_debug.h>
 #include "BDMMU.hpp"
 
 typedef wiselib::OSMODEL OsModel;
@@ -11,16 +9,16 @@ typedef wiselib::OSMODEL OsModel;
 class BDMMUTestApp
 {
    public:
-	void init( Os::AppMainParameter& value )
+	void init( OsModel::AppMainParameter& value )
 	{
-		debug_ = &wiselib::FacetProvider<Os, Os::Debug>::get_facet( value );
+		debug_ = &wiselib::FacetProvider<OsModel, OsModel::Debug>::get_facet( value );
 	
 		debug_->debug("\n\n >>> Launching application! <<< \n\n" );
 		
-		sd_ = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
+		sd_ = &wiselib::FacetProvider<OsModel, OsModel::BlockMemory>::get_facet(value);
 		sd_->init();
 		
-		BDMMU<OsModel, 0, 8, OsModel::Debug, 2, 512> mmu(sd_, debug_, false, true);
+		BDMMU<OsModel, 0, 8, OsModel::Debug, OsModel::BlockMemory, 2, 512> mmu(sd_, debug_, false, true);
 		
 		int blocks_to_allocate = 5;
 		int b[blocks_to_allocate];
@@ -138,13 +136,13 @@ class BDMMUTestApp
       
    private:
 
-	Os::Debug::self_pointer_t debug_;
-	Os::BlockMemory::self_pointer_t sd_;
+	OsModel::Debug::self_pointer_t debug_;
+	OsModel::BlockMemory::self_pointer_t sd_;
 };
 // --------------------------------------------------------------------------
-wiselib::WiselibApplication<Os, BDMMUTestApp> mmu_test;
+wiselib::WiselibApplication<OsModel, BDMMUTestApp> mmu_test;
 // --------------------------------------------------------------------------
-void application_main( Os::AppMainParameter& value )
+void application_main( OsModel::AppMainParameter& value )
 {
 	mmu_test.init( value );
 }
