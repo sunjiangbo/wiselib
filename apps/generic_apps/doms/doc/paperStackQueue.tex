@@ -3,127 +3,194 @@
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
+
 \begin{document}
-\title{Externe Speicheralgorithmen: Stack und Queue fuer das Blockinterface in der Wiselib}
+\title{Externe Speicheralgorithmen: Stack und Queue auf SD-Karten mit der Wiselib}
+\author{Dominik Krupke}
+\maketitle
 \section{Einleitung}
-Im Gegensatz zu den meisten anderen Datenstrukturen hat man bei der Stack und der Queue den Vorteil, dass man yu jeder Zeit weiss, welches Element als naechstes gelesen wird. Da man daher weiss, wo sich die gewuenschten Daten befinden, sind keine komplizierten Algorithmen zur Blocksuche noetig und die einzigen optimierbaren Prozesse sind die Schreibe und Lesevorgaenge. Aufgrund der vorhin genannten Schreibe und Leseordnung kommt hierbei nur ein Buffer infrage. Durch das spezielle Blockinterface und die fehlende dynamische Speicherverwaltung gibt es hierbei jedoch durchaus spezielle Designentscheidungen zu treffen, um am Ende moeglichst schnelle und persistente Datenstrukturen zu haben.
-\section{Eigenschaften des Blockinterfaces}
-Das von der Wiselib verwendete Blockinterface hat einige Eigenschaften, die es bei der Implementierung der Datenstrukturen zu beachten gibt:
+Im Gegensatz zu den meisten anderen Datenstrukturen hat man bei der Stack und der Queue den Vorteil, dass man jeder Zeit weiss, welches Element als naechstes gelesen wird. Da man somit weiss, wo sich die gewuenschten Daten befinden, sind keine komplizierten Algorithmen zur Blocksuche noetig und die einzigen optimierbaren Prozesse sind die Schreibe und Lesevorgaenge. Aufgrund der vorhin genannten Schreibe und Leseordnung kommt hierbei nur ein Buffer infrage. Durch das spezielle Blockinterface und die fehlende dynamische Speicherverwaltung gibt es hierbei jedoch durchaus spezielle Designentscheidungen zu treffen, um am Ende eine moeglichst schnelle und persistente Datenstrukturen zu haben. Im Verlaufe des Algorithmik-Praktikums habe ich etliche Varianten implementiert. Die Grundideen die ich dabei entwickelt habe, sowie die letztenendliche Implementation moechte ich hier nun vorstellen.
+\section{Eigenschaften des externen Speichers}
+Die SD-Karte als externer Speicher unter der Wiselib hat einige Eigenschaften, die es bei der Implementierung der Datenstrukturen zu beachten gibt:
 \begin{itemize}
-\item Es koennen nur ganze Bloecke gelesen oder geschrieben werden. Diese haben eine Groesse von 512Byte. Es koennen auch mehrere zusammenhaengende Bloecke sowohl gelesen als auch geschrieben werden. Der hierbei verwendete RAM-Block muss dabei natuerlich zusammenhaengend sein.
-\item Lesen geht etwa doppelt so schnell wie schreiben. Das Lesen eines Blockes dauert etwa 2ms. Diese Zeit verkuerzt sich auch durch das Lesen mehrere Bloecke am Stueck nicht.
-\item Das Schreiben eines Blockes braucht etwa 4ms und hat die unangenehme Eigenschaft, dass etwa jeder 128 Schreibvorgang um die 200ms braucht \footnote{Stark abhaengig von SD-Karte und Hersteller}. Dafuer ist die durchschnittliche Schreibedauer fuer mehrere Bloecke um bis zu 50\% kuerzer\footnote{Jeder Block braucht in etwa 2ms, aber es kommen noch 2ms extra pro Schreibvorgang hinzu. Die Schreibezeit von N Bloecken liegt somit bei etwa $2+2N$ ms (Die Peaks nicht eingerechnet!)}.
+\item Es koennen nur ganze Bloecke gelesen oder geschrieben werden. Diese haben eine Groesse von gewoehnlich 512Byte. Es koennen auch mehrere zusammenhaengende Bloecke sowohl gelesen als auch geschrieben werden. Der hierbei verwendete RAM-Block muss dabei natuerlich zusammenhaengend sein.
+\item Eine Leseoperation eines Blockes braucht etwa 1-2ms unabhaengig von der Anzahl der gleichzeitig angeforderten Bloecke.
+\item Eine Schreibeoperation eines Blockes dauert gewoehnlich einige ms. Es kommt auf den meisten SD-Karten zusaetzlich bei etwa jeder 127. Schreibeoperation zu einem Peak von ueber 200ms. Die durchschnittliche Zeit pro Block kann durch das Schreiben mehrerer Bloecke enorm  gesenkt werden.
 \end{itemize} 
+Anmerkung: Es wurde ausschliesslich mit Arduinos gearbeitet. Es ist aber anzunehmen, dass die anderen Wiselib-Mikrokontroller sich genauso verhalten.
 \section{Buffer}
 Durch die fehlende dynamische Speicherverwaltung muss auf statische Buffer zurueckgegriffen werden. Hierfuer gibt es 3 Varianten:
 \begin{enumerate}
-\item Einen Externen Buffer, der mit Kontainern arbeitet
+\item Einen Externen Buffer, der mit Kontainern (z.B. Arrays) arbeitet
 \item Einen Itembasierten Internen Buffer, der eine bestimmte Anzahl von Elementen buffert.
-\item Einem Blockbasierten  Internen Buffer, der ganze Bloecke im RAM haelt und mit dem ExternalMemory austauscht.
+\item Einem Blockbasierten  Internen Buffer, der ganze Bloecke im Hauptspeicher haelt und mit dem externen Speicher austauscht.
 \end{enumerate}
-Wir werden zwar gleich auf die zweite Variante am intensivesten eingehen, uns am Ende aber auf die dritte festlegen. Dies haengt damit zusammen, dass die zweite Variante die komplizierteste ist und es durchaus Faelle gibt, indenen sie zu bevorzugen ist. 
+Wir werden zwar gleich auf die zweite Variante am intensivesten eingehen, uns aber am Ende auf die dritte festlegen. Dies haengt damit zusammen, dass die zweite Variante die komplizierteste ist und es durchaus Faelle gibt, indem sie zu bevorzugen ist. Die dritte Variante hat im Vergleich zur 2. einen viel hoeheren Minimalbedarf im Hauptspeicher, ist dafuer aber im Gegenzug sehr schnell und recheneffizient, ein Faktor der bei Mikrokontrollern nicht zu vernachlaessigen ist.
 \subsection{Externe Buffer}
-Die Datenstruktur verfuegt nicht ueber einen eigenen Buffer sondern ihr werden gefuellte Bufferkontainer uebergeben und welche dann mit moeglichst wenigen IOs auf den ExternalMemory zu schreiben oder auszulesen sind. Als einfachstes Beispiel kann ein Array uebergeben werden, welches dann vom Algorithmus auf moeglichst wenige Bloecke im ExternalMemory geschrieben wird. Auf diese Weise kann das IO-Verhalten im Vergleich zum einzelnen Einfuegen und Auslesen von Elementen deutlich verbessert werden, aber es stellt fuer den Verwender der Datenstruktur einen erheblich hoeheren Programmieraufwand dar, da er den Buffer selbst verwalten muss.\\
-Auch wenn wir theoretisch auf diese Weise einen sehr flexibelen und unter Umstaenden sogar effiziente Datenstruktur bauen koennen, wuerden wir doch einen Grossteil des Programmieraufwandes auf den Anwender schieben. Da ein Anwender zusaetzlich erwartet, dass sich die Datenstruktur so benutzen laesst, wie er es von anderen Implementierungen gewohnt ist, sollten wir auf Externe Buffer verzichten. Es ist jedoch anzumerken, dass es durch die guten Ueberladungsmoeglichkeiten von C++ durchaus moeglich sein kann Externe Buffer zu entwickeln, die genauso gut wie die anderen Varianten sind. Allerdings koennten sich dabei wieder neue Probleme auftun (z.B. Synchronisation mehrere Kontainer), die die Implementierung einer solchen Variante fuer uns unattraktiv machen (Wir werden sehen, dass wir uns das Leben mit Blockbasierten internen Buffern sehr leicht machen koennen). Wir werden aus dem Grund nichtmehr weiter auf interne Buffer eingehen.
+Die Idee hinter diesem Buffer ist, dass wenn ein Anwender mehrere Elemente einfuegen oder auslesen will, diese gebuendelt uebergibt oder erhaelt. So koennte der Anwender, wenn er weiss, dass er die naechsten drei Elemente vom Stack fuer seine Berechnung braucht, diese nicht einzelnd anfordern, sondern gleich alle drei auf einmal. Auf diese Weise kann man sich eine Menge IOs auf den externen Speicher sparen. Sollten die Elemente gut im Hauptspeicher liegen, ergibt sich fuer eine Operation trotz mehrerer Elemente im Idealfall nur ein IO.\\
+Leider setzt diese Methode aber auch eine hohe Kooperationsbereitschaft und/oder Kompetenz des Anwenders vorraus. Es kann auch sein, dass sein Algorithmus ueberhaupt nicht die Moeglichkeit zum Buendeln laesst bzw. diese sehr erschwert. Aus diesem Grund ist es anwenderfreundlicher und sinnvoller das 'Buendeln' einfach der Datenstruktur zu ueberlassen, zumal das, wie wir sehen werden, moeglich ist. Der externe Buffer ist lediglich die einfachste Idee zur Optimierung und es kann durchaus Faelle geben, in der sich eine sinnvolle Variante implementieren lassen wuerde. Im Vergleich zu den anderen Varianten, liegt ihr Vorteil darin, dass Datentypen dieser Variante nahezu keinen Speicher brauchen und daher die ganze Zeit ueber auch in grosser Anzahl im Speicher gehalten werden koennen (Stellen Sie sich vor, sie brauchen 30 verschiedene Stacks. Die in diesem Praktikum entstandene, sehr effiziente, Version braucht aber mindestens 512Byte Speicher. Somit braeuchte man ganze 15kB RAM, die auf den meisten Mikrokontrollern aber nicht zur Verfuegung stehen. Fuer dieses Problem kann man aber durch die Persistenz der Datenstrukturen ein Workarround bauen.). \\
+Es ist zu Beruecksichtigen, dass diese Variante zwar einen sehr niedrigen konstanten Speicherverbrauch hat, aber trotzdem fuer IOs auf den externen Speicher kurzfristig mindestens 512Byte zusaetzlichen Speicher braucht. 
+
 \subsection{Interne Buffer}
-Bei internen Buffern legen wir einen statischen\footnote{Da wir keine dynamische Speicherverwaltung haben, bleiben uns nur statische Arrays ueber, deren Groesse wir ueber Templates einstellen koennen.} Buffer innerhalb der Datenstruktur an. Diesen Buffer koennen wir auf zwei Varianten anlegen:
-\begin{enumerate}
-\item Ein Array ueber N Elemente
-\item Ein Array ueber N Bloecke
-\end{enumerate}
-Die erste Variante werden wir fortan als Itembasierte Interne Buffer bezeichenen und die zweite als Blockbasierte intere Buffer. Es gilt zu beachten, dass die reale Buffergroesse von Itembasierten Internen Buffern natuerlich von der Groesse der zu speichernden Datentyps abhaengt. Auch Blockgroessen koennen varieren, allerdings haben nahezu alle SD-Karten eine Blockgroesse von 512Byte.
+Bei internen Buffern, wird das Buendeln von Operationen der Datenstruktur ueberlassen. Dies funktioniert deutlich effizienter, als wenn der Anwender sich selber darum kuemmern wuerde. Es koennen naemlich nicht nur gleiche Operationen gebuendelt, sondern auch verschieden miteinander verrechnet werden. Z.B. kann bei einem Stack ein Push gefolgt von einem Pop ohne IO auf den externen Speicher ausgekommen werden. Mithilfe von internen Buffern lassen sich einige Optimierungen verwirklichen, die mit externen Buffer nicht moeglich waeren. Dafuer benoetigen sie aber fuer die Dauer ihrer Existenz zusaetzlichen Speicher.
 \subsubsection{Itembasierte interne Buffer}
-In dieser Buffervariante wird ein statischer Buffer in Form eines Arrays ueber N Elementen in der Datenstruktur angelegt. Saemmtliche Operationen laufen hierbei ueber den Buffer, welcher nach Bedarf gefuellt oder geleert wird. Sollte man ein Element einfuegen wollen, so wird in der Einfuegeoperation getestet, ob noch genug Schreibeplatz\footnote{Bei der Queue unterscheiden sich Schreibe und Leseplatz, sodass auch wenn der Buffer nicht voll ist, kein Schreibplatz vorhanden sein muss. Teils laesst sich hier aber effizient umordnen.} vorhanden ist. Sollte dies nicht der Fall sein, so wird eine Funktion aufgerufen die neuen Schreibeplatz durch Umlagern auf den Extern Speicher oder den Leseplatz schafft. Der Lesevorgang verlaeuft relativ analog: Sollte der Leseplatz leer sein, so wird eine Funktion aufgerufen, die Elemente vom External Memory oder dem Schreibeplatz umgelagert.\\
-Durch den Buffer ist es uns moeglich Elemente fuer IOs effizient zu sammeln. Es ist jedoch relativ schwer bis teils unmoeglich direkt vom Buffer auf den Externen Speicher zu schreiben oder umgekehrt von diesem in den Buffer zu lesen. Wir muessen einen temporaeren Block anlegen in den wir die Daten von der SD kopieren und anschliessend die einzelnen Elemente daraus in den Buffer schieben (fuer den Lesevorgang analog). Dies wird dadurch bedingt, dass wir nicht davon ausgehen koennen, dass Blockdaten und Bufferdaten Bit Kompatibel sind (Das einfachste Beispiel hierfuer ist der Fall, in dem der Buffer kleiner ist als ein Block. Der Forderung nach Buffern die groesser sind als die Blockgroesse wird sich im Blockbasierten internen Buffer deutlich einfacher und effizienter angenommen.). Der Geschwindigkeits-Vorteil durch das Schreiben mehrerer Bloecke wird aufgrund des dadurch entstehenden sehr hohen RAM-Verbrauchs getruebt. Da wir nicht Testen koennen, wie viel RAM noch vorhanden ist, koennte dies bei Microcontrollern zu einem Russisch Roulette Spiel werden.\\
-Ein weiterer Punkt, der sich fast indirekt aus dem vorherigem Absatz ergibt, ist die Art der Blockausnutzung. Gewoehnlich ist von partiellem Schreiben abzusehen, da uns keine echte Funktion dafuer zur Verfuegung steht und wir somit, um Datenverlust zu vermeiden, diese Funktion aus einer Read und einer Write Operation modelieren muessten \footnote{Dies waere zwar kein Weltuntergang, aber wir wollen das Optimum.}. Es ist hierbei also zu empfehlen nur abgeschlossene Bloecke zu schreiben und somit automatisch auch nur zu lesen. Dabei ergeben sich wieder zwei Optionen: 
+In dieser Buffervariante wird ein konstanter Buffer in Form eines Arrays ueber N Elementen in der Datenstruktur angelegt. Saemtliche Operationen laufen hierbei ueber den Buffer, welcher nach Bedarf gefuellt oder geleert wird. Sollte man ein Element einfuegen wollen, so wird versucht dieses in den Buffer zu kopieren. Sollte dieser bereits voll sein, so werden einige Elemente aus dem Buffer auf den externene Speicher ausgelagert und der Versuch wiederholt. Der Lesevorgang verlaeuft relativ analog: Sollte der Leseplatz leer sein, so werden einige Elemente aus dem externen Speicher in den Buffer kopiert.\\
+Durch den Buffer ist es uns moeglich Elemente effizient zu sammeln und pro IO auf den externen Speicher moeglichst viele Elemente zu uebertragen. Es ist hierbei jedoch zu beachten, dass der Buffer im Hauptspeicher gewoehnlich nicht Bitkompatibel mit dem Blockinterface des externen Speichers ist (Ein Array basiert auf Elementen, die Daten im externen Speicher auf Bloecken). Wir werden daher fuer jeden IO einen temporaeren Block im RAM anlegen muessen und fuer den Auslagerungsvorgang die Elemente aus dem Buffer in diesen Block kopieren, um ihn dann anschliessend auf den externen Speicher zu uebertragen. Analoges gilt fuer den Einlagerungsvorgang. Der Geschwindigkeitsvorteil durch das Uebertragen von mehreren Bloecken am Stueck auf den externen Speicher laesst sich daher nur schwer ausnutzen. Wir koenne weder Testen wie viel Platz im Hauptspeicher noch frei ist, noch dynamisch Speicher reservieren. Wir muessten also im Vorraus bestimmen, wie viele Bloecke uebertragen werden sollen und diese dann fuer die Dauer der Operation im Hauptspeicher anlegen. Wir stehen also vor der Entscheidung zwischen Geschwindigkeit und RAM-Verbrauch. Das dies nicht so sein muss, werden wir beim Blockbasierten internen Buffer sehen.\\
+Ein weiterer Punkt, der sich fast indirekt aus dem vorherigem Absatz ergibt, ist die Art der Blockausnutzung. Gewoehnlich ist von partiellem Schreiben abzusehen, da uns keine echte Funktion dafuer zur Verfuegung steht und wir somit, um Datenverlust zu vermeiden, diese Funktion aus einer Read und einer Write Operation modelieren muessten. Dies wuerde aber im WorstCase eine Verdopplung der IOs bedeuten. Es ist hierbei also zu empfehlen nur abgeschlossene Bloecke zu schreiben und somit automatisch auch nur zu lesen. Dabei ergeben sich wieder zwei Optionen: 
 \begin{enumerate}
-\item Wir schreiben pro Block eine konstante Anzahl von Elementen, welche am Anfang durch die Groesse des Buffers moeglichst optimal berechnet wird. Diese Variante erschwert uns die Persistenz, fuer den Fall, dass wir die Buffergroesse im Programmverlauf aendern wollen, weil uns mehr oder weniger Speicherplatz zur Verfuegung steht. Sollte der Buffer naemlich kleiner  werden, so koennte es passieren, dass die Bloecke nichtmehr vollstaendig in den Buffer geladen werden koennten und wir partielles Lesen und Schreiben benutzen muessten. Alternativ koennten wir die nachtraegliche Aenderung der Buffergroesse natuerlich verbieten, was aber ein wenig die Flexibilitaet raubt.
-\item Wir lassen eine variable Anzahl von Elementen pro Block zu. Dies wuerde uns natuerlich auch dazu zwingen in jeden Block auch die Anzahl der enthaltenen Elemente zu schreiben( was aber lediglich ein wenig mehr Programmieraufwand und eine um 2 Byte verringerte Blockgroesse verursachen wuerde). Das groessere Problem ist aber die kompliziertere Verwaltung und es waeren nur bestimmte Buffergroessenveraenderungen moeglich (Sollte der Buffer kleiner sein, als die im Block enthaltenen Daten, so muesste er den Block auf dem Extern Speicher modifizieren, da er ja schon Teile gelesen ausgelesen hat.). Einen weiteren Nachteil werden wir gleich beim ExternalMemory-Buffer-Exchange sehen.
+\item Wir schreiben pro Block eine konstante Anzahl von Elementen, welche am Anfang durch die Groesse des Buffers moeglichst optimal berechnet wird. Diese Variante erschwert uns die Persistenz, fuer den Fall, dass wir die Buffergroesse im Programmverlauf aendern wollen, weil uns dann mehr oder weniger Speicherplatz zur Verfuegung steht. Sollte der Buffer kleiner  werden, so koennte es passieren, dass die Bloecke nichtmehr vollstaendig in den Buffer geladen werden koennten und wir wieder partielles Lesen und Schreiben benutzen muessten, was aber zusaetzlichen Verwaltungsaufwand bedeuten wuerde (Da wir dann ploetzlich einen Block anderer Groesse haetten). Alternativ koennten wir die nachtraegliche Aenderung der Buffergroesse natuerlich verbieten, was aber ein wenig die Flexibilitaet raubt.
+\item Wir lassen eine variable Anzahl von Elementen pro Block zu. Hierfuer muessten wir natuerlich fuer jeden Block Zusatzinformationen ueber die Anzahl der enthaltenen Elemente speichern. Es waere uns hiermit zwar von vornherein unmoeglich das absolute Optimum zu erreichen, aber da diese Information sich auf 2Byte begrenzen lassen wuerde, waere dies wohl noch zu verkraften. Das viel groessere Problem ergibt sich aus der schwereren Verwaltung und Unvorhersehbarkeit der auszulesenden Elemente. Im WorstCase koennte es passieren, dass wir bei jedem Einlagerungsvorgang nur ein Element lesen oder mehr Elemente als wir in den Buffer uebertragen koennen und somit die verbleibenden Elemente wieder zurueck auf den externen Speicher schreiben muessten. 
 \end{enumerate} 
-Keine der beiden Optionen erweist sich weder als optimal noch als einfach zu Programmieren. Bei dem Blockbasiertem internen Buffer werden wir dieses Problem recht geschickt umgehen.\\
-Im Allgemeinen ist der Itembasierte interne Buffer die beste Wahl, wenn wir dem Blockbasiertem internen Buffer keine 2 Bloecke RAM statisch zur Verfuegung stellen koennen. Auch wenn er bei optimaler Programmierung und Vergleichbarer Buffergroesse annaehrend so effizient sein kann wie der Blockbasierte Interne Buffer so ist diese Variente aufgrund seiner komplexen Struktur nur bei geringen RAM-Ressourcen und/oder mehreren parallelen Datenstrukturen zu empfehlen, bei denen man nicht statisch 1kB pro Datenstruktur entbehren kann. 
+Egal wie man sich letztenendlich entscheidet, keine der beiden Varianten erweisst sich als optimal, noch als leicht zu Programmieren. Bei dem Blockbasiertem internen Buffer werden wir dieses Problem recht geschickt umgehen.\\
+Zwar bieten uns itembasierte Buffer flexibel verwaltbaren Speicher auf dem sich einige Optimierungen durchfuehren lassen, die im nachfolgend erklaertem blockbasierten Buffer nicht (oder nur schwer) moeglich sind\footnote{zum Beispiel eine dynamische Unterteilung des Buffers in Lese- und Schreibebuffer}, aber unterliegt diesem in den besonders wichtigen Optimierungen auf unserem speziellem Interface. Allgemein ist der itembasierte Buffer zu waehlen, wenn man eine mittlere Anzahl von Datenstruktur braucht und sich die konstanten 2 Bloecke RAM pro Stueck nicht leisten kann. Es ist jedoch zu beachten, dass wie beim externen Buffer temporaerer Speicher gebraucht wird und diese Variante sehr rechenaufwendig sein kann\footnote{Dies ist nicht zu unterschaetzen. Da die Datenstrukturen mit sehr grossen Datenmengen hantieren koennen sollen, brauchen wir oft 32 oder 64Bit Variablen, die auf Mikrokontrollern oft so langsam sind, dass sie die IO-Zeiten zum kleinsten Problem machen.}.
 
 \subsubsection{Blockbasierte interne Buffer}
-Der blockbasierte interne Buffer ist stark mit dem itembasierten internen Buffer verwandt, anstatt eines Arrays mit N Elementen wird jedoch ein Array von M zusammenhaengenden Bloecken angelegt (data\_ unit\_ t$[M*512]$). Beim Einfuegen von Elementen wird nun ein Block nach dem anderen so gefuellt, wie er auch auf der SD spaeter aussehen soll. Sollten alle Bloecke voll sein, so werden einfach ein paar auf den External Memory ausgelagert und so neue leere Bloecke geschaffen.  Aehnlich wird beim Auslesen auch einfach nur aus den Bloecken gelesen und sollten alle RAM-Bloecke leer sein, so werden einfach ein paar neue (volle) vom External Memory geholt. Wir lagern also nur noch Bloecke und nicht einzelne Elemente an und aus. Auf diese Weise koennen wir die Kapazitaet der Bloecke natuerlich vollstaendig\footnote{Vollstaendig ist hierbei vielleicht ein wenig Uebereifrig, da dies nur gilt wenn die Groesse des generischen Types in den Block aufgeht. Ein Element auf 2 Bloecke zu splitten koennte den ExternalMemory-Buffer-Exchange erschweren.} ausnutzen und der ExternalMemory-Buffer-Exchange ist sehr einfach und effektiv. Es ist das schreiben von mehreren Bloecken am Stueck moeglich und es muessen fuer die IOs keine temporaeren Bloecke im RAM angelegt werden, da die IOs direkt ueber den Buffer gehen koennen.\\
-Mit blockbasierten internen Buffern sind wir in der Lage die maximale IO-Leistung zu erreichen. Leider brauchen diese aber auch mindestens 2 Bloecke um effektiv zu arbeiten. (Jeder weitere Block fuehrt zu mehr Bloecken je Schreibeoperation. Der Stack kann zwar theoretisch bereits ab einem Block arbeiten, aber hierbei kann es zu einem im ExternalMemory-Buffer-Exchange besprochenen WortCase kommen.)
-\subsubsection{ExternalMemory-Buffer-Exchange}
-Da wir bei den internen Buffern grundsaetzlich alle Operationen direkt ueber den Buffer laufen lassen, stellt sich hier das Problem des effizienten Austausches der Daten zwischen Buffer und ExternalMemory. Wenn wir viel Lesen wollen, so sollte der Lesebuffer moeglichst voll sein, wenn wir hingegen viel Schreiben wollen sollte der Schreibebuffer moeglichst leer sein, wenn wir aber wiederrum nicht wissen was wir als naechstes Tun werden sollte es irgendwas dazwischen sein (Im theoretischen Fall, dass Lesen und Schreiben auf dem ExternalMemory gleich lange dauern, so sollte der Buffer zu 50\% gefuellt sein.). Dieses Problem ist bei dem Itembasierten internen Buffer, wie wir schon gesehen haben, deutlich komplexer, aber es laesst unter Umstaenden auch mehr Optimierungspotential. Beim Blockbasiertem internen Buffer wird uns schnell auffallen, dass dieses Problem fuer den Lesevorgang wegfaellt. Da das Lesen eines Blockes, unabhaendig von der Anzahl der am Stueck zu lesenden Bloecken, konstante Zeit dauert, ist es vorzuziehen grundsaetzlich nur einen Block zu lesen wenn der Buffer leer ist. Sollten wir nur Lesen wollen, so wuerde sich in der Laufzeit nichts aendern. Wenn wir aber plotzlich doch schreiben muessen, so haben wir noch viel mehr Platz im Buffer. Bei itembasierten internen Buffer mit variabler Elementanzahl pro Block, koenne wir hierbei lediglich das Maximum bestimmen.\\
-Bei Itembasierten internen Buffer haben wir allgemein das Problem, dass wir den Parameter zu den die Bloecke gefuellt oder geleert werden sollen, nur sehr schwer aendern koennen, da wir im Buffer mit Elementen arbeiten und auf dem ExternalMemory mit Bloecken, bei denen wir bei variabler Fuellmenge noch nichteinmal Wissen wie viele Elemente in einem Block sind. Sollten die gewuenschte Anzahl von Elementen im Buffer nicht zur Blockfuellmenge passen, koennte der Lesevorgang mehrere IOs brauchen.\\
-Kommen wir zurueck zur Optimalen Fuellmenge. Wir werden jetzt als Beispiel den WorstCase fuer den Blockbasierten internen Buffer fuer den Stack mit nur 1 Block Buffer ansehen:\\
-$\cdots ToDo \cdots$\\
-Sehen wir uns allgemein die beiden ExtremVarianten an. Wir gehen hierbei erstmal davon aus, dass jeder IO die gleiche Laufzeit hat.
-\begin{enumerate}
-\item Wir fuellen und leeren den Buffer immer genau zur Haelfte. Wenn der Nutzer anschliessend einige Elemente Lesen will, so muss erst 0.5*BUFFERSIZE Leseoperationen ein ExernalMemory-Buffer-Exchange ausgefuehrt werden. Analog gilt dies fuers Schreiben.
-\item Wir fuellen und leeren den Buffer immer vollstaendig. Wenn der Leser nun sehr viel Lesen will, so kann er bis zu BUFFERSIZE Elemente lesen bevor es zum naechsten ExternalMemory-Buffer-Exchange kommt. Analog verlaeuft es wieder beim Schreiben. Leider kriegen wir aber auch den WorstCase, den wir uns vorhin schon angesehen haben.
-\end{enumerate}
-Da wir nur schwer vorhersagen koennen, ob der Nutzer als naechstes sehr viel Lesen, Schreiben oder beides in gleichen Masse tun wird, ist es sinnvoll einen Standardparameter festzulegen, wobei wir wenn moeglichst beruecksichtigen sollten, dass ein Schreibender ExternalMemory-Buffer-Exchange teurer ist als ein Lesender.\\
-$\cdots$ToDo Berechnung des optimalen Standardparameter unter beruecksichtung des teureren Schreibevorgangs$\cdots$\\
-Es waere jedoch auch aeussert praktisch fuer den Nutzer, wenn er den Parameter selbst bestimmen koennte (Wir wollen ihm das natuerlich aber nicht aufzwingen. Um die Berechnung eines Defaultparameters kommen wir also nicht herum.). Unter Umstaenden waere es aber auch verdammt Cool, einfach die letzten vom Nutzer ausgefuehrten Operationen zu loggen und  den Parameter auf diesen Daten flexibel zu bestimmen. Auf diese Weise waere koennten wir durchschnittlich einen sehr guten und flexibelen ExternalMemory-Buffer-Exchange erreichen\footnote{Das vorgestellte WorstCase Szenario koennte hierbei zwar kurzfristig auftauchen, aber durch geschickte Programmierung sollte dies feststellbare sein und es koennen automatisch die Parameter angepasst werden.}.\\
-Ein vorraussehende Berechnung durch Speicherung der vorherigen Operationen laesst sich bei Blockbasierten Internen Buffern sehr leicht erreichen: Da wir beim Lesen keine Optimierung mehr brauchen (wir lesen aus bereits erwaehnten Gruenden grundsaetzlich genau einen Block), koennen wir uns auf die Einfuegeoperationen beschraenken. Eine sehr einfache und trotzdem effiziente Moeglichkeit ist es, einfach die Anzahl der Einfuegeoperationen seit der letzten Ausleseoperation zu zaehlen. Sollte diese Zahl hoch sein, so ist es wahrscheinlich, dass der Anwender gerade eine grosse Menge Daten zu schreiben hat und wir den Buffer beim naechsten Exchange moeglichst weit leeren. Sollte die die Zahl hingegen niedrig sein, so sollten wir den Buffer lieber auf einem Mittelwert halten.\footnote{Leider hilft uns die Bufferfuellmenge nur beim Stack, da wir bei der Queue nicht aus dem Schreibebuffer lesen.}
+Der blockbasierte interne Buffer ist verwandt mit den Pagingsystemen von Betriebssystemen. Anstatt wie beim itembasierten Buffer einzelne Elemente zu buffern, haben wir eine Anzahl von Bloecken im Hauptspeicher, die Bitkompatibel zu denen im externen Speicher sind. Auf diese Weise koennen wir auf direktem Weg (ohne umzukopieren) Elemente mit dem externen Speicher austauschen. Das Erstellen eines temporaeren Blocks im Hauptspeicher entfaellt also. Da wir die RAM-Bloecke in einer Reihe im Hauptspeicher erstellen koennen, koennen wir auch ohne Speicherprobleme mehrere Bloecke auf einmal austauschen und somit beim Auslagern unter Umstaenden sehr viel Zeit einsparen.\\
+Desweiteren koennen wir auf diese Weise die Bloecke vollstaendig ausnutzen und somit die Elemente mit minimalen IOs verschieben. Allerdings kann auf diese Weise Verschnitt im Buffer entstehen, falls die Groesse der Elemente nicht ganz in die Blockgroesse aufgeht und Elemente die groesser als ein Block sind lassen sich erst garnicht speichern (Elemente die auf zwei Bloecke aufgespalten werden, lassen sich unter Umstaenden nur mit hohem Aufwand wieder auslesen). Allgemein arbeitet man jedoch mit Elementen der Groesse eine 2er-Potenz die kleiner als ein Block von typischerweise 512Byte sind und somit glatt aufgehen.
+Mit blockbasierten internen Buffern sind wir in der Lage die maximale IO-Leistung zu erreichen. Leider braucht die Queue aber mindestens 2 Bloecke Buffer \footnote{Einen zum Schreiben(Ende) und einem zum Lesen(Anfang). Die Bloecke in der Mitte werden ausgelagert} und der Stack einen, wobei mit nur einem Block Buffer Seitenflattern auftretten kann \footnote{Ab zwei Bloecken ist dies nichtmehr der Fall}. Im Praxistest mit einem Arduino Mega hat sich gezeigt, dass es fuer jeden weitern Block im Buffer nur wenige Prozent Leistungssteigerung gibt\footnote{Bei schnelleren Systemen kann dies jedoch anders aussehen. Aufgrund des beschraenkten Hauptspeichers, konnte nur bis zu einer niedrigen Buffergroesse getestet werden.}. 
+\section{Optimierungen}
+\subsection{Basic - Work on Buffer}
+Der Vollstaendigkeit halber wollen wir die grundlegende Optimierung hinter dem Buffersystem erlaeutern:\\
+Da unser Buffer bedeutend schneller ist als der externe Speicher und keine IOs verbraucht, sollten wir natuerlich moeglichst so viel auf dem Buffer operieren wie moeglich. Gerade beim Stack ist dies sehr einfach, da wir immer aus der gleichen Richtung Lesen und Schreiben. Wir brauchen also nur die letzten Elemente im Buffer halten und nur Aus oder Einlagern wenn der Buffer voll oder Leer ist. Auf diese Weise werden die meisten Elemente vermutlich nie auf den externen Speicher ausgelagert werden muessen und benoetigen damit keinen einzigen IO. Fuer die Queue ist es etwas komplizierter, da wir an das Ende schreiben und vom Anfang lesen. Wir brauchen also einen Schreibe- und einen Lesebuffer, solange alle Elemente aber noch in den Buffer passen, koennen diese Vereinigt werden und brauchen auch hier keine IOs. Sobald die Anzahl der Elemente aber die Groesse des Buffers uebersteigt muessen wir eine Entscheidung treffen, wie der Buffer aufgeteilt wird. Dieses Problem exisitiert aber nur beim Itembasierten Buffer, da beim Blockbasierten Buffer ein Lesebuffer nur einen Block braucht \footnote{Siehe partielles Auslagern}.\\
+	\begin{tabular}{l || c | c || c | c || c | c || r }
+	IOs & \multicolumn{5}{c}{Buffer} && Operationen \\
+	\hline
+	\hline
+	 & & & & & & &   PUSH(1,2,3,4,5)\\
+	\hline
+	 & \bf{1} & \bf{2} & \bf{3} & \bf{4} & \underline{\bf{5}} & & POP(): 5\\
+	\hline
+	 & \bf{1} & \bf{2} & \bf{3} & \underline{\bf{4}} & & & PUSH(6,7)\\
+	\hline
+	 & \bf{1} & \bf{2} & \bf{3} & \bf{4} & \bf{6} & \underline{\bf{7}} & PUSH(8)\\
+	\hline
+	Buffer auf SD auslagern & & & & &  & & \\
+	\hline
+	 & \underline{\bf{8}} & & & & &  & POP(): 8 \\
+	\hline
+	 & & & & & & &  POP()\\
+	\hline
+	Einen Block einlagern & \bf{6} & \underline{\bf{7}} & & & & &: 7\\
+	\hline
+	 & \underline{\bf{6}} & & & & & & \\
+	 \hline
+	 \hline
+	\multicolumn{8}{c}{Beispielablauf eines blockbasierten Stacks. 11 Operationen bei 4 IOs.}
+	\end{tabular}
+\subsection{Partielles Auslagern}
+Da wir bei internen Buffern grundsaetzlich alle Operationen ueber den Buffer laufen lassen, stellt sich die Frage des optimalen Ein- und Auslagern mit dem externen Speicher. Wenn wir Lesen wollen, so ist ein voller Buffer wuenschenswert. Wenn wir hingegen Schreiben wollen, sollte dieser moeglichst Leer sein damit wir das Ein- bzw Auslagern soweit wie moeglich hinauszoegern koennen. Fuer den Fall, dass wir nicht wissen was als naechstes getan werden soll, waere irgendwas dazwischen zu empfehlen. Gerade beim itembasierten Buffer haben wir hier sehr viel Optimierungspotential. Beim blockbasierten hingegen haben wir gewoehnlich nur sehr wenige Blocke Buffer und  somit nur wenige Moeglichkeiten.\\
+Das Problem ist nun, wie wir herrausfinden, wie weit wir unseren Buffer fuellen oder leeren muessen um so effizient wie moeglich zu sein. Eine Moeglichkeit waere einen Standardwert zu haben, den der Anwender je nach Anwendung evtl. selber modifizieren kann um so eine Effizienzsteigerung zu erzielen. Alternativ koennten wir auch die letzten Operationen betrachten um so das vorraussichtlich passende Verhaeltnis zu schaetzen. Hierbei sollte man aber ein speichersparsammes Verfahren verwenden. Wenn man jede Operation loggen wuerde, so braeuchten wir pro betrachteter Opertation mindestens ein Bit. Fuer eine brauchbare Schaetzung kann somit eine Menge Speicher verschwendet werden, die aufwendige Berechnung nicht mitgezaehlt. Eine einfachere Variante waere es, die Anzahl der Operationen seit z.B. dem letzten Lesezugriff zu zaehlen. \\
+Allgemein machen die speziellen Eigenschaften unseres Blockinterfaces diese Optimierungen aber sehr schwer. Da der Aufwand des Auslagerns abhaengig von der Anzahl der auszulagernden Bloecken, aber immer deutlich aufwendiger als Einlagern ist, kann man nur schwer ein gutes Verhaeltnis bestimmen. Es empfiehlt sich daher den zu leerenden Buffer immer komplett auszulagern, da der Vorteil des schnelleren Auslagern groesser ist als der Nachteil des evtl. anschliessenden sofortigen Einlagerns. Beim Einlagern sollte immer nur ein Block eingelagert werden, da der Zeitaufwand unabhaengig der Anzahl der gleichzeitig einzulagernden Bloecke ist. Auf diese Weise halten wir aber mehr Platz fuer neue Elemente im Buffer.
+\subsection{Buffer recycling}
+Desweiteren kann man Ausnutzen, dass wir zumindestens beim Stack die evtl. wieder einzulagernden Seite nicht sofort ueberschreiben und somit in dem Fall den sonst wieder einzulagernden Block wiederherzustellen. Genauso brauch man die wiederhergestellten Bloecke nicht erneut auszulagern. Diese Optimierung laesst sich beim Stack mit blockbasiertem internen Buffer mithilfe von 2 8Bit Integern verwirklichen und ist somit sowohl Speicher als auch Rechensparsem. Im Praxistest konnten auf diese Weise wenige Prozent an Einlagerungen gespaart werden, bei gleichbleibenden Auslagerungen und Rechenzeit.
+\begin{center}
 
+	\begin{tabular}{l || c | c | c || c | c | c || c | c | c || r}
+	Bemerkung & \multicolumn{8}{c}{Buffer} && Operation\\
+	\hline
+	\hline
+	Buffer voll	& \bf{1}  & \bf{2} & \bf{3} & \bf{4} & \bf{5} & \bf{6} & \bf{7} & \bf{8} & \underline{\bf{9}} & PUSH(10)\\
+	\hline
+	Buffer leeren &\underline{\bf{10}} & & & \it{4} & \it{5} & \it{6} & \it{7} & \it{8} & \it{9} & POP(): 10\\
+	\hline
+	Buffer ist leer & &        &        & \it{4} & \it{5} & \it{6} & \it{7} & \it{8} & \it{9} & POP()\\ 
+	\hline
+	Wiederherstellen & \bf{4} & \bf{5} & \bf{6} & \bf{7} & \bf{8} & \underline{\bf{9}} & & & & : 9 \\
+	\hline
+	 & \bf{4} & \bf{5} & \bf{6} & \bf{7} & \underline{\bf{8}} &  & & & & PUSH(11,12,13,14)\\
+	\hline
+	& \bf{4} & \bf{5} & \bf{6} & \bf{7} & \bf{8} & \bf{11} & \bf{12} & \bf{13} & \underline{\bf{14}} & PUSH(15)\\
+	\hline
+	Bereits auf SD  & \it{4} & \it{5} & \it{6} & \bf{7} & \bf{8} & \bf{11} & \bf{12} & \bf{13} & \underline{\bf{14}}\\
+	\hline
+	Verschieben & \bf{7} & \bf{8} & \bf{11} & \bf{12} & \bf{13} & \underline{\bf{14}} & & & \\
+	\hline
+	& \bf{7} & \bf{8} & \bf{11} & \bf{12} & \bf{13} & \bf{14} & \underline{\bf{15}} & & &\\
+	\hline
+	\hline
+	\multicolumn{11}{c}{Sparen von IOs durch Bufferrecycling bei einem blockbasierten Stack}
+	\end{tabular}
 
-\section{Die Datenstrukturen}
-Nachdem wir uns die Optimierungen durch Buffer angesehen haben, kommen wir nun zu den eigentlichen Datenstrukturen, dem Stack und der Queue. Als Bufferkonzept habe ich mich, wie bereits angekuendigt, fuer den Blockbasierten internen Buffer entschieden. Neben der Tatsache, dass er leichter zu Implementieren ist als ein Itembasierter, koennen die Eigenschaften des Blockinterfaces voll ausgenutzt werden. Der Speicherverbrauch von mindestens 1kB ist zwar fuer Microcontroller recht hoch, fuer wenige sehr kleine gar zu hoch, sollte aber fuer die meisten den Preis wert sein, insofern man nicht mehrere parallel benutzen will\footnote{Aufgrund des Persistenz liesse sich das aber auch machen. Wir zerstoeren einfach die alte Version und erstellen eine neue. Sobald wir mit der fertig sind, laden wir die alte neu. Da fuer das Erstellen eines Datentyps 3(Queue) bzw 2(Stack) Leseoperationen und fuer das Zerstoeren wieder 3(Queue) bzw. 2(Stack) Schreibeoperationen noetig sind, sollte man dies aber nur gezielt anwenden} \footnote{Damit wird sich auf den konstanten Speicherverbrauch bezogen. Mit den Itembasierten internen Buffern liesse sich ein Speicher von wenigen Bloecken auf sehr viele Datenstrukturen verteilen. Ihren temporaeren Block wuerden sie nie gleichzeitig brauchen.}.
-\subsection{Stack}
-Unter Beachtung der in der Sektion 'Buffer' ist ein Stack nicht sonderlich schwer zu implementieren. Die Bloecke auf der SD lassen sich als Stack verwalten, der nur in eine Richtung waechst und nicht wandert\footnote{Das Problem des 'Wanderns' stellt sich spaeter in der Queue}. Im Speicher selbst haben wir eine Queue, da wir den aelteren Teil des Stacks auslagern aber von der anderen Seite auffuellen. Da eine herkoemmliche Queue wandert und wir somit einen Speicherbruch\footnote{4 Bloecke sollen ausgelagert werden, die ersten 3 werden noch ans Ende geschrieben, der 4. an den Anfang.} bekommen koennen, der ein Schreiben am Stueck verhindert, empfehlt es sich zu ueberlegen ob ein verschieben der Buffer nach Auslageroperationen aufgrund des schnellen Speichers zu bevorzugen ist.\\
-Beim Stack koennen wir die bereits angesprochene Bufferfuellmengenoptimierung verwenden. 
-
-\subsection{Queue}
-Fuer die Queue brauchen wir ansich zwei Buffer. Einen zum Lesen am Anfang der Queue und einen zum Schreiben am Ende der Queue. Die Daten in der Mitte koennen ausgelagert werden. Waehrend sich die Entscheidung der Aufteilung des zur Verfuegung gestellten Buffers beim Itembasierten internen Buffer als aeusserst kompliziert erweisen koennte\footnote{Eine sehr einfache Variante waere jedoch auch einfach eine konstante 1 zu 1 Aufteilung, die zwar recht gut sein sollte, aber nicht perfekt.}, ist es beim Blockbasierten intenen Buffer sehr einfach: Wir nehmen grundsaetzlich nur einen Block als Lesebuffer, da wir bereits im fruehrem Teil bemerkt haben, dass das Buffern von mehreren Lesebloecken nachteilig ist. Auf der dem ExternalMemory ist noch zu beruecksichtigen, dass die benutzten Bloecke wandern und brechen koennen (Wenn wir zu einer Speichergrenze im RAM kommen muessen wir am Anfang des Speichers fortfahren.). Fuer weitere Informationen sei auf den Implementierungspart in Pseudocode verwiesen.
+\end{center}
+\subsection{Buffer sharing}
+Das Unterteilen des Queue Buffers in einen festen Lese und Schreibebuffer, bringt natuerlich den Nachteil, dass der Schreibebuffer unter Umstaenden ausgelastet ist, waehrend der Lesebuffer leer ist. Theoretisch koennten wir nun kurzfristig den Speicher des Lesebuffers dem Schreibebuffer zuteilen und so das Auslagern ein wenig hinauszoegern bzw. einen Block mehr Auslagern schreiben (siehe Eigenschaften des Blockinterfaces). Wir erhalten eine Optimierung, wenn der Lesebuffer leer ist und waehrend wir den Lesebuffer geliehen haben, keine Leseoperationen eingehen. Andernfalls muessten wir den Schreibebuffer leeren und den partiellen Block im Lesebuffer in den Schreibebuffer kopieren. Auf schnellen Geraeten, bei denen der externe Speicher der einzige Flaschenhals ist, wuerde sich diese vergleichsweise kleine Optimierung wohl lohnen, da diese Optimierung nur geringe Verwaltung und gelegentlich das Verschieben von Speicher braucht. Auf den langsamen Arduinos waere diese Optimierung allerdings zu klein um die Kosten zu decken.
 \section{Persistenz}
-Um Persistenz in konstantem Code zu gewaehrleisten muessen alle Instanzvariablen bei der Initalisierung aus dem ExternalMemory geladen werden und bei der Zerstoerung wieder dahin geschrieben werden. Um das Laden aus Datenmuell zu verhindern, ist ein ValidierungsCode zu empfehlen, der Testet ob die geladenen Variablen nicht eventuell inkonsistent sind und die neugeladene Datenstruktur damit undefiniert waere. Des weiteren bietet es sich an, auch alle konstanten Werte, die nicht geaendert werden duerfen (BUFFERSIZE darf Beispielsweise beim Blockbasierten internen Buffer geaendert werden), sollten abgespeichert und beim Laden ueberprueft werden.\\
+Um Persistenz in konstantem Code zu gewaehrleisten muessen alle Instanzvariablen bei der Initalisierung aus dem externen Speicher geladen und bei der Zerstoerung wieder dahin geschrieben werden. Um das Laden aus Datenmuell zu verhindern, ist ein ValidierungsCode zu empfehlen, der testet ob die geladenen Variablen nicht eventuel inkonsistent sind und die neugeladene Datenstruktur damit undefiniert waere. Des weiteren bietet es sich an, auch alle konstanten Werte, die nicht geaendert werden duerfen (wie den ersten und den letzten reservierten Block auf dem externen Speicher), sollten abgespeichert und beim Laden ueberprueft werden.\\
 Desweiteren sind partielle Bloecke, bei denen es nicht zu einem vollstaendigen Block gereicht hat, bei Konstruktion in den Buffer zu laden bzw. bei Zerstoerung zu sichern. \\
-Die Persistenzeigenschaft sollten ein Vorteil und nicht ein Zwang sein. Daher sollten wir neben einer Loeschoperation auch die Deaktivierung der Persistenz ermoeglichen\footnote{Das Sichern und Laden von Bloecken ist verschwendete Zeit, wenn man die dadurch gewonnen Daten sowieso verwirft.}. Ein Parameter im Konstruktor, der das Neuerstellen erzwingt, ist eine sehr Nutzerfreundliche und effiziente Alternative zur Loeschoperation.
-\section{Implementierung in Pseudocode}
-Wir beschraenken uns auf die zwei Wichtigsten Operationen Push und Pop. Der Pseudocode unterscheidet sich syntaktisch stark von der tatsaechlichen Implementierung\footnote{Damit ist nicht nur die triviale Beobachtung gemeint, dass PseudoCode $\neq$ C++, sondern eher das die Struktur voellig anders ist.}, ist Semantisch aber relativ aequivalent.
+Die Persistenzeigenschaft soll ein Vorteil nich ein Zwang sein. Daher sollten wir neben einer Loeschoperation auch des Deaktivieren der Persistenz ermoeglichen. Ein Parameter im Konstruktor, der das Neuerstellen erzwingt, ist eine sehr Nutzerfreundliche und effiziente Umsetzung.\\
+Durch die Persistenzeigenschaft muessen wir die Datenstrukturen nicht die ganze Zeit im Hauptspeicher halten. Es lassen sich unzaehlige Datenstrukturen parallel verwalten, indem man diese nur erzeugt wenn sie gebraucht werden und anschliessend sofort wieder zerstoert. Es lohnt sich hierbei natuerlich nicht die Datenstruktur nur fuer eine Operation wiederherzustellen, da ein Wiederherstellungs und Zerstoerungsvorgang bis zu 4 IOs brauchen kann.
+\section{Implementierung}
+Kommen wir nun endlich zu den im Algorithmikpraktikum entstandenen Implementierungen. Wie bereits angesprochen, habe ich auf Blockbasierte interne Buffer gesetzt um somit eine sehr IO-arme und schnelle Umsetzung bieten zu koennen. Dies geht zwar auf Kosten des Hauptspeichers, aufgrund des relativ hohen Minimalbedarf von 2 Bloecken, aber durch geschickte Ausnutzung der Persistenz kann man auch mit knappen Ressourcen gut haushalten. \\
+Sowohl der Stack als auch die Queue erreichen das optimale IO-Verhalten, welches bei $1/(\text{BLOCKSIZE}/sizeof(T))$ Schreibeoperationen pro Einfuegen bzw. Leseoperationen pro Auslesen liegt. In der Praxis geht nur etwa 30\% der Rechenzeit auf die IOs, der Rest auf Operationen mit Long-Integers.\\
+Um das Dokument nicht ausarten zu lassen, werden die beiden Datenstrukturen auf die wichtigsten Punkte reduziert. Fuer die genaue Implementierung sei auf den kommentierten Sourcecode verwiesen.
 \subsection{Stack}
-Der Buffer des Stacks ist sehr einfach aufgebaut: Elemente werden ausschliesslich am Ende angefuegt oder entfernt. Der Programmieraufwand um die Daten Konsistent zu halten ist verhaeltnismaessig gering.
-\subsubsection{Push}
-\begin{tabbing}
-BOOL \= PUSH(element)\\
-	\> IF(Freie Bloecke im ExternalMemory $<$ BUFFERSIZE) RETURN FALSE \\
-	\> IF(bu\= ffer voll?)\\
-		\>\> berechne nach externalMemory zu schreibende Bloecke $->$ N \footnote{Hierbei kann ein Fuellmengenparameter oder Algorithmus beruecksichtigt werden.} \\
-		\>\> schreibe die ersten N Bloecke des Buffers zum externelMemory\\
-		\>\> verschiebe die uebriggebliebenen Bloecke des Buffers zum Bufferanfang\\
-	\> schreibe element an bufferende\\
-	\> RETURN TRUE\\
-\end{tabbing}
-\subsubsection{Pop}
-\begin{tabbing}
-BOOL \= PUSH(*element)\\
-	\> IF(bu\= ffer leer)\\
-		\>\> IF(externalMemory leer) RETURN FALSE\\
-		\>\> hole den letzten Block von externelMemory und schreibe ihn an den Anfang des Buffers\\
-	\> *element = letztes Element aus Buffer\\
-	\> RETURN TRUE\\
-\end{tabbing}
+Im Stack halten wir immer die letzten BUFFERSIZE-Bloecke im Hauptspeicher, die restlichen auf dem externen Speicher. Wir koenne also immer direkt aus dem Buffer lesen/schreiben. Sollte der Buffer leer sein, so Lagern wir einen Block ein. Sollte der Buffer voll sein, so leeren wir ihn komplett. Durch Bufferrecycling mithilfe von 2 8Bit Integern werden einige IOs gespart. \\
+Der Buffer selbst ist ein Stack mit festem Anfang, der nach oben waechst. Bei Bufferrecycling muessen wir die Bloecke an den Anfang schieben. Nur so ist es moeglich, beim Auslagern alle Bloecke an einem Stueck zu schreiben. Die Bloecke auf dem externen Speicher entsprechen wieder einem Stack mit festem Anfang. Der Stack ist voll, sobald im Stack auf dem externen Speicher der hoechste zugeteilte Block erreicht wurde.\\
+Eine grobe Funktionsweise ist in den Darstellungen in der Sektion 'Optimierungen' zu sehen.\\
+\\
+\begin{tabular}{|| c | c | c | c | c || c | c | c | c ||}
+\multicolumn{5}{c}{Externer Speicher} & \multicolumn{4}{c}{Buffer} \\
+\hline
+\it{1} & \it{2} & \it{3} & $\cdots$ & \it{n} & \bf{n+1} & \bf{n+2} & \bf{n+3} & \bf{n+4} \\
+\hline
+\multicolumn{9}{c}{Grobe Speichereinteilung Stack (Beispielhaft)}
+\end{tabular}
 \subsection{Queue}
-Der Buffer besteht aus mindestens zwei Bloecken. Der erste Block ist der ReadBuffer, die anderen der schreibebuffer. Der Readbuffer ist als eine Queue aufgebaut, waehrend die Element im Schreibebuffer bei Bedarf verschoben werden.
-\subsubsection{Push}
-\begin{tabbing}
-BOOL \= PUSH(element)\\
-	\> IF(freie Bloecke auf ExternalMemory $<$ BUFFERSIZE) RETURN FALSE\\
-	\> IF(ex\= ternalMemory leer AND schreibebuffer leer AND lesebuffer nicht voll)\\
-		\>\> schreibe element an das ende des Lesebuffers\\
-	\> ELSE\\
-		\>\> IF(sc\= hreibebuffer voll)\\
-			\>\>\> berechne Anzahl der optimal auf den externalMemory zu schreibenden Bloecke $->$ N\\
-		\>\>\>	berechne Anzahl der ohne Speicherbruch auf externalMemory zu schreibenen Bloecke $->$ M\\
-		\>\>\>	MIN(N,M) $->$ O\\
-		\>\>\>	schreibe die ersten O Elemente des SchreibeBuffers auf den ExternalMemory\\
-		\>\>\>	verschiebe, falls vorhanden, die hinteren Bloecke des Schreibbuffers zum anfang\\
-		\>\> schreibe element an das ende des schreibebuffers\\
-	\> RETURN TRUE\\
-\end{tabbing}
-\subsubsection{Pop}
-\begin{tabbing}
-BOOL \= POP(*element)\\
-	\> IF(le\= sebuffer leer)\\
-		\>\> IF(externalMemory leer) RETURN FALSE\\
-		\>\> hole den ersten Block vom externalMemory und schreibe ihn in den ersten Block des Buffers\\
-	\> hole erstes Element aus lesebuffer\\
-	\> RETURN TRUE\\
-\end{tabbing}
-
+Die Queue ist etwas komplizierter als der Stack, da wir an beiden Enden einen Buffer brauchen. Der Lesebuffer besteht aus genau einem Block der selber als Queue mit rotierendem Anfang verwaltet wird. Da der Lesebuffer nicht gefuellt wird, muss er nur bei Zerstoerung der Queue ausgelagert werden. Der Schreibebuffer entspricht einem Stack mit festem Anfang um an einem Stueck auf den externen Speicher geschrieben werden zu koennen. Die Bloecke auf dem externen Speicher sind als Queue mit rotierendem Anfang organisiert. Die Queue ist voll, wenn die Anzahl der beschriebenen Bloecke der Differenz zwischen niedrigsten und hoechstem zugeteilten Block entspricht.\\
+Solange keine Bloecke auf den externen Speicher ausgelagert sind, wird der Lesebuffer moeglichst intensiv benutzt. So wird geprueft, ob ein einzufuegendes Element gleich in den Lesebuffer kann oder ob man anstatt den vollen Schreibebuffer auszulagern, einige Elemente in den Lesebuffer schieben kann um ein wenig Platz zu schaffen.\\
+Es ist durch die rotierende Umsetzung im externen Speicher, der Moment zu beruecksichtigen, indem wir am Ende des zugeteilten Speicherbereichs angelangt sind und am Anfang weitermachen muessen. Hierbei werden nur die noch an das Ende passenden Bloecke geschrieben und die restlichen im Buffer nach vorne geschoben. Sollte der Buffer wieder voll werden, so wird am Anfang des zugewiesenen Speichers fortgefahren.\\
+\\
+\begin{tabular}{|| c | c | c || c | c | c | c | c || c | c | c | c | c ||}
+\multicolumn{3}{ c }{ Lesebuffer} & \multicolumn{5}{c}{Externer Speicher} & \multicolumn{5}{c}{Schreibebuffer}\\
+\hline
+\bf{1} & \bf{2} & \bf{3} & \it{4} & \it{5} & $\cdots$ & \it{n} & \it{n+1} & \bf{n+2} & \bf{n+3} & \bf{n+4} & \bf{n+5} & \bf{n+6} \\
+\hline
+\multicolumn{12}{c}{Grobe Speichereinteilung Queue (Beispielhaft)}
+\end{tabular}
+\\
+\\Beispielablauf: (Lesebuffer[1 Block], Schreibebuffer[1 Block], Externer Speicher)\\
+\begin{tabular}{c || c | c || c | c ||    || c | c || c | c || c | c || c}
+& \multicolumn{2}{c}{L} & \multicolumn{2}{c ||||}{S} & \multicolumn{6}{c||}{E} & Operation\\
+\hline
+Start & \underline{\bf{1}} & \bf{2} & \bf{3} & \bf{4} & & & & & & & POP(): 1\\
+\hline
+& & \underline{\bf{2}} & \bf{3} & \bf{4} & & & & & & & POP(): 2\\
+\hline
+& & & \bf{3} & \bf{4} & & & & & & & POP()\\
+\hline
+Verschieben & \underline{\bf{3}} & \bf{4} & & & & & & && & : 3\\
+\hline
+Auslesen & & \underline{\bf{4}} & & & & & & & & & PUSH(5,6,7)\\
+\hline
+& \bf{5} & \underline{\bf{4}} & \bf{6} & \bf{7} & & & & & & & PUSH(8,9)\\
+\hline
+Auslagern & \bf{5} & \underline{\bf{4}} & & & \it{6} & \it{7} & & & & \\
+\hline
+Einfuegen & \bf{5} & \underline{\bf{4}} & \bf{8} & \bf{9} & \it{6} & \it{7} & & & & & PUSH(10)\\
+\hline
+Auslagern & \bf{5} & \underline{\bf{4}} &  & & \it{6} & \it{7} & \it{8} & \it{9} & & & \\
+\hline
+Einfuegen & \bf{5} & \underline{\bf{4}} & \bf{10} & & \it{6} & \it{7} & \it{8} & \it{9} & & & POP(): 4\\
+\hline
+& \underline{\bf{5}} & & \bf{10} & & \it{6} & \it{7} & \it{8} & \it{9} & & & POP(): 5\\
+\hline
+&  & & \bf{10} & & \it{6} & \it{7} & \it{8} & \it{9} & & & POP()\\
+\hline
+Einlagern & \underline{\bf{6}} & \bf{7} & \bf{10} & &  &  & \it{8} & \it{9} & & & : 6 \\
+\hline
+Auslesen &  &\underline{\bf{7}}  & \bf{10} & &  &  & \it{8} & \it{9} & & & POP(): 7\\
+\hline
+& & & \bf{10} & &  &  & \it{8} & \it{9} & & & POP()\\
+\hline
+Einlagern & \underline{\bf{8}} & \bf{9} & \bf{10} & & & & & & & & : 8\\
+\hline
+& & \underline{\bf{9}} & \bf{10} & & & & & & & & POP(): 9\\
+\hline
+& & & \bf{10} & & & & & & & & POP()\\
+\hline
+Verschieben & \underline{\bf{10}} & & & & & & & & & & : 10\\
+\hline
+Leer & & & & & &&&&&&\\
+\hline
+\end{tabular}
 \end{document}
