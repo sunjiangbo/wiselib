@@ -13,6 +13,7 @@ typedef wiselib::OSMODEL OsModel;
 class BDMMUTestApp
 {
    public:
+   
 	void init( OsModel::AppMainParameter& value )
 	{
 		debug_ = &wiselib::FacetProvider<OsModel, OsModel::Debug>::get_facet( value );
@@ -22,7 +23,7 @@ class BDMMUTestApp
 		sd_ = &wiselib::FacetProvider<OsModel, OsModel::BlockMemory>::get_facet(value);
 		sd_->init();
 		
-		BDMMU<OsModel, 0, 8, OsModel::Debug, OsModel::BlockMemory, 2, 512> mmu(sd_, debug_, false, true);
+		BDMMU<OsModel, 0, 10, 2, 2, 512, OsModel::Debug, OsModel::BlockMemory> mmu(sd_, debug_, false, true);
 		
 		int blocks_to_allocate = 5;
 		int b[blocks_to_allocate];
@@ -71,9 +72,9 @@ class BDMMUTestApp
 		
 		debug_->debug("txt_in:\n");
 		
-		for (int i = 0; i < 9; ++i) {
+		/*for (int i = 0; i < 9; ++i) {
 			debug_->debug("	 %s\n", &txt_in[120*i]);
-		}
+		}*/
 		
 		//debug_->debug("Write status = %d\n", mmu.write(txt_in, persistence_test_block2, 1));
 		debug_->debug("Write status = %d\n", mmu.write(txt_in, 0, 1));
@@ -125,9 +126,9 @@ class BDMMUTestApp
 		
 		debug_->debug("txt_out:\n");
 		
-		for (int i = 0; i < 9; ++i) {
+		/*for (int i = 0; i < 9; ++i) {
 			debug_->debug("	 %s\n", &txt_out[120*i]);
-		}
+		}*/
 		
 		debug_->debug("rw_sucess = %d\n", rw_success);
 	
@@ -135,7 +136,7 @@ class BDMMUTestApp
 		
 		debug_->debug("free vBlock 20 = %d", mmu.block_free(20));
 		
-		debug_->debug("Test: ERR_IO_HATES_YOU = %d\n", return_value_test());
+		//debug_->debug("Test: ERR_IO_HATES_YOU = %d\n", return_value_test());
 		
 		
 		exit(0);

@@ -35,9 +35,9 @@ using namespace wiselib;
 
 template <typename OsModel_P, 
 	int LO, int HI, 
+	int reserved = 0, int BLOCK_VIRTUALIZATION=1, int MY_BLOCK_SIZE=512,
 	typename Debug_P = typename OsModel_P::Debug,
-	typename BlockMemory_P = typename OsModel_P::BlockMemory,
-	int BLOCK_VIRTUALIZATION=1, int MY_BLOCK_SIZE=512>
+	typename BlockMemory_P = typename OsModel_P::BlockMemory>
 	
 class BDMMU {
 	
@@ -66,7 +66,7 @@ class BDMMU {
 		
 			TOTAL_VBLOCKS( (BLOCKS - MMU_DATA_SIZE - STACK_SIZE) / BLOCK_VIRTUALIZATION ), 
 			FIRST_VBLOCK_AT(LO + MMU_DATA_SIZE + STACK_SIZE),
-			highest_vblock(0), 
+			next_vblock(reserved), 
 		
 			persistent(persistent),	
 		
@@ -84,7 +84,7 @@ class BDMMU {
 				//if stored data matches the given parameters then the data is ok
 				if(data[0] == checkvalue && data[1] == checkvalue && data[2] == BLOCK_VIRTUALIZATION 
 				&& data[3] == TOTAL_VBLOCKS && data[4] == MY_BLOCK_SIZE && data[5] == MMU_DATA_SIZE 
-				&& data[6] == STACK_SIZE && data[7] == highest_vblock && data[8] == FIRST_VBLOCK_AT 
+				&& data[6] == STACK_SIZE && data[7] == next_vblock && data[8] == FIRST_VBLOCK_AT 
 				&& data[9] == HI) {
 				
 					if (restoreSuccess != 0) *restoreSuccess = true;
@@ -92,8 +92,6 @@ class BDMMU {
 					if (restoreSuccess != 0) *restoreSuccess = false;
 				}
 		
-			} else {
-				this->stack.push(0);
 			}
 		}
 
@@ -117,7 +115,7 @@ class BDMMU {
 				data[4] = MY_BLOCK_SIZE;
 				data[5] = MMU_DATA_SIZE;
 				data[6] = STACK_SIZE;
-				data[7] = highest_vblock;
+				data[7] = next_vblock;
 				data[8] = FIRST_VBLOCK_AT;
 				data[9] = HI;
 			} else {
@@ -137,9 +135,9 @@ class BDMMU {
 			}
 	
 			// The stack doesn't contain a free memory block, but memory space which has never been used yet, is available
-			else if (highest_vblock < TOTAL_VBLOCKS - 1) { 
-				highest_vblock++;
-				*vBlockNo = highest_vblock;
+			else if (next_vblock < TOTAL_VBLOCKS) { 
+				*vBlockNo = next_vblock;
+				next_vblock++;
 				return true;
 			}
 			else {
@@ -279,7 +277,7 @@ class BDMMU {
 	
 		int TOTAL_VBLOCKS; 		// absolute block number of the last block administered by this BDMMU
 		int FIRST_VBLOCK_AT;
-		int highest_vblock; 		// virtual block number denoting highest block number which has ever been used
+		int next_vblock; 		// virtual block number denoting highest block number which has ever been used
 	
 		bool persistent;
 
