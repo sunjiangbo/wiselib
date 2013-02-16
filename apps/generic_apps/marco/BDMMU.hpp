@@ -1,7 +1,12 @@
 #ifndef BDMMU_HPP
 #define BDMMU_HPP
-//#define DEBUG
 
+#include <external_interface/external_interface.h>
+//#include "external_stack.hpp"
+#include "../doms/external_stack.hpp"
+
+
+//#define DEBUG
 #define BDMMU_DEBUG
 
 #ifdef DEBUG
@@ -10,8 +15,7 @@
 	#endif
 #endif
 
-#include <external_interface/external_interface.h>
-#include "external_stack.hpp"
+
 
 
 /* One BDMMU administers as many data structures as you want. It is assigned a fixed section of the 
@@ -48,13 +52,18 @@ class BDMMU {
 	
 		typedef typename Debug::self_pointer_t Debug_ptr;
 		typedef typename BlockMemory::self_pointer_t BlockMem_ptr;
-	
+		
 		typedef typename OsModel::size_t address_t;
 		typedef typename BlockMemory::block_data_t block_data_t;
 	
+		typedef BDMMU<OsModel, LO, HI, reserved, BLOCK_VIRTUALIZATION, 
+			MY_BLOCK_SIZE, Debug, BlockMemory> self_type; //Note: MUST be public
+		typedef self_type* self_pointer_t;//Note: MUST be public
+		//typedef self_pointer_t MMU_ptr;
+	
 		/*Note that the STACK_SIZE is about 1% larger than it needs to be. +1 is added for the stack's metadata, another +1 is 
 		added as a kind of manual rounding up of the value produced by the division, and +2 is for the BUFFERSIZE of the stack*/
-		BDMMU(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, bool *restoreSuccess = 0) : 		
+		BDMMU(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, int *restoreSuccess = 0) : 		
 		
 			bm_(bm_), 
 			debug_(debug_),
@@ -87,9 +96,9 @@ class BDMMU {
 				&& data[6] == STACK_SIZE && data[7] == next_vblock && data[8] == FIRST_VBLOCK_AT 
 				&& data[9] == HI) {
 				
-					if (restoreSuccess != 0) *restoreSuccess = true;
+					if (restoreSuccess != 0) *restoreSuccess = OsModel::SUCCESS;
 				} else {
-					if (restoreSuccess != 0) *restoreSuccess = false;
+					if (restoreSuccess != 0) *restoreSuccess = OsModel::ERR_UNSPEC;
 				}
 		
 			}
@@ -97,7 +106,7 @@ class BDMMU {
 
 		~BDMMU() {
 			#ifdef BDMMU_DEBUG
-				debug_->debug("\n BDMMU destructor...\n");
+				debug_->debug("\n BDMMU destructor...");
 			#endif
 		
 			uint32_t checkvalue = 42;
@@ -124,73 +133,87 @@ class BDMMU {
 				}
 		
 			}
-			bm_->write((block_data_t *) data, 0, 1);
+			
+			int x = bm_->write((block_data_t *) data, 0, 1);
+			
+			#ifdef BDMMU_DEBUG
+				if (x == OsModel::SUCCESS) {
+					debug_->debug("Write to block memory device successful.\n");
+				} else {
+					debug_->debug("Write to block memory device failed.\n");
+				}
+			#endif
+			
 		}
 
-		bool block_alloc(int *vBlockNo) {
+		int block_alloc(int *vBlockNo) {
 			int p;
-			if (stack.pop(&p) == true) { // The stack contains a free memory block
+			int r = stack.pop(&p);
+			if (r == OsModel::SUCCESS) { // The stack contains a free memory block
 				*vBlockNo = p;
-				return true;
+				return OsModel::SUCCESS;
 			}
-	
-			// The stack doesn't contain a free memory block, but memory space which has never been used yet, is available
-			else if (next_vblock < TOTAL_VBLOCKS) { 
-				*vBlockNo = next_vblock;
-				next_vblock++;
-				return true;
+			
+			//The BlockDevice is funtioning correctly, but there are no block numbers of free blocks on the stack
+			if ( r == OsModel::ERR_UNSPEC) {
+				
+				// The stack doesn't contain a free memory block, but memory space which has never been used yet, is available
+				else if (next_vblock < TOTAL_VBLOCKS) { 
+					*vBlockNo = next_vblock;
+					next_vblock++;
+					return OsModel::SUCCESS;
+				}
+				else {
+					#ifdef BDMMU_DEBUG
+						debug_->debug("There is no more free memory.\n");
+					#endif
+					return OsModel::ERR_UNSPEC; // There is no free memory
+				}
 			}
-			else {
-				#ifdef BDMMU_DEBUG
-					debug_->debug("There is no more free memory.\n");
-				#endif
-				return false; // There is no free memory
-			}
+			
+			//IO Error or other hardware error occurred
+			else return r;
 		}
 
-		bool block_free(int vBlockNo) {
+		int block_free(int vBlockNo) {
 			if(vBlockNo >= 0 && vBlockNo < TOTAL_VBLOCKS) {
-				stack.push(vBlockNo);
-				return true;
+				return stack.push(vBlockNo);
 			}
 			else {	
 				#ifdef BDMMU_DEBUG
 					debug_->debug("Attempted free a block with an invalid virtual block address.\n");
 				#endif
-				return false;
+				return OsModel::ERR_UNSPEC;
 			}
 		}
 
-		bool erase(int start_vblock, int vblocks) {
+		int erase(int start_vblock, int vblocks) {
 			if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) {
-				bm_->erase(vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
-			
+				
 				#ifdef BDMMU_DEBUG
 					debug_->debug("VIRTUAL BLOCKS: bm_->erase(%d, %d) | REAL BLOCKS: bm_->erase(%d, %d)\n", start_vblock, vblocks, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 				#endif
 			
-				return true;
+				return bm_->erase(vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 			}
 		
 			else {
 				#ifdef BDMMU_DEBUG
 					debug_->debug("Attempted erase at invalid virtual block address(es).\n");
 				#endif
-				return false;
+				return OsModel::ERR_UNSPEC;
 			}
 		}
 	
-		bool read(block_data_t *buffer, int start_vblock, int vblocks) { 
+		int read(block_data_t *buffer, int start_vblock, int vblocks = 1) { 
 
 			if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) {
-			
-				bm_->read(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 			
 				#ifdef BDMMU_DEBUG
 					debug_->debug("VIRTUAL BLOCKS: bm_->read(buffer %d, %d) | REAL BLOCKS: bm_->read(buffer %d, %d)\n", start_vblock, vblocks, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 				#endif
 			
-				return true;
+				return bm_->read(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 			}
 		
 		
@@ -198,21 +221,20 @@ class BDMMU {
 				#ifdef BDMMU_DEBUG
 					debug_->debug("Attempted read at invalid virtual block address(es).\n");
 				#endif
-				return false;
+				return OsModel::ERR_UNSPEC;
 			}
 		}
 
 
-		bool write(block_data_t *buffer, int start_vblock, int vblocks) {
+		bool write(block_data_t *buffer, int start_vblock, int vblocks = 1) {
 	
 			if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) { 
-				bm_->write(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION); 
-			
+				
 				#ifdef BDMMU_DEBUG
 					debug_->debug("VIRTUAL BLOCKS: bm_->write(buffer %d, %d) | REAL BLOCKS: bm_->write(buffer %d, %d)\n", start_vblock, vblocks, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 				#endif
 			
-				return true;
+				return bm_->write(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION); 
 			}
 		
 		
@@ -220,7 +242,7 @@ class BDMMU {
 				#ifdef BDMMU_DEBUG
 					debug_->debug("Attempted write at invalid virtual block address(es).\n");
 				#endif
-				return false;
+				return OsModel::ERR_UNSPEC;
 			}
 			//return write(block_data_t *buffer, int start_block, int blocks);
 		}
@@ -267,7 +289,8 @@ class BDMMU {
 		}
 		
 	private:
-	
+		
+		//TODO: Make enums out of almost all of these...
 		BlockMem_ptr bm_;
 		Debug_ptr debug_; 
 		int BLOCKS;
@@ -291,5 +314,8 @@ class BDMMU {
     
 
 //
+#ifdef BDMMU_DEBUG
+	#undef BDMMU_DEBUG
+#endif
 
 #endif

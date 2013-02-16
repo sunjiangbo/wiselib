@@ -56,14 +56,16 @@ class App {
 		debug_->debug("%d", m.pi);
 	}
 
-	void testAdd(){ //Test assumes getValueByIndex works fine - works!
+	/*void testAdd(){ //Test assumes getValueByIndex works fine - works!
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Add");
 		
+		typedef BDMMU<Os, 0, 10, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t;
+		MMU_0_t mmu_0(debug_, sd, false, true);
 		
-		
-		List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
-			//this list saves numbers
+		List<Os, MMU_0_t, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, &mmu_0);
+			
+		//this list saves numbers
 		debug_->debug("List created, filling with numbers");		
 		for (int i = 0; i < 200; i++){
 			list.add(i, i); //key a number with itself
@@ -80,12 +82,19 @@ class App {
 		}
 	
 		debug_->debug("Test finished succesfully");		
-	}
+	}*/
 
 	void testRemoveIndex(){ //Test assumes add & getValueByIndex works fine
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Remove");
-		List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
+		
+		typedef BDMMU<Os, 0, 10, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t;
+		MMU_0_t mmu_0(sd, debug_, false, true);
+		
+		List<Os, MMU_0_t, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, &mmu_0);
+		
+		
+		//List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
 			//this list saves numbers
 		debug_->debug("List created, filling with numbers");		
 		for (int i = 0; i < 1000; i++){
@@ -111,7 +120,7 @@ class App {
 		debug_->debug("Test finished succesfully");		
 	}
 
-	void testInsertByIndex(){ //Test assumes add & getValueByIndex works fine - works!
+	/*void testInsertByIndex(){ //Test assumes add & getValueByIndex works fine - works!
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Insert");
 	
@@ -138,9 +147,9 @@ class App {
 		}
 
 		debug_->debug("Test finished succesfully");
-	}
+	}*/
 
-	void testGetKeyIndexBothWays(){ //assumes add works as it should
+	/*void testGetKeyIndexBothWays(){ //assumes add works as it should
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Add");
 		List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
@@ -170,9 +179,9 @@ class App {
 			}
 		}
 		debug_->debug("Test finished succesfully");	
-	}
+	}*/
 	
-	void test(){
+	/*void test(){
 		debug_->debug("Official Test start here");
 		List<Os, int, Message, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
 
@@ -193,7 +202,7 @@ class App {
 		printMessage(list.getValueByIndex(0));
 		printMessage(list.getValueByIndex(1));
 		printMessage(list.getValueByIndex(2));
-	}
+	}*/
 
     private:
 	//static Os::Debug dbg;

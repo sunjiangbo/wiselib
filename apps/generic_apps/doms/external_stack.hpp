@@ -112,7 +112,7 @@ class ExternalStack{
 	/**
 	 * Fuegt ein Element ans Ende des Stacks ein
 	 */
-	bool push(T x){
+	int push(T x){
 #ifdef DEBUG
 	    debug_->debug("EXTERNAL_STACK DEBUG: push(%d)",x);
 #endif
@@ -120,7 +120,7 @@ class ExternalStack{
 #ifdef DEBUG
 		debug_->debug("EXTERNAL_STACK DEBUG: push failed");
 #endif
-		return false;
+		return Os::ERR_UNSPEC;
 	    }
 	    if(itemsInBuffer_>=MAX_ITEMS_IN_BUFFER){
 		flushBuffer();
@@ -135,17 +135,17 @@ class ExternalStack{
 	    //
 #endif
 
-	    return true;
+	    return Os::SUCCESS;
 	}
 
 	/**
 	 * Holt das letzte Element des Stacks ohne es zu entfernen
 	 */
-	bool top(T* x){
+	int top(T* x){
 	    bool succ;
 	    if(itemsInBuffer_<=0){
 		succ = loadOneBlockIntoBuffer();
-		if(!succ) return false;
+		if(!succ) return Os::ERR_UNSPEC;
 	    }
 	    blockRead<T>(buffer_,itemsInBuffer_-1,x);
 #ifdef DEBUG
@@ -155,17 +155,17 @@ class ExternalStack{
 		debug_->debug("EXTERNAL_STACK DEBUG: top unsuccessful");
 	    }
 #endif
-	    return true;
+	    return Os::SUCCESS;
 	}
 
 	/**
 	 * Holt das letzte Element des Stacks und entfernt es.
 	 */
-	bool pop(T* x){
-	    bool succ = top(x);
-	    if(succ) itemsInBuffer_-=1;
+	int pop(T* x){
+	    int succ = top(x);
+	    if(succ == Os::SUCCESS) itemsInBuffer_-=1;
 #ifdef DEBUG
-	    if(succ){
+	    if(succ == Os::SUCCESS){
 		debug_->debug("EXTERNAL_STACK DEBUG: pop(%d) ",*x);
 	    } else {
 		debug_->debug("EXTERNAL_STACK DEBUG: pop unsuccessful");
@@ -284,7 +284,7 @@ class ExternalStack{
 	 * Vorbedingung: Buffer ist leer
 	 * Nachbedingung: Buffer enthaelt mindestens einen Block
 	 */
-	bool loadOneBlockIntoBuffer(){
+	int loadOneBlockIntoBuffer(){
 
 #ifdef CLEANBLOCKS_OPTIMIZATION_ENABLED
 	    if(cleanBlocks_>0){
@@ -294,16 +294,16 @@ class ExternalStack{
 		blocksOnSd_-=cleanBlocks_;
 		unmodBlocks_=cleanBlocks_;
 		cleanBlocks_=0;
-		return true;
+		return Os::SUCCESS;
 	    }
 	    cleanBlocks_=0;
 #endif
 
-	    if(blocksOnSd_<=0) return false;
+	    if(blocksOnSd_<=0) return Os::ERR_UNSPEC;
 	    sd_->read(buffer_, minBlock_+blocksOnSd_-1, 1);
 	    itemsInBuffer_=MAX_ITEMS_PER_BLOCK;
 	    blocksOnSd_-=1;
-	    return true;
+	    return Os::SUCCESS;
 	}
 
 
