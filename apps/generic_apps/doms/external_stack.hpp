@@ -1,15 +1,12 @@
 #ifndef EXTERNAL_STACK_HPP
 #define EXTERNAL_STACK_HPP
 
-#include <external_interface/external_interface.h>/*
-#include <external_interface/arduino/arduino_sdcard.h>
-#include <external_interface/arduino/arduino_debug.h>
-#include <external_interface/arduino/arduino_clock.h>*/
+#include <external_interface/external_interface.h>
 #define BLOCK_SIZE_DEFINE 512
+#define CLEANBLOCKS_OPTIMIZATION_ENABLED
 //#define DEBUG
 //#define INFO
 //#define WARNING
-#define CLEANBLOCKS_OPTIMIZATION_ENABLED
 
 using namespace wiselib;
 //14011050
@@ -113,17 +110,12 @@ class ExternalStack{
 	 * Fuegt ein Element ans Ende des Stacks ein
 	 */
 	int push(T x){
-#ifdef DEBUG
-	    debug_->debug("EXTERNAL_STACK DEBUG: push(%d)",x);
-#endif
 	    if(minBlock_-1+blocksOnSd_+BUFFERSIZE>maxBlock_){
-#ifdef DEBUG
-		debug_->debug("EXTERNAL_STACK DEBUG: push failed");
-#endif
-		return Os::ERR_UNSPEC;
+		return Os::ERR_NOMEM;
 	    }
 	    if(itemsInBuffer_>=MAX_ITEMS_IN_BUFFER){
-		flushBuffer();
+		int err = flushBuffer();
+		if(err!=Os::SUCCESS) return err;
 	    }
 	    blockWrite<T>(buffer_,itemsInBuffer_,x);
 	    ++itemsInBuffer_;
@@ -142,19 +134,11 @@ class ExternalStack{
 	 * Holt das letzte Element des Stacks ohne es zu entfernen
 	 */
 	int top(T* x){
-	    bool succ;
 	    if(itemsInBuffer_<=0){
-		succ = loadOneBlockIntoBuffer();
-		if(!succ) return Os::ERR_UNSPEC;
+		int err = loadOneBlockIntoBuffer();
+		if(err!=Os::SUCCESS) return err;
 	    }
 	    blockRead<T>(buffer_,itemsInBuffer_-1,x);
-#ifdef DEBUG
-	    if(succ){
-		debug_->debug("EXTERNAL_STACK DEBUG: top(%d) ",*x);
-	    } else {
-		debug_->debug("EXTERNAL_STACK DEBUG: top unsuccessful");
-	    }
-#endif
 	    return Os::SUCCESS;
 	}
 
@@ -205,9 +189,6 @@ class ExternalStack{
 	 * Fuer diese Operation wird ein temporaer Block erstellt.
 	 */
 	void flush(){
-#ifdef DEBUG 
-	    debug_->debug("EXTERNAL_STACK DEBUG: flush()");
-#endif
 	    block_data_t tmpBlock[BLOCK_SIZE_DEFINE];
 	    flush(tmpBlock);
 	}
@@ -221,7 +202,7 @@ class ExternalStack{
 	    uint16_t blocksToWrite=fullBlocksToWrite+(itemsInBuffer_%MAX_ITEMS_PER_BLOCK>0?1:0);
 
 	    if(blocksToWrite>0){ 
-		sd_->write(buffer_,uint32_t((uint32_t)minBlock_+(uint32_t)blocksOnSd_), blocksToWrite);
+		sd_->write(buffer_,minBlock_+blocksOnSd_, blocksToWrite);
 		itemsInBuffer_-=fullBlocksToWrite*MAX_ITEMS_PER_BLOCK;
 		blocksOnSd_+=fullBlocksToWrite;
 		if(tmpBlock!=buffer_ && fullBlocksToWrite>0 && fullBlocksToWrite<blocksToWrite){
@@ -258,18 +239,18 @@ class ExternalStack{
 	 * Vorbedingung: Buffer ist voll
 	 * Nachbedingung: Buffer ist leer
 	 */
-	void flushBuffer(){//Buffer has to be full
+	int flushBuffer(){//Buffer has to be full
 #ifdef CLEANBLOCKS_OPTIMIZATION_ENABLED
 	    if(unmodBlocks_>0){
 		moveBlocks(&buffer_[unmodBlocks_*BLOCK_SIZE_DEFINE],buffer_,BUFFERSIZE-unmodBlocks_);
 		itemsInBuffer_-=unmodBlocks_*MAX_ITEMS_PER_BLOCK;
 		blocksOnSd_+=unmodBlocks_;
-		//debug_->debug(">>>>>>>>>>>>>> unmodBlocks %u",unmodBlocks_);
 		unmodBlocks_=0;
-		return;
+		return Os::SUCCESS;
 	    }
 #endif
-	    sd_->write(buffer_,minBlock_+blocksOnSd_, BUFFERSIZE);
+	    int err = sd_->write(buffer_,minBlock_+blocksOnSd_, BUFFERSIZE);
+	    if(err!=Os::SUCCESS) return err;
 
 	    itemsInBuffer_ = 0;
 	    blocksOnSd_+=BUFFERSIZE;
@@ -299,8 +280,9 @@ class ExternalStack{
 	    cleanBlocks_=0;
 #endif
 
-	    if(blocksOnSd_<=0) return Os::ERR_UNSPEC;
-	    sd_->read(buffer_, minBlock_+blocksOnSd_-1, 1);
+	    if(blocksOnSd_<=0) return Os::ERR_UNSPEC;//empty
+	    int err = sd_->read(buffer_, minBlock_+blocksOnSd_-1, 1);
+	    if(err!=Os::SUCCESS) return err;
 	    itemsInBuffer_=MAX_ITEMS_PER_BLOCK;
 	    blocksOnSd_-=1;
 	    return Os::SUCCESS;
