@@ -1,6 +1,6 @@
 /*
  * BlockIterator.h
- *
+ * An iterator for the block class.
  *  Created on: Jan 27, 2013
  *      Author: maximilian
  */
@@ -23,9 +23,11 @@ class BlockIterator
 
 public:
 
+	/*
+	 * Creates a new Block iterator for a given block at a given position.
+	 */
 	BlockIterator(BlockType* block, index_t position) :  currentPos(position), block(block)
 	{
-
 	}
 
 	ValueType operator*() const
@@ -39,6 +41,9 @@ public:
 		return *this;
 	}
 
+	/*
+	 * Checks for the same position and the same block.
+	 */
 	bool operator==(const BlockIterator<BlockType>& o) const
 	{
 		return o.currentPos == currentPos && o.block == block;
@@ -46,7 +51,7 @@ public:
 
 	bool operator!=(const BlockIterator<BlockType>& o) const
 	{
-		return o.currentPos != currentPos;
+		return !(o.currentPos == currentPos && o.block == block);
 	}
 
 

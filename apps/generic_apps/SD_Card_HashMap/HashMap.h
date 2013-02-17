@@ -34,8 +34,8 @@ public:
 
 
 	/*
-	 * Creates a new hashmap that operates on a given block memory, between given block numbers and uses a given hashFunction.
-	 *
+	 * Creates a new hashmap that operates on a given block memory,
+	 * between given block numbers and uses a given hashFunction.
 	 */
 	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd, hashFunction hash, int fromBlock = 0, int toBlock = 100)
 	: hashFunc(hash), insertedElements(0), fromBlock(fromBlock), toBlock(toBlock), lastNewBlock(0), firstBlock(0), currentState(INTACT)
@@ -47,7 +47,9 @@ public:
 
 	/*
 	 * Inserts a new key value pair into the hashmap.
-	 * Returns SD_ERROR if there was an IO problem and HASHMAP_FULL when there is no space left in the hashmap.
+	 * @return:
+	 * 	Os::ERR_NOMEM if the hash map is full
+	 * 	The block interfaces write error code otherwise
 	 */
 	int putEntry(KeyType key, ValueType& value)
 	{
@@ -79,6 +81,12 @@ public:
 		return writingToSd;
 	}
 
+	/*
+	 * Retrieves an entry from the hash map based on a given key
+	 * @return:
+	 * 	Os::SUCCESS if everything went ok,
+	 *  Os::NO_VALUE if no value could be found for the given key
+	 */
 	int getEntry(KeyType key, ValueType* value)
 	{
 		Block<KeyType, ValueType> block(computeHash(key), sd);
@@ -87,8 +95,9 @@ public:
 
 	/*
 	 * Removes an entry from the hashmap based on a given key.
-	 * Returns NO_VALUE_FOR_THAT_KEY if the hashmap did not contain the key.
-	 * Return SD_ERROR if there was an IO error.
+	 * @return:
+	 * 	OS::NO_VALUE if the key was not in the hash map.
+	 * 	The writing error code of the block memory otherwise
 	 */
 	int removeEntry(KeyType key)
 	{
@@ -110,7 +119,8 @@ public:
 
 	/*
 	 * Retrives an entry from the hashmap based on a given key.
-	 * Only keys that are already in the hashmap might be retrieved, otherwise the behavior is undefined.
+	 * Only keys that are already in the hashmap might be retrieved,
+	 * otherwise the return value will be empty.
 	 */
 	const ValueType operator[](KeyType key)
 	{
@@ -139,6 +149,10 @@ public:
 		return ((float)insertedElements)/maxElements;
 	}
 
+	/*
+	 * For the iterator concept
+	 */
+
 	iterator begin()
 	{
 		return iterator(firstBlock, sd);
@@ -152,9 +166,7 @@ public:
 private:
 	Os::size_t computeHash(KeyType key)
 	{
-		return (hashFunc(key) % (toBlock - (fromBlock + 1))) + fromBlock + 1;
-		//return (key % (toBlock - fromBlock)) + fromBlock;
-		//return (Fnv32<Os>::hash((const block_data*) &key, sizeof(key)) % (toBlock - fromBlock)) + fromBlock;
+		return (hashFunc(key) % (toBlock - (fromBlock + 1))) + fromBlock + 1; //The first block is for meta data
 	}
 
 	hashFunction hashFunc;
@@ -170,6 +182,12 @@ private:
 	size_t firstBlock;
 
 	//TODO: somehow react to a broken state
+	/*
+	 * Keeps track of the linkage state of the blocks.
+	 * If something messed up while linking together the blocks the state will go to BROKEN.
+	 * As of know there is no way to recover from this state and nothing will happen if the
+	 * hash map is broken. Only the iterator breaks anyways so who cars?
+	 */
 	enum hashMapState{INTACT, BROKEN};
 	hashMapState currentState;
 };

@@ -1,6 +1,6 @@
 /*
  * HashMapIterator.h
- *  This class can be used to iterate over the block that were filled by a hashmap.
+ *  This class can be used to iterate over the block that were filled by a hash map.
  *  Created on: Jan 27, 2013
  *      Author: maximilian
  */

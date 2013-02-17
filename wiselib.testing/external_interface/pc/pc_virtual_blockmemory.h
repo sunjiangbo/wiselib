@@ -31,8 +31,8 @@ public:
 	 */
 	typedef OsModel_P OsModel;
 	typedef typename OsModel::block_data_t block_data_t;
-	typedef typename OsModel::size_t size_type;
-	typedef size_type address_t; /// always refers to a block number
+	typedef typename OsModel::size_t size_t;
+	typedef size_t address_t; /// always refers to a block number
 	typedef VirtualSD self_type;
 	typedef self_type* self_pointer_t;
 	enum {
@@ -261,14 +261,33 @@ public:
 		printf("|\n");
 	}
 
-	void printGNUPLOTOutputBytes(int fromBlock, int toBlock, FILE* f)
+	void printGNUPLOTOutputBytes(size_t fromBlock, size_t toBlock, FILE* f)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
-		for(int block = toBlock; block >= fromBlock; block--)
+		for(size_t block = toBlock; (block + 1) > fromBlock; block--)
+			{
+		printf("We are here %u\n", block);
+				for(int j = 0; j < blocksize; j++)
+				{
+//					fprintf(f, "%s ", ((int)memory[block][j] == 0 ? "1" : "0"));
+					fprintf(f, "%d ", ((int)memory[block][j]));
+				}
+				fprintf(f, "\n");
+			}
+	}
+
+	typedef int (*colorfunc)(size_t, int, int);
+
+	void printGNUPLOTOutputBytes(size_t fromBlock, size_t toBlock, FILE* f, colorfunc colorize)
+	{
+		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
+
+		for(size_t block = toBlock; (block + 1) > fromBlock; block--)
 			{
 				for(int j = 0; j < blocksize; j++)
 				{
-					fprintf(f, "%s ", ((int)memory[block][j] == 0 ? "1" : "0"));
+//					fprintf(f, "%s ", ((int)memory[block][j] == 0 ? "1" : "0"));
+					fprintf(f, "%d ", colorize(block, j, (int)memory[block][j]));
 				}
 				fprintf(f, "\n");
 			}
