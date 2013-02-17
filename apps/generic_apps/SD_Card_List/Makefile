@@ -15,9 +15,9 @@ export BIN_OUT=listTest
 
 include ../Makefile
 
-all: compile flash run
+ar_: compile flash run
 
-allpc: pc
+pc_: pc
 	out/pc/./listTest
 
 compile:

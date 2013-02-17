@@ -7,7 +7,7 @@
 //#include "external_stack.hpp"
 
 //#define DEBUG
-#define BDMMU_DEBUG
+//#define BDMMU_DEBUG
 
 #ifdef DEBUG
 	#ifndef BDMMU_DEBUG
@@ -169,35 +169,52 @@ class BDMMU {
 			}
 			
 			//The BlockDevice is funtioning correctly, but there are no block numbers of free blocks on the stack
-			else if (r == OsModel::ERR_UNSPEC) {
+			else {
 				
-				// The stack doesn't contain a free memory block, but memory space which has never been used yet, is available
-				if (next_vblock < TOTAL_VBLOCKS) { 
-					*vBlockNo = next_vblock;
-					next_vblock++;
-					return OsModel::SUCCESS;
-				}
-				else {
+				if(stack.isEmpty()) {
+					// The stack doesn't contain a free memory block, but memory space which has never been used yet, is available
+					if (next_vblock < TOTAL_VBLOCKS) { 
+						*vBlockNo = next_vblock;
+						next_vblock++;
+						return OsModel::SUCCESS;
+					}
+					else {
+						#ifdef BDMMU_DEBUG
+							debug_->debug("There is no more free memory.");
+						#endif
+						return OsModel::ERR_NOMEM;
+					}
+				} else {
 					#ifdef BDMMU_DEBUG
-						debug_->debug("There is no more free memory.");
+						debug_->debug("block_alloc: IO error.");
 					#endif
-					return OsModel::ERR_UNSPEC; // There is no free memory
+					
+					return OsModel::ERR_IO_HATES_YOU;
 				}
 			}
 			
-			//IO Error or other hardware error occurred
-			else return r;
 		}
 
 		int block_free(block_address_t vBlockNo) {
 			if(vBlockNo >= 0 && vBlockNo < TOTAL_VBLOCKS) {
-				return stack.push(vBlockNo);
+				
+				int r = stack.push(vBlockNo);
+				
+				if (r == OsModel::SUCCESS) {
+					return OsModel::SUCCESS;
+				} else {
+					
+					#ifdef BDMMU_DEBUG
+						debug_->debug("block_free: IO error.");
+					#endif
+					return OsModel::ERR_IO_HATES_YOU;
+				}
 			}
 			else {	
 				#ifdef BDMMU_DEBUG
 					debug_->debug("Attempted free a block with an invalid virtual block address.\n");
 				#endif
-				return OsModel::ERR_UNSPEC;
+				return OsModel::ERR_UNSPEC; //OsModel::EINVAL would be good, if it just wasn't commented out...
 			}
 		}
 
@@ -208,15 +225,27 @@ class BDMMU {
 					debug_->debug("VIRTUAL BLOCKS: bm_->erase(%d, %d)", start_vblock, vblocks);
 					debug_->debug("REAL BLOCKS: bm_->erase(%d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 				#endif
-			
-				return bm_->erase(vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
+				
+				int r = bm_->erase(vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
+				
+				if (r == OsModel::SUCCESS) { 
+					return OsModel::SUCCESS;
+				}
+				
+				else {
+					#ifdef BDMMU_DEBUG
+						debug_->debug("erase: IO error.");
+					#endif
+					return OsModel::ERR_IO_HATES_YOU;
+				}
+				
 			}
 		
 			else {
 				#ifdef BDMMU_DEBUG
 					debug_->debug("Attempted erase at invalid virtual block address(es).\n");
 				#endif
-				return OsModel::ERR_UNSPEC;
+				return OsModel::ERR_UNSPEC; //EINVAL would be good
 			}
 		}
 	
@@ -229,7 +258,16 @@ class BDMMU {
 					debug_->debug("REAL BLOCKS: bm_->read(buffer, %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 				#endif
 			
-				return bm_->read(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
+				int r = bm_->read(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
+				
+				if (r == OsModel::SUCCESS) {
+					return OsModel::SUCCESS;
+				} else {
+					#ifdef BDMMU_DEBUG
+						debug_->debug("read: IO error.");
+					#endif
+					return OsModel::ERR_IO_HATES_YOU;
+				}
 			}
 		
 		
@@ -237,19 +275,29 @@ class BDMMU {
 				#ifdef BDMMU_DEBUG
 					debug_->debug("Attempted read at invalid virtual block address(es).\n");
 				#endif
-				return OsModel::ERR_UNSPEC;
+				return OsModel::ERR_UNSPEC; // EINVAL would be good
 			}
 		}
 
 
-		bool write(block_data_t *buffer, block_address_t start_vblock, block_address_t vblocks = 1) {
+		int write(block_data_t *buffer, block_address_t start_vblock, block_address_t vblocks = 1) {
 	
 			if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) { 
 				#ifdef BDMMU_DEBUG
 					debug_->debug("VIRTUAL BLOCKS: bm_->write(buffer, %d, %d)", start_vblock, vblocks);
 					debug_->debug("REAL BLOCKS: bm_->write(buffer, %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 				#endif
-				return bm_->write(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION); 
+				
+				int r = bm_->write(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION); 
+				
+				if (r == OsModel::SUCCESS) {
+					return OsModel::SUCCESS;
+				} else {
+					#ifdef BDMMU_DEBUG
+						debug_->debug("write: IO error.");
+					#endif
+					return OsModel::ERR_IO_HATES_YOU;
+				}
 			}
 		
 		
@@ -257,7 +305,7 @@ class BDMMU {
 				#ifdef BDMMU_DEBUG
 					debug_->debug("Attempted write at invalid virtual block address(es).\n");
 				#endif
-				return OsModel::ERR_UNSPEC;
+				return OsModel::ERR_UNSPEC; //EINVAL would be good
 			}
 		}
 
@@ -278,14 +326,6 @@ class BDMMU {
 	
 		// converts virtual data block number to real block number
 		block_address_t vr(block_address_t v) {
-			
-			/*#ifdef BDMMU_DEBUG //TODO Delete this mess?
-				//debug_->debug("FUNCTION VR: FIRST_VBLOCK_AT=%u + v=%u * BLOCK_VIRTUALIZATION=%u", FIRST_VBLOCK_AT, v, BLOCK_VIRTUALIZATION);
-				debug_->debug("FIRST_VBLOCK_AT: %u", FIRST_VBLOCK_AT);
-				debug_->debug("v: %u", v);
-				debug_->debug("BLOCK_VIRTUALIZATION: %u", BLOCK_VIRTUALIZATION);
-				debug_->debug("FIRST_VBLOCK_AT + v * BLOCK_VIRTUALIZATION = %u", FIRST_VBLOCK_AT + v * BLOCK_VIRTUALIZATION);
-			#endif*/
 			return FIRST_VBLOCK_AT + (v * BLOCK_VIRTUALIZATION);
 		}
 

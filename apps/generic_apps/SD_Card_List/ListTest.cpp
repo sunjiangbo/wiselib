@@ -30,6 +30,8 @@ class App {
 	void init(Os::AppMainParameter& value) {
 		debug_ = &FacetProvider<Os, Os::Debug>::get_facet(value);
 		sd = &FacetProvider<Os, Os::BlockMemory>::get_facet(value);
+		sd->init();
+		debug_->debug("sd = %x", sd); //TODO
 		//testAdd();
 		//testInsertByIndex();
 		testRemoveIndex();
@@ -88,7 +90,7 @@ class App {
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Remove");
 		
-		typedef BDMMU<Os, 0, 11, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t;
+		typedef BDMMU<Os, 0, 20, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t;
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
 		List<Os, MMU_0_t, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, &mmu_0);
