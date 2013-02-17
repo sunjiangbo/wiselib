@@ -8,19 +8,22 @@
 #ifndef BLOCKITERATOR_H_
 #define BLOCKITERATOR_H_
 
-#include "Block.h"
-
 namespace wiselib {
 
+template<typename KeyType_P, typename ValueType_P, int blocksize>
+class Block;
 
-template<typename KeyType_P, typename ValueType_P>
+template<typename BlockType_P>
 class BlockIterator
 {
-	typedef KeyType_P KeyType;
-	typedef ValueType_P ValueType;
+	typedef BlockType_P BlockType;
+	typedef typename BlockType::KeyType KeyType;
+	typedef typename BlockType::ValueType ValueType;
+	typedef typename BlockType::index_t index_t;
+
 public:
 
-	BlockIterator(Block<KeyType, ValueType>* block) :  currentPos(0), block(block)
+	BlockIterator(BlockType* block, index_t position) :  currentPos(position), block(block)
 	{
 
 	}
@@ -30,21 +33,26 @@ public:
 		return (*block)[currentPos];
 	}
 
-	BlockIterator<KeyType, ValueType>& operator++()
+	BlockIterator<BlockType>& operator++()
 	{
 		++currentPos;
 		return *this;
 	}
 
-	bool reachedEnd()
+	bool operator==(const BlockIterator<BlockType>& o) const
 	{
-		return !(currentPos < block->getNumValues());
+		return o.currentPos == currentPos && o.block == block;
+	}
+
+	bool operator!=(const BlockIterator<BlockType>& o) const
+	{
+		return o.currentPos != currentPos;
 	}
 
 
 private:
-	uint8_t currentPos;
-	Block<KeyType, ValueType>* block;
+	index_t currentPos;
+	BlockType* block;
 };
 
 }  // namespace wiselib

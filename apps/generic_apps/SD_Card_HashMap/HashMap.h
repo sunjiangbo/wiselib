@@ -13,6 +13,7 @@
 #include <util/serialization/serialization.h>
 #include <algorithms/hash/fnv.h>
 #include "Block.h"
+#include "HashMapIterator.h"
 
 namespace wiselib {
 
@@ -29,6 +30,7 @@ public:
 	typedef Fnv32<Os>::hash_t hash;
 	typedef Fnv32<Os>::block_data_t block_data;
 	typedef size_t (*hashFunction)(KeyType);
+	typedef HashMapIterator<HashMap<KeyType, ValueType> > iterator;
 
 
 	/*
@@ -133,23 +135,24 @@ public:
 	{
 		Block<KeyType, ValueType> block(computeHash(0), sd);
 		int valuesPerBlock = block.maxNumValues();
-		unsigned long int maxElements = valuesPerBlock * (toBlock - fromBlock);
+		unsigned long int maxElements = valuesPerBlock * (toBlock - fromBlock - 1);
 		return ((float)insertedElements)/maxElements;
 	}
 
-	/*
-	 * Returns the address of the first block that was used.
-	 * Use this method to create your iterator!
-	 */
-	size_t getFirstUsedBlock()
+	iterator begin()
 	{
-		return firstBlock;
+		return iterator(firstBlock, sd);
+	}
+
+	int end()
+	{
+		return 42;
 	}
 
 private:
 	Os::size_t computeHash(KeyType key)
 	{
-		return (hashFunc(key) % (toBlock - fromBlock)) + fromBlock;
+		return (hashFunc(key) % (toBlock - (fromBlock + 1))) + fromBlock + 1;
 		//return (key % (toBlock - fromBlock)) + fromBlock;
 		//return (Fnv32<Os>::hash((const block_data*) &key, sizeof(key)) % (toBlock - fromBlock)) + fromBlock;
 	}

@@ -124,18 +124,16 @@ public:
 		debug_ = &wiselib::FacetProvider<Os, Os::Debug>::get_facet(value);
 		sd = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 
-		//testBlockRemoving();
-		//simpleTestHashMap();
-		//testBlockRemoving();
-		//testBlock();
+
 		sd->init();
-		generateGNUPLOTData();
-//		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
-//		if(!blockTest()) debug_->debug("blockTest failed!");
-//		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
-//		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
-//		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
-//		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
+//		generateGNUPLOTData();
+//		generateFillupAnimation();
+		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
+		if(!blockTest()) debug_->debug("blockTest failed!");
+		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
+		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
+		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
 //		maxLoadFactorTest();
 //		generateGNUPLOTScripts();
 		//generateFillupAnimation();
@@ -153,15 +151,31 @@ public:
 	bool reverseFNVTest()
 	{
 		sd->erase(0, 1000);
-		wiselib::HashMap<uint32_t, uint16_t> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, uint32_t>::fnv, 0, 1000);
+		wiselib::HashMap<size_t, uint16_t> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, uint32_t>::fnv, 0, 1000);
 
 		wiselib::HashFunctionProvider<Os, uint16_t>::hashFunction myfnv = wiselib::HashFunctionProvider<Os, uint16_t>::fnv;
-
-		for(uint16_t i = 0; i < 1000; i++)
+		uint16_t i = 0;
+		for(; hashMap.putEntry(myfnv(i), i) == Os::SUCCESS; i++)
 		{
-			hashMap.putEntry(myfnv(i), i);
-			//debug_->debug("fnv %u : %u", i, myfnv(i));
-			//if(i%10 == 0) debug_->debug("%u", i);
+
+		}
+
+		--i;
+
+		for(; i > 0; i--)
+		{
+			size_t fnvKey = myfnv(i);
+			uint16_t readValue;
+			if(hashMap.getEntry(fnvKey, &readValue) != Os::SUCCESS)
+			{
+				debug_->debug("the hash map did not contain the origin for the hash %u while it should", fnvKey);
+				return false;
+			}
+			if(readValue != i)
+			{
+				debug_->debug("according to the hashmap %u reversehashes to %u. But it reversehashes to %u", fnvKey, readValue, i);
+				return false;
+			}
 		}
 
 		debug_->debug("reverseFNVTest test succeeds");
@@ -212,6 +226,58 @@ public:
 	bool blockTest()
 	{
 		const int initialLen = 8;
+
+		{
+			sd->erase(0, 1000);
+			wiselib::Block<int, long> block(0, sd);
+
+			if(block.getNumValues() != 0)
+			{
+				debug_->debug("A new block should contain 0 values!");
+				return false;
+			}
+
+			long values1[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 21};
+			int keys1[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
+
+			// --- test if re-insertino / updating works ---
+			for(int i = 0; i < initialLen; ++i)
+				if(block.insertValue(keys1[i], values1[i]) == Os::ERR_NOMEM)
+				{
+					debug_->debug("Block was full while it should not be!");
+					return false;
+				}
+
+			if(!blockContainsValues(&block, values1, initialLen))
+			{
+				debug_->debug("The block did not contain the values in the order it was supposed to after insertion!");
+				return false;
+			}
+
+			if(block.getNumValues() != initialLen)
+			{
+				debug_->debug("The block failed to count its elements!");
+				return false;
+			}
+
+			long values2[initialLen]	= {1, 1, 2, 3, 5, 8, 13, 22};
+			int keys2[initialLen]		= {8, 7, 6, 5, 4, 3,  2,  1};
+
+			block.insertValue(keys2[initialLen-1], values2[initialLen-1]);
+
+			if(!blockContainsValues(&block, values2, initialLen))
+			{
+				debug_->debug("The block did not contain the values in the order it was supposed to after re-insertion!");
+				return false;
+			}
+
+			if(block.getNumValues() != initialLen)
+			{
+				debug_->debug("The block failed to count its elements after re-insertion!");
+				return false;
+			}
+		}
+
 		{
 			//sd->reset();
 			sd->erase(0, 1000);
@@ -280,6 +346,7 @@ public:
 			{
 				debug_->debug("The block failed to count its elements!");
 				return false;
+
 			}
 
 			// --- deletion at the beginning ---
@@ -325,6 +392,7 @@ public:
 				return false;
 			}
 		}
+
 
 		{
 			wiselib::Block<int, long> readBlock(0, sd);
@@ -549,11 +617,11 @@ public:
 			arrayChecksum += values1[i];
 		}
 
-		wiselib::BlockIterator<int, long> it(&block);
+		wiselib::Block<int, long>::iterator it = block.begin();
 
 		int counter = 0;
 		long blockChecksum = 0;
-		while(!it.reachedEnd())
+		while(it != block.end())
 		{
 			if(*it != values1[counter])
 			{
@@ -668,10 +736,12 @@ public:
 			arrayChecksum += values1[i];
 		}
 
-		wiselib::HashMapIterator<int, long> it(hashMap.getFirstUsedBlock(), sd);
+		wiselib::HashMap<int, long>::iterator it = hashMap.begin();
+
+
 		int elementCounter = 0;
 
-		while(!it.reachedEnd())
+		while(it != hashMap.end())
 		{
 			if(!arrayContainsValue(values1, initialLen, *it))
 			{
@@ -860,28 +930,53 @@ public:
 
 //		fillupHashMap<Value3>(&hashMap4);
 
-		sd->printGNUPLOTOutputBytes(0, 100, file);
+
+//		sd->printGNUPLOTOutputBytes(0, 100, file, colorizeBlock<wiselib::Block<long, Value3> >);
 		fclose(file);
 	}
-/*
+
+	template<typename BlockType>
+	static int colorizeBlock(Os::size_t block, int position, int value)
+	{
+		if(value == 0)
+			return -1;
+
+		if(position < sizeof(typename BlockType::header))
+			return 0;
+
+
+
+		int posInKVPair = (position - sizeof(typename BlockType::header)) % sizeof(typename BlockType::keyValuePair);
+
+		if(posInKVPair < sizeof(typename BlockType::KeyType))
+			return 1;
+		else
+			return 2;
+	}
+
 	void generateFillupAnimation()
 	{
 		wiselib::HashMap<int, long> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 50);
 
 		int counter = 0;
 		long value = 0xFFFFFFFFL;
+		int imageCounter = 0;
 		while(hashMap.putEntry(counter, value) == Os::SUCCESS)
 		{
-			char filename[20];
-			sprintf(filename, "bild%d.dot", counter);
-			FILE* file = fopen(filename, "w");
-			sd->printGraphBytes(0, 100, file);
-			fclose(file);
+			if(counter % 5 == 0)
+			{
+				char filename[20];
+				sprintf(filename, "bild%04d.dot", imageCounter);
+				imageCounter++;
+				FILE* file = fopen(filename, "w");
+//				sd->printGNUPLOTOutputBytes(0, 50, file, colorizeBlock<wiselib::Block<int, long> >);
+				fclose(file);
+			}
 			debug_->debug("we inserted %d items", counter);
 			counter++;
 		}
 	}
-*/
+
 
 	void printBlock(wiselib::Block<int, long> b)
 	{

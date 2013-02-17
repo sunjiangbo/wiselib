@@ -12,6 +12,7 @@
 #include "util/serialization/simple_types.h"
 #include <util/meta.h>
 
+#include "BlockIterator.h"
 #include "Stopwatch.h"
 
 
@@ -34,9 +35,11 @@ public:
 	} keyValuePair;
 
 //	typedef SmallUint<(blocksize - sizeof(header)) / sizeof(keyValuePair)>  index_t; //TODO: how to solve this with template magic? we have circular references there!
-	typedef typename SmallUint<(blocksize - (sizeof(Os::size_t) * 2 + sizeof(long) + 8)) / sizeof(keyValuePair)>::t index_t; //TODO: not working
+	typedef typename SmallUint<(blocksize - (sizeof(Os::size_t) * 2 + sizeof(long) + 8)) / sizeof(keyValuePair)>::t index_t;
+	typedef typename SmallUint<blocksize>::t posInBlock_t;
 //	typedef uint16_t index_t;
 
+	typedef BlockIterator<Block<KeyType, ValueType, blocksize> > iterator;
 	/*
 	 * The header to be stored at the beginning of each block
 	 */
@@ -56,6 +59,8 @@ public:
 	Block(Os::size_t nr, Os::BlockMemory::self_pointer_t sd)
 	: sd(sd), blockNr(nr)
 	{
+//		(blocksize - sizeof(header)) / sizeof(keyValuePair);
+
 		initFromSD();
 	}
 
@@ -122,6 +127,17 @@ public:
 		return getNumValues() == 0;
 	}
 
+	iterator end()
+	{
+		return iterator(this, getNumValues());
+	}
+
+	iterator begin()
+	{
+		return iterator(this, 0);
+	}
+
+
 	int getValueByID(index_t id, ValueType* value)
 	{
 		if(id < getNumValues() && id >= 0)
@@ -169,19 +185,22 @@ public:
 
 	int insertValue(KeyType key, ValueType& value)
 	{
-		if(getNumValues() < maxNumValues())
+		int16_t pos = getIDForKey(key); //define at what position the pair should be inserted
+		if(pos == -1) //if the key was not yet inserted into the block we append it to the end and increase the number of elements in the block
 		{
-			keyValuePair pair;
-			pair.key = key;
-			pair.value = value;
-			write<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(getNumValues()) , pair);
-			head.numKVPairs = getNumValues() + 1;
-			return Os::SUCCESS;
+			if(getNumValues() < maxNumValues()) //we only insert if the block is not full
+			{
+				pos = getNumValues();
+				++head.numKVPairs;
+			}
+			else
+				return Os::ERR_NOMEM;
 		}
-		else
-		{
-			return Os::ERR_NOMEM;
-		}
+		keyValuePair pair;
+		pair.key = key;
+		pair.value = value;
+		insertKVPairAtID(pair, pos);
+		return Os::SUCCESS;
 	}
 
 	int removeValue(KeyType key)
@@ -224,6 +243,7 @@ public:
 		nextBlock->setPrevBlock(this->blockNr);
 		this->setNextBlock(nextBlock->blockNr);
 	}
+
 
 	int removeFromChain()
 	{
@@ -279,7 +299,7 @@ private:
 		return read<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id));
 	}
 
-	index_t computePairOffset(index_t id)
+	posInBlock_t computePairOffset(index_t id)
 	{
 		return sizeof(header) + id * sizeof(keyValuePair);
 	}
