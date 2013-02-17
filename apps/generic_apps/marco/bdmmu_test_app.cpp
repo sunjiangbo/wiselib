@@ -29,8 +29,10 @@ class BDMMUTestApp
 		
 		
 		BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> mmu(sd_, debug_, false, true);
+		
 		debug_->debug("Stack size = %d", mmu.get_STACK_SIZE());
-
+		debug_->debug("MMU administers %d virtual block(s).", mmu.get_TOTAL_VBLOCKS());
+		debug_->debug("Reserved %d virtual block(s) for special purposes. (Starting from virtual block address 0.)\n", mmu.get_reserved());
 
 		size_t blocks_to_allocate = 5;
 		size_t b[blocks_to_allocate];
@@ -103,7 +105,7 @@ class BDMMUTestApp
 			debug_->debug("	 %s\n", &txt_out[120*i]);
 		}*/
 		
-		debug_->debug("rw_sucess = %d\n", rw_success);
+		debug_->debug("Write-Read Test Exit Status = %d\n", rw_success);
 		
 		
 		

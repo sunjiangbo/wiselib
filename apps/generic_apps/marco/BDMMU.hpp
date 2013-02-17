@@ -282,16 +282,24 @@ class BDMMU {
 			return FIRST_VBLOCK_AT + (v * BLOCK_VIRTUALIZATION);
 		}
 
-		int get_STACK_SIZE() {
+		size_t get_STACK_SIZE() {
 			return this->STACK_SIZE;
 		} 
 
+		address_t get_LO() {
+			return LO;
+		}
+
 		address_t get_HI() {
-			return this->HI;
+			return HI;
 		}
 	
-		int get_TOTAL_VBLOCKS() {
+		size_t get_TOTAL_VBLOCKS() {
 			return this->TOTAL_VBLOCKS;
+		}
+		
+		size_t get_reserved() {
+			return reserved;
 		}
 	
 		void setPeristent(bool p) {
