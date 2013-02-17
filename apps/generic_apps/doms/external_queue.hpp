@@ -62,19 +62,24 @@ class ExternalQueue{
 		sd_->read(buffer_, beginMem, 1);
 
 		blockRead<uint16_t>(buffer_, 0, &itemsInRead_);
-		blockRead<uint16_t>(buffer_, 4, &itemsInWrite_);
-		blockRead<uint16_t>(buffer_, 8, &idxRead_);
-		blockRead<address_t>(buffer_, 12, &blocksOnSd_);
-		blockRead<address_t>(buffer_, 16, &idxBeginSd_);
+		blockRead<uint16_t>(buffer_, 1, &itemsInWrite_);
+		blockRead<uint16_t>(buffer_, 2, &idxRead_);
+		uint32_t tmpSizeof;   blockRead<uint32_t>(buffer_, 3, &tmpSizeof);
+		uint32_t tmpValCode;  blockRead<uint32_t>(buffer_, 4, &tmpValCode);
 
-		address_t tmpMinBlock; blockRead<address_t>(buffer_, 20, &tmpMinBlock);
-		address_t tmpMaxBlock; blockRead<address_t>(buffer_, 24, &tmpMaxBlock);
-		uint32_t tmpSizeof;   blockRead<uint32_t>(buffer_, 28, &tmpSizeof);
-		uint32_t tmpValCode;  blockRead<uint32_t>(buffer_, 32, &tmpValCode);
+		blockRead<address_t>(buffer_, 8, &blocksOnSd_);
+		blockRead<address_t>(buffer_, 12, &idxBeginSd_);
+
+		address_t tmpMinBlock; blockRead<address_t>(buffer_, 16, &tmpMinBlock);
+		address_t tmpMaxBlock; blockRead<address_t>(buffer_, 20, &tmpMaxBlock);
 
 		uint32_t valCode=itemsInRead_+itemsInWrite_+idxRead_+blocksOnSd_+idxBeginSd_;
 
 		if(minBlock_!=tmpMinBlock || maxBlock_!=tmpMaxBlock || sizeof(T)!= tmpSizeof || valCode != tmpValCode){//Inkonsistent=>Neuer Stack
+		    if(minBlock_!=tmpMinBlock) debug_->debug("A");
+		    if(maxBlock_!=tmpMaxBlock) debug_->debug("B");
+		    if(sizeof(T)!=tmpSizeof) debug_->debug("C");
+		    if(valCode!=tmpValCode) debug_->debug("D");
 		    initNewQueue(beginMem);
 		} else {
 		    if(itemsInWrite_>0){
@@ -215,19 +220,20 @@ class ExternalQueue{
 
 	    //Variablen sichern
 	    blockWrite<uint16_t>(tmpBlock,0,itemsInRead_);
-	    blockWrite<uint16_t>(tmpBlock,4,itemsInWrite_);
-	    blockWrite<uint16_t>(tmpBlock,8,idxRead_);
-	    blockWrite<address_t>(tmpBlock,12,blocksOnSd_);
-	    blockWrite<address_t>(tmpBlock,16,idxBeginSd_);
-
-	    blockWrite<address_t>(tmpBlock,20,minBlock_);
-	    blockWrite<address_t>(tmpBlock,24,maxBlock_);
-	    blockWrite<uint32_t>(tmpBlock,28,sizeof(T));
+	    blockWrite<uint16_t>(tmpBlock,1,itemsInWrite_);
+	    blockWrite<uint16_t>(tmpBlock,2,idxRead_);
+	    blockWrite<uint32_t>(tmpBlock,3,sizeof(T));
 
 	    uint32_t valCode=itemsInRead_+itemsInWrite_+idxRead_+blocksOnSd_+idxBeginSd_;
-	    blockWrite<uint32_t>(tmpBlock,32,valCode);
+	    blockWrite<uint32_t>(tmpBlock,4,valCode);
 
-	    err = sd_->write(tmpBlock,minBlock_-1,1);
+
+	    blockWrite<address_t>(tmpBlock,8,blocksOnSd_);
+	    blockWrite<address_t>(tmpBlock,12,idxBeginSd_);
+
+	    blockWrite<address_t>(tmpBlock,16,minBlock_);
+	    blockWrite<address_t>(tmpBlock,20,maxBlock_);
+		    err = sd_->write(tmpBlock,minBlock_-1,1);
 	    return err;
 
 	}
