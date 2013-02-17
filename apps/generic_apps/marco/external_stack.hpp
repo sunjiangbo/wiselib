@@ -1,48 +1,50 @@
 #ifndef EXTERNAL_STACK_HPP
 #define EXTERNAL_STACK_HPP
 
-#include <external_interface/external_interface.h>
-//#include <external_interface/arduino/arduino_clock.h>
-#define BLOCK_SIZE 512
+#include <external_interface/external_interface.h>/*
+#include <external_interface/arduino/arduino_sdcard.h>
+#include <external_interface/arduino/arduino_debug.h>
+#include <external_interface/arduino/arduino_clock.h>*/
+#define BLOCK_SIZE_DEFINE 512
 //#define DEBUG
-#define INFO
+//#define INFO
 //#define WARNING
-#define CLEANBLOCKS
+#define CLEANBLOCKS_OPTIMIZATION_ENABLED
 
 using namespace wiselib;
 //14011050
 
-
-
 template<typename Type_P, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
 class ExternalStack{
-
     public:
 	typedef wiselib::OSMODEL Os;
 	typedef typename Os::block_data_t block_data_t;
+	typedef uint32_t address_t;
 
     private:
 	typedef Type_P T;
 
-	const uint16_t MAX_ITEMS_PER_BLOCK = BLOCK_SIZE/sizeof(T);
+	const uint16_t MAX_ITEMS_PER_BLOCK = BLOCK_SIZE_DEFINE/sizeof(T);
 	const uint16_t MAX_ITEMS_IN_BUFFER = MAX_ITEMS_PER_BLOCK*BUFFERSIZE;
 
-	block_data_t buffer_[BUFFERSIZE*BLOCK_SIZE];
+	block_data_t buffer_[BUFFERSIZE*BLOCK_SIZE_DEFINE];
 
 	uint16_t itemsInBuffer_;
 
-	uint32_t blocksOnSd_;
+	address_t blocksOnSd_;
 
-	const uint32_t minBlock_;
-	const uint32_t maxBlock_;
-#ifdef CLEANBLOCKS
+	const address_t minBlock_;
+	const address_t maxBlock_;
+
+#ifdef CLEANBLOCKS_OPTIMIZATION_ENABLED
 	uint8_t cleanBlocks_;
+	uint8_t unmodBlocks_;
 #endif 
 
-	Os::Debug::self_pointer_t debug_;
-	Os::BlockMemory::self_pointer_t sd_;
+	typename Os::Debug::self_pointer_t debug_;
+	typename Os::BlockMemory::self_pointer_t sd_;
     public:
-	ExternalStack(Os::BlockMemory::self_pointer_t sd, uint32_t beginMem, uint32_t endMem, bool forceNew=false): sd_(sd), minBlock_(beginMem+1), maxBlock_(endMem){
+	ExternalStack(Os::BlockMemory::self_pointer_t sd, address_t beginMem, address_t endMem, bool forceNew=false): sd_(sd), minBlock_(beginMem+1), maxBlock_(endMem){
 	    if(BUFFERSIZE<2){ //da buffersize konstant=>kein Rechenaufwand
 		if(BUFFERSIZE==1){
 #ifdef WARNING
@@ -64,12 +66,12 @@ class ExternalStack{
 		sd_->read(buffer_, minBlock_-1, 1);
 
 		blockRead<uint16_t>(buffer_,0,&itemsInBuffer_);
-		blockRead<uint32_t>(buffer_,1,&blocksOnSd_);
+		blockRead<uint32_t>(buffer_,4,&blocksOnSd_);
 
-		uint32_t tmpMinBlock=0;   blockRead<uint32_t>(buffer_,2,&tmpMinBlock);
-		uint32_t tmpMaxBlock=0;   blockRead<uint32_t>(buffer_,3,&tmpMaxBlock);
-		uint32_t tmpSizeof=0;     blockRead<uint32_t>(buffer_,4,&tmpSizeof);
-		uint32_t tmpValcode=0;    blockRead<uint32_t>(buffer_,5,&tmpValcode);
+		uint32_t tmpMinBlock=0;   blockRead<uint32_t>(buffer_,8,&tmpMinBlock);
+		uint32_t tmpMaxBlock=0;   blockRead<uint32_t>(buffer_,12,&tmpMaxBlock);
+		uint32_t tmpSizeof=0;     blockRead<uint32_t>(buffer_,16,&tmpSizeof);
+		uint32_t tmpValcode=0;    blockRead<uint32_t>(buffer_,20,&tmpValcode);
 
 		uint32_t valCode = itemsInBuffer_+blocksOnSd_;
 		if(tmpMinBlock!= minBlock_ || tmpMaxBlock != maxBlock_ || tmpSizeof != sizeof(T) || tmpValcode != valCode){
@@ -79,15 +81,21 @@ class ExternalStack{
 		    //KONSISTENT => Buffer wiederherstellen
 		    if(itemsInBuffer_>0){
 			sd_->read(buffer_,minBlock_+blocksOnSd_, 1);
+			debug_->debug("LOAD BUFFER: %u0000",(minBlock_+blocksOnSd_)/10000);
+			debug_->debug("             +%u",(minBlock_+blocksOnSd_)%10000);
 		    }
 #ifdef INFO
 		    debug_->debug("EXTERNAL_STACK INFO: reloaded old stack");
+		    debug_->debug("itemsInBuffer_=%u",itemsInBuffer_);
+		    debug_->debug("blocksOnSd_=%u0000",blocksOnSd_/10000);
+		    debug_->debug("            +%u",blocksOnSd_%10000);
 #endif
 		}
 
 	    }
-#ifdef CLEANBLOCKS
+#ifdef CLEANBLOCKS_OPTIMIZATION_ENABLED
 	    cleanBlocks_=0;
+	    unmodBlocks_=0;
 #endif
 	}
 
@@ -119,7 +127,7 @@ class ExternalStack{
 	    }
 	    blockWrite<T>(buffer_,itemsInBuffer_,x);
 	    ++itemsInBuffer_;
-#ifdef CLEANBLOCKS
+#ifdef CLEANBLOCKS_OPTIMIZATION_ENABLED
 	    //CleanBlock
 	    if(cleanBlocks_>0){
 		if(MAX_ITEMS_IN_BUFFER-cleanBlocks_*MAX_ITEMS_PER_BLOCK<itemsInBuffer_) cleanBlocks_-=1;
@@ -163,6 +171,12 @@ class ExternalStack{
 		debug_->debug("EXTERNAL_STACK DEBUG: pop unsuccessful");
 	    }
 #endif
+
+#ifdef CLEANBLOCKS_OPTIMIZATION_ENABLED
+	    if(unmodBlocks_*MAX_ITEMS_PER_BLOCK>itemsInBuffer_){
+		unmodBlocks_-=1;
+	    }
+#endif
 	    return succ;
 	}
 
@@ -181,7 +195,7 @@ class ExternalStack{
 	 */ 
 	bool isEmpty(){
 #ifdef DEBUG
-	    debug_->debug("EXTERNAL_STACK DEBUG: isEmpty() -> %d", !(itemsInBuffer_>0 || blocksOnSd_>0));
+	    //   debug_->debug("EXTERNAL_STACK DEBUG: isEmpty() -> %d", !(itemsInBuffer_>0 || blocksOnSd_>0));
 #endif
 	    return !(itemsInBuffer_>0 || blocksOnSd_>0);
 	}
@@ -194,7 +208,7 @@ class ExternalStack{
 #ifdef DEBUG 
 	    debug_->debug("EXTERNAL_STACK DEBUG: flush()");
 #endif
-	    block_data_t tmpBlock[BLOCK_SIZE];
+	    block_data_t tmpBlock[BLOCK_SIZE_DEFINE];
 	    flush(tmpBlock);
 	}
 
@@ -203,22 +217,27 @@ class ExternalStack{
 	 * Fuehrt den Flush aus. Der tmpBlock wird zum erstellen der zu Schreibenden Bloecke genutzt. Dies kann der Buffer sein oder ein neu erstellter Block.
 	 */
 	void flush(block_data_t *tmpBlock){
-	    uint32_t fullBlocksToWrite=itemsInBuffer_/MAX_ITEMS_PER_BLOCK;
-	    uint32_t blocksToWrite=fullBlocksToWrite+(itemsInBuffer_%MAX_ITEMS_PER_BLOCK>0?1:0);
+	    uint16_t fullBlocksToWrite=itemsInBuffer_/MAX_ITEMS_PER_BLOCK;
+	    uint16_t blocksToWrite=fullBlocksToWrite+(itemsInBuffer_%MAX_ITEMS_PER_BLOCK>0?1:0);
 
-	    if(blocksToWrite>0) sd_->write(buffer_,minBlock_+blocksOnSd_, blocksToWrite);
-	    itemsInBuffer_-=fullBlocksToWrite*MAX_ITEMS_PER_BLOCK;
-	    blocksOnSd_+=fullBlocksToWrite;
+	    if(blocksToWrite>0){ 
+		sd_->write(buffer_,uint32_t((uint32_t)minBlock_+(uint32_t)blocksOnSd_), blocksToWrite);
+		itemsInBuffer_-=fullBlocksToWrite*MAX_ITEMS_PER_BLOCK;
+		blocksOnSd_+=fullBlocksToWrite;
+		if(tmpBlock!=buffer_ && fullBlocksToWrite>0 && fullBlocksToWrite<blocksToWrite){
+		    moveBlocks(&buffer_[fullBlocksToWrite*BLOCK_SIZE_DEFINE],buffer_,1);
+		}
+	    }
 
 	    blockWrite<uint16_t>(tmpBlock, 0, itemsInBuffer_);
-	    blockWrite<uint32_t>(tmpBlock, 1, blocksOnSd_);
+	    blockWrite<uint32_t>(tmpBlock, 4, blocksOnSd_);
 
-	    blockWrite<uint32_t>(tmpBlock, 2, minBlock_);
-	    blockWrite<uint32_t>(tmpBlock, 3, maxBlock_);
-	    blockWrite<uint32_t>(tmpBlock, 4, sizeof(T));
+	    blockWrite<uint32_t>(tmpBlock, 8, minBlock_);
+	    blockWrite<uint32_t>(tmpBlock, 12, maxBlock_);
+	    blockWrite<uint32_t>(tmpBlock, 16, sizeof(T));
 
 	    uint32_t valCode = itemsInBuffer_+blocksOnSd_;
-	    blockWrite<uint32_t>(tmpBlock, 5, valCode);
+	    blockWrite<uint32_t>(tmpBlock, 20, valCode);
 
 	    sd_->write(tmpBlock,minBlock_-1,1);
 	}
@@ -240,40 +259,58 @@ class ExternalStack{
 	 * Nachbedingung: Buffer ist leer
 	 */
 	void flushBuffer(){//Buffer has to be full
+#ifdef CLEANBLOCKS_OPTIMIZATION_ENABLED
+	    if(unmodBlocks_>0){
+		moveBlocks(&buffer_[unmodBlocks_*BLOCK_SIZE_DEFINE],buffer_,BUFFERSIZE-unmodBlocks_);
+		itemsInBuffer_-=unmodBlocks_*MAX_ITEMS_PER_BLOCK;
+		blocksOnSd_+=unmodBlocks_;
+		//debug_->debug(">>>>>>>>>>>>>> unmodBlocks %u",unmodBlocks_);
+		unmodBlocks_=0;
+		return;
+	    }
+#endif
 	    sd_->write(buffer_,minBlock_+blocksOnSd_, BUFFERSIZE);
 
 	    itemsInBuffer_ = 0;
 	    blocksOnSd_+=BUFFERSIZE;
-#ifdef CLEANBLOCKS
-	    //cleanBlock
-	    cleanBlocks_=0;
-	    //
+#ifdef CLEANBLOCKS_OPTIMIZATION_ENABLED
+	    cleanBlocks_=BUFFERSIZE;
+	    unmodBlocks_=0;
 #endif
 	}
 
 	/**
 	 * Laedt einen Block in den Buffer
 	 * Vorbedingung: Buffer ist leer
-	 * Nachbedingung: Buffer enthaelt einen Block
+	 * Nachbedingung: Buffer enthaelt mindestens einen Block
 	 */
 	bool loadOneBlockIntoBuffer(){
-#ifdef CLEANBLOCKS
-	    //CleanBlock
+
+#ifdef CLEANBLOCKS_OPTIMIZATION_ENABLED
 	    if(cleanBlocks_>0){
-		moveBlocks(&buffer_[512*(BUFFERSIZE-cleanBlocks_)],buffer_,cleanBlocks_);
+		moveBlocks(&buffer_[BLOCK_SIZE_DEFINE*(BUFFERSIZE-cleanBlocks_)],buffer_,cleanBlocks_);
+		//debug_->debug(">>>>>>>>>>>>>>>>>>> cleanblocks %u",cleanBlocks_);
+		itemsInBuffer_+=cleanBlocks_*MAX_ITEMS_PER_BLOCK;
+		blocksOnSd_-=cleanBlocks_;
+		unmodBlocks_=cleanBlocks_;
+		cleanBlocks_=0;
+		return true;
 	    }
-	    //
+	    cleanBlocks_=0;
 #endif
+
 	    if(blocksOnSd_<=0) return false;
 	    sd_->read(buffer_, minBlock_+blocksOnSd_-1, 1);
 	    itemsInBuffer_=MAX_ITEMS_PER_BLOCK;
 	    blocksOnSd_-=1;
 	    return true;
 	}
+
+
 	void moveBlocks(block_data_t* from, block_data_t* to, uint8_t count){
 	    for(uint8_t i=0;i<count; i++){
-		for(uint16_t j=0; j<512; j++){
-		    to[i*512+j]=from[i*512+j];
+		for(uint16_t j=0; j<BLOCK_SIZE_DEFINE; j++){
+		    to[i*BLOCK_SIZE_DEFINE+j]=from[i*BLOCK_SIZE_DEFINE +j];
 		}
 	    }
 	}
@@ -282,15 +319,15 @@ class ExternalStack{
 
 	template<class S>
 	    void blockRead(block_data_t* block, uint16_t idx, S* x){
-		uint16_t maxPerBlock = BLOCK_SIZE/sizeof(S);
-		S* castedBlock = (S*) &block[BLOCK_SIZE*(idx/maxPerBlock)];
+		uint16_t maxPerBlock = BLOCK_SIZE_DEFINE/sizeof(S);
+		S* castedBlock = (S*) &block[BLOCK_SIZE_DEFINE*(idx/maxPerBlock)];
 		*x=castedBlock[idx%maxPerBlock];
 	    }
 
 	template<class S>
 	    void blockWrite(block_data_t* block, uint16_t idx, S x){
-		uint16_t maxPerBlock = BLOCK_SIZE/sizeof(S);
-		S* castedBlock = (S*) &block[BLOCK_SIZE*(idx/maxPerBlock)];
+		uint16_t maxPerBlock = BLOCK_SIZE_DEFINE/sizeof(S);
+		S* castedBlock = (S*) &block[BLOCK_SIZE_DEFINE*(idx/maxPerBlock)];
 		castedBlock[idx%maxPerBlock]=x;
 	    }
 };

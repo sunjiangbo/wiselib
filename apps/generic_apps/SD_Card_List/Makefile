@@ -10,17 +10,15 @@
 # all: tinyos-tossim
 # all: tinyos-micaz
 
-export APP_SRC=bdmmu_test_app.cpp
-export BIN_OUT=bdmmu_test_app
+export APP_SRC=ListTest.cpp
+export BIN_OUT=listTest
 
 include ../Makefile
-
-both: pc_ ar_
 
 ar_: compile flash run
 
 pc_: pc
-	out/pc/./bdmmu_test_app
+	out/pc/./listTest
 
 compile:
 	make arduino BOARD=mega2560

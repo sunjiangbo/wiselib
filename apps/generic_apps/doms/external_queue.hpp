@@ -1,11 +1,7 @@
 #ifndef EXTERNAL_QUEUE_HPP
 #define EXTERNAL_QUEUE_HPP
 #include <external_interface/external_interface.h>
-/*
-#include <external_interface/arduino/arduino_sdcard.h>
-#include <external_interface/arduino/arduino_debug.h>
-#include <external_interface/arduino/arduino_clock.h>*/
-#define BLOCK_SIZE_DEFINE 512
+#define BLOCK_SIZE_DEFINE Os::BlockMemory::BLOCK_SIZE
 
 //#define DEBUG
 //#define INFO
@@ -24,10 +20,8 @@ template<class T, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
 class ExternalQueue{
     public:
 	typedef wiselib::OSMODEL Os;
-	typedef typename Os::block_data_t block_data_t;
-	//typedef typename Os::size_t address_t;
-	typedef uint32_t address_t;
-
+	typedef typename Os::BlockMemory::block_data_t block_data_t;
+	typedef typename Os::BlockMemory::address_t address_t;
 
     private:
 	const uint16_t MAX_ITEMS_PER_BLOCK = BLOCK_SIZE_DEFINE /sizeof(T);
@@ -88,25 +82,12 @@ class ExternalQueue{
 		    }
 		    if(itemsInRead_>0){
 			sd_->read(buffer_,calcIdxOfFirstFreeBlock(),1);
-			debug_->debug("read readbuffer from %u0000",calcIdxOfFirstFreeBlock()/10000);
-			debug_->debug("                     +%u",calcIdxOfFirstFreeBlock()%10000);
 		    }
 #ifdef INFO
 		    debug_->debug("EXTERNAL_QUEUE INFO: reloaded old queue");
 #endif
 		}
 	    }
-	    debug_->debug("itemsInRead_: %u",itemsInRead_);
-	    debug_->debug("itemsInWrite_: %u", itemsInWrite_);
-	    debug_->debug("idxRead_: %u",idxRead_);
-	    debug_->debug("blocksOnSd_: %u0000",blocksOnSd_/10000);
-	    debug_->debug("             +%u",blocksOnSd_%10000);
-	    debug_->debug("idxBeginSd_: %u0000", idxBeginSd_/10000);
-	    debug_->debug("             +%u", idxBeginSd_%10000);
-	    /* debug_->debug("minBlock_: %u", minBlock_/10000);
-	       debug_->debug("           %u", minBlock_%10000);
-	       debug_->debug("maxBlock_: %u", maxBlock_/10000);
-	       debug_->debug("           %u", maxBlock_%10000);*/
 
 	}
 
@@ -124,13 +105,10 @@ class ExternalQueue{
 	/**
 	 * Fuegt ein Element an das Ende der Queue oder gibt FALSE zurueck.
 	 */
-	bool offer(T x){//TODO groessere Sicherheit vor Datenverlust
-#ifdef DEBUG
-	    debug_->debug("EXTERNAL_QUEUE DEBUG: push(%d)->%d",x,minBlock_+blocksOnSd_+BUFFERSIZE>maxBlock_);
-#endif
+	int offer(T x){//TODO groessere Sicherheit vor Datenverlust
+	    int err = Os::SUCCESS;
 	    if(blocksOnSdLeft()<BUFFERSIZE){
-		debug_->debug("<<<<<<<<<<<<<<<<<<<<<< OFFER FALSE");
-		return false;
+		return Os::ERR_NOMEM;
 	    }
 	    if(blocksOnSd_==0){
 		if(itemsInWrite_>0 || isReadBufferFull()){
@@ -141,58 +119,44 @@ class ExternalQueue{
 		}
 	    } else {
 		if(isWriteBufferFull()) {
-		    if(!flushWrite()){debug_->debug(">>>>> HMPF OFFER"); return false;}
+		    err = flushWrite();
+		    if(err!=Os::SUCCESS) return err;
 		}
 		addLast_write(x);
 	    }
-	    return true;
+	    return Os::SUCCESS;
 	}
 
 	/**
 	 * Gibt das erste Element der Queue zurueck und entfernt es oder FALSE
 	 */
-	bool poll(T* x){
+	int poll(T* x){
+	    int err = Os::SUCCESS;
 	    if(itemsInRead_<=0){
-		bool succ=fillReadBuffer();
-#ifdef DEBUG
-		if(!succ) debug_->debug("EXTERNAL_QUEUE DEBUG: pop unsuccessfull");
-#endif 
-		if(!succ){
-		    return false;
-		}
+		err = fillReadBuffer();
+		if(err!=Os::SUCCESS){ return err; }
 	    } 
 	    removeFirst_read(x);
-#ifdef DEBUG
-	    debug_->debug("EXTERNAL_QUEUE DEBUG: pop(%d)",*x);
-#endif
-	    return true;
+	    return Os::SUCCESS;
 	}
 
 	/**
 	 * Gibt das erste Element der Queue zurueck ohne es zu entfernen oder FALSE
 	 */
-	bool peek(T* x){//same as above
+	int peek(T* x){//same as above
+	    int err = Os::SUCCESS;
 	    if(itemsInRead_<=0){
-		bool succ=fillReadBuffer();
-#ifdef DEBUG
-		if(!succ) debug_->debug("EXTERNAL_QUEUE DEBUG: pop unsuccessfull");
-#endif 
-		if(!succ) return false;
+		err=fillReadBuffer();
+		if(err!=Os::SUCCESS) return err;
 	    } 
 	    blockRead<T>(buffer_,idxRead_, x);
-#ifdef DEBUG
-	    debug_->debug("EXTERNAL_QUEUE DEBUG: pop(%d)",*x);
-#endif
-	    return true;
+	    return Os::SUCCESS;
 	}
 
 	/**
 	 * Gibt an, ob die Queue leer ist
 	 */
 	bool isEmpty(){
-#ifdef DEBUG
-	    debug_->debug("EXTERNAL_QUEUE DEBUG: isEmpty()->%d",!(blocksOnSd_>0 || itemsInRead_>0 || itemsInWrite_>0));
-#endif
 	    return !(blocksOnSd_>0 || itemsInRead_>0 || itemsInWrite_>0);
 	}
 
@@ -200,9 +164,6 @@ class ExternalQueue{
 	 * Gibt an, wie viele Elemente in der Queue sind
 	 */
 	uint64_t size(){
-#ifdef DEBUG
-	    debug_->debug("EXTERNAL_QUEUE DEBUG: size()->%d",blocksOnSd_*MAX_ITEMS_PER_BLOCK+itemsInWrite_+itemsInRead_);
-#endif
 	    return blocksOnSd_*MAX_ITEMS_PER_BLOCK+itemsInWrite_+itemsInRead_;
 	}
 
@@ -210,12 +171,9 @@ class ExternalQueue{
 	 * Speichert den jetztigen Zustand der Queue. Sollten keine weiteren Operationen auf der Queue ausgefuehrt werden,
 	 * so laesst sie sich garantiert wiederherstellen. 
 	 */
-	void flush(){
-#ifdef DEBUG
-	    debug_->debug("EXTERNAL_QUEUE DEBUG: flush()");
-#endif
+	int flush(){
 	    block_data_t tmpBlock[BLOCK_SIZE_DEFINE];
-	    flush(tmpBlock);
+	    return flush(tmpBlock);
 	}
 
     private:
@@ -223,25 +181,24 @@ class ExternalQueue{
 	 * Fuehrt die Speicherung des jetztigen Zustandes der Queue aus. Der uebergebene Block wird zum schreiben auf die SD
 	 * gebraucht und kann auch der Buffer sein. Der Buffer wird als erstes gesichert und braucht den temporaeren Block nicht.
 	 */
-	void flush(block_data_t *tmpBlock){
+	int flush(block_data_t *tmpBlock){
 	    //Writebuffer schreiben
+	    int err = Os::SUCCESS;
 	    uint8_t fullBlocksToWrite=itemsInWrite_/MAX_ITEMS_PER_BLOCK;
 	    uint8_t blocksToWrite=fullBlocksToWrite+(itemsInWrite_%MAX_ITEMS_PER_BLOCK>0?1:0);
-	    debug_->debug(" fullBlocksToWrite %u",fullBlocksToWrite);
-	    debug_->debug(" blocksToWrite %u",blocksToWrite);
 	    if(blocksToWrite>0){
 		address_t max=maxBlock_-(calcIdxOfNextFreeBlock()-1);//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-		debug_->debug("max %u",max);
 		if(max>=blocksToWrite){
-		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), blocksToWrite);
-		    debug_->debug("WRITE WRITEBUFFER TO %u0000",calcIdxOfNextFreeBlock()/10000);
-		    debug_->debug("                     +%u",calcIdxOfNextFreeBlock()%10000);
+		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), blocksToWrite);
+		    if(err!=Os::SUCCESS) return err;
 
 		    blocksOnSd_+=fullBlocksToWrite;
 		} else {
-		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), max);
+		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), max);
+		    if(err!=Os::SUCCESS) return err;
 		    blocksOnSd_+=max;
-		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE +BLOCK_SIZE_DEFINE *max], calcIdxOfNextFreeBlock(), blocksToWrite-max);
+		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE +BLOCK_SIZE_DEFINE *max], calcIdxOfNextFreeBlock(), blocksToWrite-max);
+		    if(err!=Os::SUCCESS) return err;
 		    blocksOnSd_+=fullBlocksToWrite-max;
 		}
 		if(tmpBlock!=buffer_ && fullBlocksToWrite>0 && fullBlocksToWrite<blocksToWrite){
@@ -252,9 +209,8 @@ class ExternalQueue{
 
 	    //Readbuffer schreiben
 	    if(itemsInRead_>0){
-		sd_-> write(buffer_, calcIdxOfFirstFreeBlock(),1);
-		debug_->debug("write readbuffer %u0000",calcIdxOfFirstFreeBlock()/10000);
-		debug_->debug("                 +%u",calcIdxOfFirstFreeBlock()%10000);
+		err = sd_-> write(buffer_, calcIdxOfFirstFreeBlock(),1);
+		if(err!=Os::SUCCESS) return err;
 	    }
 
 	    //Variablen sichern
@@ -271,16 +227,8 @@ class ExternalQueue{
 	    uint32_t valCode=itemsInRead_+itemsInWrite_+idxRead_+blocksOnSd_+idxBeginSd_;
 	    blockWrite<uint32_t>(tmpBlock,32,valCode);
 
-	    sd_->write(tmpBlock,minBlock_-1,1);
-	    debug_->debug("SAVING--------->");
-	    debug_->debug("itemsInRead_=%u",itemsInRead_);
-	    debug_->debug("itemsInWrite_=%u",itemsInWrite_);
-	    debug_->debug("idxRead_=%u",idxRead_);
-	    debug_->debug("blocksOnSd_= %u0000",blocksOnSd_/10000);
-	    debug_->debug("             +%u",blocksOnSd_%10000);
-	    debug_->debug("idxBeginSd_= %u0000",idxBeginSd_/10000);
-	    debug_->debug("             +%u",idxBeginSd_%10000);
-	    debug_->debug("-----------------------");
+	    err = sd_->write(tmpBlock,minBlock_-1,1);
+	    return err;
 
 	}
 
@@ -303,13 +251,13 @@ class ExternalQueue{
 	/**
 	 * Fuellt den ReadBuffer durch einen Block von der SD
 	 */
-	bool fillReadBuffer(){
+	int fillReadBuffer(){
 	    if(blocksOnSd_<=0) {
 		/**
 		 * Es sind keine Bloecke auf SD, daher versuchen wir Elemente aus dem WriteBufer zu kopieren
 		 */
 
-		if(itemsInWrite_<=0) return false; //Funktioniert natuerlich nur, wenn da Elemente enthalten sind
+		if(itemsInWrite_<=0) return Os::ERR_UNSPEC; //Funktioniert natuerlich nur, wenn da Elemente enthalten sind
 
 		//Bloecke um einen nach vorne Schieben und damit den Readbuffer fuellen
 		uint8_t blocksToMove=itemsInWrite_/MAX_ITEMS_PER_BLOCK+(itemsInWrite_%MAX_ITEMS_PER_BLOCK>0?1:0);//Wir wollen keine leeren Bloecke verschieben
@@ -329,13 +277,14 @@ class ExternalQueue{
 		/**
 		 * Wir muessen die Daten von der SD holen. Wir holen nur einen Block.
 		 */
-		sd_->read(buffer_, idxBeginSd_, 1);
+		int err = sd_->read(buffer_, idxBeginSd_, 1);
+		if(err!=Os::SUCCESS) return err;
 		itemsInRead_=MAX_ITEMS_PER_BLOCK; //Wir holen immer nur volle Bloecke
 		if(++idxBeginSd_>maxBlock_) idxBeginSd_=minBlock_; //Erster relevante Block auf SD um 1 erhoehen
 		idxRead_=0; //Die Bloecke auf der SD sind geordnet
 		--blocksOnSd_;
 	    }
-	    return true;
+	    return Os::SUCCESS;
 	}
 
 	/**
@@ -388,7 +337,8 @@ class ExternalQueue{
 	 * Vorbedingung: WriteBuffer ist voll
 	 * Nachbedingung: WriteBuffer ist um mindestens einen Block leerer
 	 */
-	bool flushWrite(){
+	int flushWrite(){
+	    int err = Os::SUCCESS;
 	    //  if(blocksOnSdLeft()<=BUFFERSIZE) return false; //Es ist nicht genug platz auf der SD
 	    if(blocksOnSd_<=0 && itemsInRead_<=0){ //erster Block von Write kann nach Read kopiert werden
 		moveBlocks(&buffer_[BLOCK_SIZE_DEFINE],buffer_,BUFFERSIZE-1);
@@ -401,13 +351,14 @@ class ExternalQueue{
 		address_t max=maxBlock_-calcIdxOfNextFreeBlock()+1;//Maximal in einem Stueck schreibbare bloecke
 
 		if(max>=BUFFERSIZE-1){//Der komplette Buffer kann in einem Stueck geschrieben werden.
-		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), BUFFERSIZE-1);
+		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), BUFFERSIZE-1);
+		    if(err!=Os::SUCCESS) return err;
 		    blocksOnSd_+=BUFFERSIZE-1;
 		    itemsInWrite_=0;
 		} else {//Nur der vordere Teil kann in einem Stueck geschrieben werden. Der hintere wird nach vorne geschoben
-		    debug_->debug(">>>>>>>>>>>>>>> SEMI FLUSH");
 		    uint8_t blocksLeft= BUFFERSIZE-1-max;
-		    sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), max);
+		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), max);
+		    if(err!=Os::SUCCESS) return err;
 		    blocksOnSd_+=max;
 		    itemsInWrite_-=max*MAX_ITEMS_PER_BLOCK;
 
@@ -415,7 +366,7 @@ class ExternalQueue{
 		}
 	    }
 
-	    return true;
+	    return Os::SUCCESS;
 	}
 
 
@@ -424,16 +375,7 @@ class ExternalQueue{
 	 */
 	address_t calcIdxOfNextFreeBlock(){//naechster Freier Block
 	    address_t idxEnd= idxBeginSd_+blocksOnSd_;
-	    //>>>>>>>>>>>>>>>>>>>>>>>
-	    if(idxEnd-idxBeginSd_!=blocksOnSd_){
-		debug_->debug("OVERFLOW CALCIDXOFNEXTFREEBLOCK");
-		exit(1);
-	    }
-	    //>>>>>>>>>>>>>>>>>>>>>>>>>
 	    if(idxEnd>maxBlock_){
-		//>>>>>>>>>>>>><
-		debug_->debug(">>>>>>>>> LAST JUMP");
-		//>>>>>>>>>>>>>>>
 		idxEnd-=((maxBlock_-minBlock_)+1);
 	    }
 	    return idxEnd;
@@ -444,7 +386,7 @@ class ExternalQueue{
 	 */
 	address_t calcIdxOfFirstFreeBlock(){
 	    address_t idxBegin = idxBeginSd_-1;
-	    if(idxBegin < minBlock_){ idxBegin=maxBlock_; debug_->debug(">>>>>>> FIRST JUMP");}
+	    if(idxBegin < minBlock_){ idxBegin=maxBlock_;}
 	    return idxBegin;
 	}
 
