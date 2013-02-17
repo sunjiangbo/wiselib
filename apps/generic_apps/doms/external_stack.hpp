@@ -16,7 +16,7 @@ class ExternalStack{
     public:
 	typedef wiselib::OSMODEL Os;
 	typedef typename Os::block_data_t block_data_t;
-	typedef uint32_t address_t;
+	typedef Os::size_t address_t;
 
     private:
 	typedef Type_P T;
