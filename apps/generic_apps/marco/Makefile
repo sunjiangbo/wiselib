@@ -15,9 +15,9 @@ export BIN_OUT=bdmmu_test_app
 
 include ../Makefile
 
-all: compile flash run
+ar_: compile flash run
 
-allpc: pc
+pc_: pc
 	out/pc/./bdmmu_test_app
 
 compile:
