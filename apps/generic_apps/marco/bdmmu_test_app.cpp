@@ -27,8 +27,8 @@ class BDMMUTestApp
 		sd_ = &wiselib::FacetProvider<OsModel, OsModel::BlockMemory>::get_facet(value);
 		sd_->init();
 		
-		
-		BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> mmu(sd_, debug_, false, true);
+		typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		MMU_0_t mmu(sd_, debug_, false, true);
 		
 		debug_->debug("Stack size = %d", mmu.get_STACK_SIZE());
 		debug_->debug("MMU administers %d virtual block(s).", mmu.get_TOTAL_VBLOCKS());
@@ -108,7 +108,7 @@ class BDMMUTestApp
 		debug_->debug("Write-Read Test Exit Status = %d\n", rw_success);
 		
 		
-		
+		debug_->debug("sizeof(MMU_0_t::block_address_t) = %u", sizeof(typename MMU_0_t::block_address_t));
 		
 		exit(0);
 		

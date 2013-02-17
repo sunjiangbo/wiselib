@@ -88,7 +88,7 @@ class List{
 
 		//const Os::size_t HEAD = 0 //where the head of the list is located. since we get our own virtual memory partition, we can set this to 0.
 		
-		MMU_ptr mmu;
+		
 		CounterType totalCount; //amount of objs in list
 		//here come options:
 		CounterType key_size;
@@ -98,6 +98,7 @@ class List{
 		//Os::Debug::self_pointer_t 
 
 		Debug_ptr debug_;
+		MMU_ptr mmu;
 		PointerType last_read; //position of last block read
 		CounterType last_id; //index of first element in last block read
 
@@ -465,7 +466,7 @@ class List{
 
 			for (PointerType i = 0; i < blocksize; i++){
 				data[i] = 0;
-			}
+			} 			
 		/* information about HEAD block: int-><0 [current elements in this block - always 0 (for searches)> ptr-><first block> ptr-><last block> int-><current elements in list><max elements per block><use keys><key_size(unreduced)><value_size><blocksize>
 		*/	
 			CounterType valueSize = sizeof(ValueType);
@@ -475,9 +476,9 @@ class List{
 			write<Os, block_data_t, CounterType>(data + offsetKeySize, key_size);
 			write<Os, block_data_t, CounterType>(data + offsetValueSize, valueSize);
 			write<Os, block_data_t, CounterType>(data + offsetBlockSize, bSize);
-
+			debug_->debug("foo"); //TODO
 			mmu->write(data, 0);
-
+			debug_->debug("bar");//TODO
 		}
 
 		void setKeyUse(bool value){

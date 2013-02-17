@@ -7,7 +7,7 @@
 //#include "external_stack.hpp"
 
 //#define DEBUG
-//#define BDMMU_DEBUG
+#define BDMMU_DEBUG
 
 #ifdef DEBUG
 	#ifndef BDMMU_DEBUG
@@ -27,15 +27,19 @@ them as a parameter.*/
 //TODO: It is assumed that a block is at least ~40(?) Bytes in size. Write that in the documentation somewhere.
 //TODO: Use Wise_testing utils meta.h for template magic with data types to ensure they are as small as possible for the given range
 //TODO: Add debug messages to more methods
-//TODO: Which variables should be constant? Make them so.
 //TODO: Make all addresses into address_t
-
+/*TODO: Change how you detect an IO Error from the Stack. You will get an ERR_UNSPEC, and then you look whether
+the stack is empty or not, to fgure out whether it's just that the stack is empty, or if you've had an IO error*/
 using namespace wiselib;
 
 // LO = absolute block number where the ROOT block of the BDMMU is placed.
 // HI = absolute block number of the last block which is reserved for this MMU and its datastructures
 // BLOCK_VIRTUALIZATION = # of physical blocks per virtual block
 // MY_BLOCK_SIZE = size of a real block in bytes
+
+/*TODO: You actually should use BlockMemory_P::address_t LO & HI here, but that won't work because 
+BlockMemory_P hasn't been defined yet, but you can't define it before LO & HI because BlockMemory
+has a default value and LO & HI don't...*/
 
 template <typename OsModel_P, 
 	typename OsModel_P::size_t LO, 
@@ -57,7 +61,8 @@ class BDMMU {
 		typedef typename BlockMemory::self_pointer_t BlockMem_ptr;
 		
 		typedef typename OsModel::size_t size_t;
-		typedef typename OsModel::size_t address_t;
+		typedef typename OsModel::size_t block_address_t;
+		//typedef typename BlockMemory::address_t block_address_t;
 		typedef typename BlockMemory::block_data_t block_data_t;
 	
 		typedef BDMMU<OsModel, LO, HI, reserved, BLOCK_VIRTUALIZATION, 
@@ -74,8 +79,8 @@ class BDMMU {
 			BLOCKS(HI - LO + 1), 
 		
 			MMU_DATA_SIZE(1),
-			/*STACK_SIZE( BLOCKS * sizeof(address_t) / MY_BLOCK_SIZE + 1 + 1 + 2),*/
-			STACK_SIZE(BLOCKS/(MY_BLOCK_SIZE/sizeof(address_t) )+1+1+2),
+			/*STACK_SIZE( BLOCKS * sizeof(block_address_t) / MY_BLOCK_SIZE + 1 + 1 + 2),*/
+			STACK_SIZE(BLOCKS/(MY_BLOCK_SIZE/sizeof(block_address_t) )+1+1+2),
 		
 			TOTAL_VBLOCKS( (BLOCKS - MMU_DATA_SIZE - STACK_SIZE) / BLOCK_VIRTUALIZATION ), 
 			FIRST_VBLOCK_AT(LO + MMU_DATA_SIZE + STACK_SIZE),
@@ -116,7 +121,7 @@ class BDMMU {
 			uint32_t checkvalue = 42;
 			uint32_t data[MY_BLOCK_SIZE/sizeof(uint32_t)]; // = {0};
 		
-			for (uint8_t i = 0; i < MY_BLOCK_SIZE/sizeof(uint32_t); ++i) { //TODO use meta.h template magic here
+			for (unsigned int i = 0; i < MY_BLOCK_SIZE/sizeof(uint32_t); ++i) { //TODO use meta.h template magic here
 				data[i] = (uint32_t) 0;
 			}
 		
@@ -132,13 +137,17 @@ class BDMMU {
 				data[8] = FIRST_VBLOCK_AT;
 				data[9] = HI;
 			} else {
-				for (uint8_t i = 0; i <= 9; ++i) {
+				for (unsigned int i = 0; i <= 9; ++i) {
 					data[0] = 0;
 				}
 		
 			}
 			
-			int x = bm_->write((block_data_t *) data, 0, 1);
+			#ifdef BDMMU_DEBUG
+			int x = 
+			#endif
+			
+			bm_->write((block_data_t *) data, 0, 1);
 			
 			#ifdef BDMMU_DEBUG
 				if (x == OsModel::SUCCESS) {
@@ -150,8 +159,8 @@ class BDMMU {
 			
 		}
 
-		int block_alloc(address_t *vBlockNo) {
-			address_t p;
+		int block_alloc(block_address_t *vBlockNo) {
+			block_address_t p;
 			int r = stack.pop(&p);
 			
 			if (r == OsModel::SUCCESS) { // The stack contains a free memory block
@@ -180,7 +189,7 @@ class BDMMU {
 			else return r;
 		}
 
-		int block_free(address_t vBlockNo) {
+		int block_free(block_address_t vBlockNo) {
 			if(vBlockNo >= 0 && vBlockNo < TOTAL_VBLOCKS) {
 				return stack.push(vBlockNo);
 			}
@@ -192,7 +201,7 @@ class BDMMU {
 			}
 		}
 
-		int erase(address_t start_vblock, address_t vblocks) {
+		int erase(block_address_t start_vblock, block_address_t vblocks) {
 			if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) {
 				
 				#ifdef BDMMU_DEBUG
@@ -211,13 +220,13 @@ class BDMMU {
 			}
 		}
 	
-		int read(block_data_t *buffer, address_t start_vblock, address_t vblocks = 1) { 
+		int read(block_data_t *buffer, block_address_t start_vblock, block_address_t vblocks = 1) { 
 
 			if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) {
 			
 				#ifdef BDMMU_DEBUG
-					debug_->debug("VIRTUAL BLOCKS: bm_->read(buffer %d, %d)", start_vblock, vblocks);
-					debug_->debug("REAL BLOCKS: bm_->read(buffer %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
+					debug_->debug("VIRTUAL BLOCKS: bm_->read(buffer, %d, %d)", start_vblock, vblocks);
+					debug_->debug("REAL BLOCKS: bm_->read(buffer, %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 				#endif
 			
 				return bm_->read(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
@@ -233,15 +242,13 @@ class BDMMU {
 		}
 
 
-		bool write(block_data_t *buffer, address_t start_vblock, address_t vblocks = 1) {
+		bool write(block_data_t *buffer, block_address_t start_vblock, block_address_t vblocks = 1) {
 	
 			if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) { 
-				
 				#ifdef BDMMU_DEBUG
-					debug_->debug("VIRTUAL BLOCKS: bm_->write(buffer %d, %d)", start_vblock, vblocks);
-					debug_->debug("REAL BLOCKS: bm_->write(buffer %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
+					debug_->debug("VIRTUAL BLOCKS: bm_->write(buffer, %d, %d)", start_vblock, vblocks);
+					debug_->debug("REAL BLOCKS: bm_->write(buffer, %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 				#endif
-			
 				return bm_->write(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION); 
 			}
 		
@@ -256,7 +263,7 @@ class BDMMU {
 
 		/* converts real data block number to virtual block number. The given real block must be the first
 		real block in the virtual block else the function returns FALSE and v is set to NULL. */
-		bool rv(address_t r, address_t *v) {
+		bool rv(block_address_t r, block_address_t *v) {
 
 			if((r - FIRST_VBLOCK_AT) % BLOCK_VIRTUALIZATION == 0) {
 				*v = (r - FIRST_VBLOCK_AT) / BLOCK_VIRTUALIZATION;
@@ -270,15 +277,15 @@ class BDMMU {
 		}
 	
 		// converts virtual data block number to real block number
-		address_t vr(address_t v) {
+		block_address_t vr(block_address_t v) {
 			
-			#ifdef BDMMU_DEBUG
+			/*#ifdef BDMMU_DEBUG //TODO Delete this mess?
 				//debug_->debug("FUNCTION VR: FIRST_VBLOCK_AT=%u + v=%u * BLOCK_VIRTUALIZATION=%u", FIRST_VBLOCK_AT, v, BLOCK_VIRTUALIZATION);
 				debug_->debug("FIRST_VBLOCK_AT: %u", FIRST_VBLOCK_AT);
 				debug_->debug("v: %u", v);
 				debug_->debug("BLOCK_VIRTUALIZATION: %u", BLOCK_VIRTUALIZATION);
 				debug_->debug("FIRST_VBLOCK_AT + v * BLOCK_VIRTUALIZATION = %u", FIRST_VBLOCK_AT + v * BLOCK_VIRTUALIZATION);
-			#endif
+			#endif*/
 			return FIRST_VBLOCK_AT + (v * BLOCK_VIRTUALIZATION);
 		}
 
@@ -286,11 +293,11 @@ class BDMMU {
 			return this->STACK_SIZE;
 		} 
 
-		address_t get_LO() {
+		block_address_t get_LO() {
 			return LO;
 		}
 
-		address_t get_HI() {
+		block_address_t get_HI() {
 			return HI;
 		}
 	
@@ -321,12 +328,12 @@ class BDMMU {
 		const size_t STACK_SIZE;	// in real blocks
 	
 		const size_t TOTAL_VBLOCKS;	// absolute block number of the last block administered by this BDMMU
-		const address_t FIRST_VBLOCK_AT;
-		address_t next_vblock; 		// virtual block number denoting highest block number which has ever been used
+		const block_address_t FIRST_VBLOCK_AT;
+		block_address_t next_vblock; 		// virtual block number denoting highest block number which has ever been used
 	
 		bool persistent;
 
-		ExternalStack<address_t> stack;
+		ExternalStack<block_address_t> stack;
 };
 	
 			
