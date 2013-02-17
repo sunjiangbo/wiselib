@@ -76,10 +76,6 @@ class ExternalQueue{
 		uint32_t valCode=itemsInRead_+itemsInWrite_+idxRead_+blocksOnSd_+idxBeginSd_;
 
 		if(minBlock_!=tmpMinBlock || maxBlock_!=tmpMaxBlock || sizeof(T)!= tmpSizeof || valCode != tmpValCode){//Inkonsistent=>Neuer Stack
-		    if(minBlock_!=tmpMinBlock) debug_->debug("A");
-		    if(maxBlock_!=tmpMaxBlock) debug_->debug("B");
-		    if(sizeof(T)!=tmpSizeof) debug_->debug("C");
-		    if(valCode!=tmpValCode) debug_->debug("D");
 		    initNewQueue(beginMem);
 		} else {
 		    if(itemsInWrite_>0){
