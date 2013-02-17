@@ -30,6 +30,8 @@ class App {
 	void init(Os::AppMainParameter& value) {
 		debug_ = &FacetProvider<Os, Os::Debug>::get_facet(value);
 		sd = &FacetProvider<Os, Os::BlockMemory>::get_facet(value);
+		sd->init();
+		debug_->debug("sd = %x", sd); //TODO
 		//testAdd();
 		//testInsertByIndex();
 		testRemoveIndex();

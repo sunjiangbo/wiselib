@@ -477,7 +477,7 @@ class List{
 			write<Os, block_data_t, CounterType>(data + offsetValueSize, valueSize);
 			write<Os, block_data_t, CounterType>(data + offsetBlockSize, bSize);
 			debug_->debug("foo"); //TODO
-			mmu->write(data, 0);
+			mmu->write(data, 0, 1);
 			debug_->debug("bar");//TODO
 		}
 

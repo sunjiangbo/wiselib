@@ -27,6 +27,8 @@ class BDMMUTestApp
 		sd_ = &wiselib::FacetProvider<OsModel, OsModel::BlockMemory>::get_facet(value);
 		sd_->init();
 		
+		debug_->debug("sd_ = %x", sd_); //TODO
+		
 		typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
 		MMU_0_t mmu(sd_, debug_, false, true);
 		

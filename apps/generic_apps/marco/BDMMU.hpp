@@ -7,7 +7,7 @@
 //#include "external_stack.hpp"
 
 //#define DEBUG
-#define BDMMU_DEBUG
+//#define BDMMU_DEBUG
 
 #ifdef DEBUG
 	#ifndef BDMMU_DEBUG
@@ -242,13 +242,14 @@ class BDMMU {
 		}
 
 
-		bool write(block_data_t *buffer, block_address_t start_vblock, block_address_t vblocks = 1) {
+		int write(block_data_t *buffer, block_address_t start_vblock, block_address_t vblocks = 1) {
 	
 			if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) { 
 				#ifdef BDMMU_DEBUG
 					debug_->debug("VIRTUAL BLOCKS: bm_->write(buffer, %d, %d)", start_vblock, vblocks);
 					debug_->debug("REAL BLOCKS: bm_->write(buffer, %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 				#endif
+				
 				return bm_->write(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION); 
 			}
 		
