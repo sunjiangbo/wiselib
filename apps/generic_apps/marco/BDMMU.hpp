@@ -41,6 +41,22 @@ using namespace wiselib;
 BlockMemory_P hasn't been defined yet, but you can't define it before LO & HI because BlockMemory
 has a default value and LO & HI don't...*/
 
+
+	
+/*template <typename OsModel_P, 
+	typename OsModel_P::size_t reserved = 0, 
+	typename OsModel_P::size_t BLOCK_VIRTUALIZATION=1, 
+	typename OsModel_P::size_t MY_BLOCK_SIZE=512,
+	typename Debug_P = typename OsModel_P::Debug,
+	typename BlockMemory_P = typename OsModel_P::BlockMemory
+	typename BlockMemory_P::address_t LO, 
+	typename BlockMemory_P::address_t HI>*/
+	/*
+template <typename OsModel_P, 
+	typename BlockMemory_P = typename OsModel_P::BlockMemory>
+	struct Range*/
+	
+	
 template <typename OsModel_P, 
 	typename OsModel_P::size_t LO, 
 	typename OsModel_P::size_t HI, 
