@@ -18,7 +18,7 @@ ALLOW CHANGE ON FILL STATE OF BLOCKS FOR MERGE/SPLIT
 #ifndef __memlist_H__
 #define	__memlist_H__
 
-#include "../marco/BDMMU.hpp"
+#include "../block_device_mmu/block_device_mmu.hpp"
 
 namespace wiselib {
 
