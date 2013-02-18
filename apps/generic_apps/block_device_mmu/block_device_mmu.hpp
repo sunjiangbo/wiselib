@@ -33,7 +33,7 @@ using namespace wiselib;
 // LO = absolute block number where the ROOT block of the BDMMU is placed.
 // HI = absolute block number of the last block which is reserved for this MMU and its datastructures
 // BLOCK_VIRTUALIZATION = # of physical blocks per virtual block
-// MY_BLOCK_SIZE = size of a real block in bytes
+// MY_BlockMemory::BLOCK_SIZE = size of a real block in bytes
 
 /*TODO: You actually should use BlockMemory_P::address_t LO & HI here, but that won't work because 
 BlockMemory_P hasn't been defined yet, but you can't define it before LO & HI because BlockMemory
@@ -44,11 +44,12 @@ has a default value and LO & HI don't...*/
 /*template <typename OsModel_P, 
 	typename OsModel_P::size_t reserved = 0, 
 	typename OsModel_P::size_t BLOCK_VIRTUALIZATION=1, 
-	typename OsModel_P::size_t MY_BLOCK_SIZE=512,
+	typename OsModel_P::size_t MY_BlockMemory::BLOCK_SIZE=512,
 	typename Debug_P = typename OsModel_P::Debug,
 	typename BlockMemory_P = typename OsModel_P::BlockMemory
 	typename BlockMemory_P::address_t LO, 
 	typename BlockMemory_P::address_t HI>*/
+	
 	
 template <typename OsModel_P, 
 	typename BlockMemory_P = typename OsModel_P::BlockMemory,
@@ -59,8 +60,7 @@ struct BDMMU_Template_Wrapper {
 	template <typename BlockMemory_P::address_t LO, 
 		typename BlockMemory_P::address_t HI,
 		typename OsModel_P::size_t reserved = 0, 
-		typename OsModel_P::size_t BLOCK_VIRTUALIZATION=1, 
-		typename OsModel_P::size_t MY_BLOCK_SIZE=512>
+		typename OsModel_P::size_t BLOCK_VIRTUALIZATION=1>
 
 	class BDMMU {
 
@@ -75,14 +75,14 @@ struct BDMMU_Template_Wrapper {
 			typedef typename OsModel::size_t size_t;
 			typedef typename BlockMemory::address_t block_address_t;
 			typedef typename BlockMemory::block_data_t block_data_t;
-
-			typedef BDMMU<LO, HI, reserved, BLOCK_VIRTUALIZATION, 
-				MY_BLOCK_SIZE> self_type; //Note: MUST be public
+			
+			typedef BDMMU<LO, HI, reserved, BLOCK_VIRTUALIZATION> self_type; //Note: MUST be public
 			typedef self_type* self_pointer_t;//Note: MUST be public
 			//typedef self_pointer_t MMU_ptr;
 
 			/*Note that the STACK_SIZE is about 1% larger than it needs to be. +1 is added for the stack's metadata, another +1 is 
 			added as a kind of manual rounding up of the value produced by the division, and +2 is for the BUFFERSIZE of the stack*/
+			
 			BDMMU(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, int *restoreSuccess = 0) : 		
 
 				bm_(bm_), 
@@ -90,8 +90,8 @@ struct BDMMU_Template_Wrapper {
 				BLOCKS(HI - LO + 1), 
 
 				MMU_DATA_SIZE(1),
-				/*STACK_SIZE( BLOCKS * sizeof(block_address_t) / MY_BLOCK_SIZE + 1 + 1 + 2),*/
-				STACK_SIZE(BLOCKS/(MY_BLOCK_SIZE/sizeof(block_address_t) )+1+1+2),
+				/*STACK_SIZE( BLOCKS * sizeof(block_address_t) / MY_BlockMemory::BLOCK_SIZE + 1 + 1 + 2),*/
+				STACK_SIZE(BLOCKS/(BlockMemory::BLOCK_SIZE/sizeof(block_address_t) )+1+1+2),
 
 				TOTAL_VBLOCKS( (BLOCKS - MMU_DATA_SIZE - STACK_SIZE) / BLOCK_VIRTUALIZATION ), 
 				FIRST_VBLOCK_AT(LO + MMU_DATA_SIZE + STACK_SIZE),
@@ -106,13 +106,13 @@ struct BDMMU_Template_Wrapper {
 				if(restore) {
 					debug_->debug("restore\n");
 					uint32_t checkvalue = 42;
-					uint32_t data[MY_BLOCK_SIZE/sizeof(uint32_t)];
+					uint32_t data[BlockMemory::BLOCK_SIZE/sizeof(uint32_t)];
 
 					bm_->read((block_data_t*) data, LO, 1);
 
 					//if stored data matches the given parameters then the data is ok
 					if(data[0] == checkvalue && data[1] == checkvalue && data[2] == BLOCK_VIRTUALIZATION 
-					&& data[3] == TOTAL_VBLOCKS && data[4] == MY_BLOCK_SIZE && data[5] == MMU_DATA_SIZE 
+					&& data[3] == TOTAL_VBLOCKS && data[4] == BlockMemory::BLOCK_SIZE && data[5] == MMU_DATA_SIZE 
 					&& data[6] == STACK_SIZE && data[7] == next_vblock && data[8] == FIRST_VBLOCK_AT 
 					&& data[9] == HI) {
 	
@@ -130,9 +130,9 @@ struct BDMMU_Template_Wrapper {
 				#endif
 
 				uint32_t checkvalue = 42;
-				uint32_t data[MY_BLOCK_SIZE/sizeof(uint32_t)]; // = {0};
+				uint32_t data[BlockMemory::BLOCK_SIZE/sizeof(uint32_t)]; // = {0};
 
-				for (unsigned int i = 0; i < MY_BLOCK_SIZE/sizeof(uint32_t); ++i) { //TODO use meta.h template magic here
+				for (unsigned int i = 0; i < BlockMemory::BLOCK_SIZE/sizeof(uint32_t); ++i) { //TODO use meta.h template magic here
 					data[i] = (uint32_t) 0;
 				}
 
@@ -141,7 +141,7 @@ struct BDMMU_Template_Wrapper {
 					data[1] = checkvalue;
 					data[2] = BLOCK_VIRTUALIZATION;
 					data[3] = TOTAL_VBLOCKS;
-					data[4] = MY_BLOCK_SIZE;
+					data[4] = BlockMemory::BLOCK_SIZE;
 					data[5] = MMU_DATA_SIZE;
 					data[6] = STACK_SIZE;
 					data[7] = next_vblock;
@@ -187,11 +187,16 @@ struct BDMMU_Template_Wrapper {
 						if (next_vblock < TOTAL_VBLOCKS) { 
 							*vBlockNo = next_vblock;
 							next_vblock++;
+							
+							#ifdef BDMMU_DEBUG
+								debug_->debug("block_alloc: success(%u)", *vBlockNo);
+							#endif
+							
 							return OsModel::SUCCESS;
 						}
 						else {
 							#ifdef BDMMU_DEBUG
-								debug_->debug("There is no more free memory.");
+								debug_->debug("block_alloc: no free memory");
 							#endif
 							return OsModel::ERR_NOMEM;
 						}
@@ -212,40 +217,41 @@ struct BDMMU_Template_Wrapper {
 					int r = stack.push(vBlockNo);
 	
 					if (r == OsModel::SUCCESS) {
+						#ifdef BDMMU_DEBUG
+							debug_->debug("block_free(%u): success", vBlockNo);
+						#endif
 						return OsModel::SUCCESS;
 					} else {
 		
 						#ifdef BDMMU_DEBUG
-							debug_->debug("block_free: IO error.");
+							debug_->debug("block_free(%u): IO error.", vBlockNo);
 						#endif
 						return OsModel::ERR_IO;
 					}
 				}
 				else {	
 					#ifdef BDMMU_DEBUG
-						debug_->debug("Attempted free a block with an invalid virtual block address.\n");
+						debug_->debug("block_free(%u): invalid argument", vBlockNo);
 					#endif
-					return OsModel::ERR_UNSPEC; //OsModel::EINVAL would be good, if it just wasn't commented out...
+					return OsModel::ERR_UNSPEC;
 				}
 			}
 
 			int erase(block_address_t start_vblock, block_address_t vblocks) {
 				if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) {
 	
-					#ifdef BDMMU_DEBUG
-						debug_->debug("VIRTUAL BLOCKS: bm_->erase(%d, %d)", start_vblock, vblocks);
-						debug_->debug("REAL BLOCKS: bm_->erase(%d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
-					#endif
-	
 					int r = bm_->erase(vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 	
 					if (r == OsModel::SUCCESS) { 
+						#ifdef BDMMU_DEBUG
+							debug_->debug("erase(%u, %u): success", start_vblock, vblocks);
+						#endif
 						return OsModel::SUCCESS;
 					}
 	
 					else {
 						#ifdef BDMMU_DEBUG
-							debug_->debug("erase: IO error.");
+							debug_->debug("erase(%u, %u): IO error", start_vblock, vblocks);
 						#endif
 						return OsModel::ERR_IO;
 					}
@@ -254,9 +260,9 @@ struct BDMMU_Template_Wrapper {
 
 				else {
 					#ifdef BDMMU_DEBUG
-						debug_->debug("Attempted erase at invalid virtual block address(es).\n");
+						debug_->debug("erase(%u, %u): invalid arguments", start_vblock, vblocks);
 					#endif
-					return OsModel::ERR_UNSPEC; //EINVAL would be good
+					return OsModel::ERR_UNSPEC;
 				}
 			}
 
@@ -264,18 +270,16 @@ struct BDMMU_Template_Wrapper {
 
 				if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) {
 
-					#ifdef BDMMU_DEBUG
-						debug_->debug("VIRTUAL BLOCKS: bm_->read(buffer, %d, %d)", start_vblock, vblocks);
-						debug_->debug("REAL BLOCKS: bm_->read(buffer, %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
-					#endif
-
 					int r = bm_->read(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 	
 					if (r == OsModel::SUCCESS) {
+						#ifdef BDMMU_DEBUG
+							debug_->debug("read(buffer, %u, %u): success", start_vblock, vblocks);
+						#endif
 						return OsModel::SUCCESS;
 					} else {
 						#ifdef BDMMU_DEBUG
-							debug_->debug("read: IO error.");
+							debug_->debug("read(buffer, %u, %u): IO Error", start_vblock, vblocks);
 						#endif
 						return OsModel::ERR_IO;
 					}
@@ -284,9 +288,9 @@ struct BDMMU_Template_Wrapper {
 
 				else {
 					#ifdef BDMMU_DEBUG
-						debug_->debug("Attempted read at invalid virtual block address(es).\n");
+						debug_->debug("read(buffer, %u, %u): invalid arguments", start_vblock, vblocks);
 					#endif
-					return OsModel::ERR_UNSPEC; // EINVAL would be good
+					return OsModel::ERR_UNSPEC;
 				}
 			}
 
@@ -294,18 +298,17 @@ struct BDMMU_Template_Wrapper {
 			int write(block_data_t *buffer, block_address_t start_vblock, block_address_t vblocks = 1) {
 
 				if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) { 
-					#ifdef BDMMU_DEBUG
-						debug_->debug("VIRTUAL BLOCKS: bm_->write(buffer, %d, %d)", start_vblock, vblocks);
-						debug_->debug("REAL BLOCKS: bm_->write(buffer, %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
-					#endif
 	
 					int r = bm_->write(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION); 
 	
 					if (r == OsModel::SUCCESS) {
+						#ifdef BDMMU_DEBUG
+						debug_->debug("write(buffer, %u, %u): success", start_vblock, vblocks);
+						#endif
 						return OsModel::SUCCESS;
 					} else {
 						#ifdef BDMMU_DEBUG
-							debug_->debug("write: IO error.");
+						debug_->debug("write(buffer, %u, %u): IO error", start_vblock, vblocks);
 						#endif
 						return OsModel::ERR_IO;
 					}
@@ -314,8 +317,8 @@ struct BDMMU_Template_Wrapper {
 
 				else {
 					#ifdef BDMMU_DEBUG
-						debug_->debug("Attempted write at invalid virtual block address(es).\n");
-					#endif
+						debug_->debug("write(buffer, %u, %u): invalid arguments", start_vblock, vblocks);
+						#endif
 					return OsModel::ERR_UNSPEC; //EINVAL would be good
 				}
 			}
@@ -384,7 +387,7 @@ struct BDMMU_Template_Wrapper {
 
 			bool persistent;
 
-			ExternalStack<block_address_t> stack;
+			ExternalStack<block_address_t, 1> stack;
 	};
 	
 };
