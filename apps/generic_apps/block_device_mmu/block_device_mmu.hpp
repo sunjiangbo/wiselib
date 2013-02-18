@@ -15,40 +15,15 @@
 
 
 
-
 /* One BDMMU administers as many data structures as you want. It is assigned a fixed section of the 
 SD card to administer, within which there is exactly one virtual block size. The actual data-structures 
 do all their communication with the SD-Card (Erase, Read, Write) via their BDMMU, which is handed to 
 them as a parameter.*/
 
-//TODO: Use the Sd card enum to ask for its block size (take a look at Henning's block interface stuff for examples)
 //TODO: It is assumed that a block is at least ~40(?) Bytes in size. Write that in the documentation somewhere.
 //TODO: Use Wise_testing utils meta.h for template magic with data types to ensure they are as small as possible for the given range
-//TODO: Add debug messages to more methods
-//TODO: Make all addresses into address_t
-/*TODO: Change how you detect an IO Error from the Stack. You will get an ERR_UNSPEC, and then you look whether
-the stack is empty or not, to fgure out whether it's just that the stack is empty, or if you've had an IO error*/
+
 using namespace wiselib;
-
-// LO = absolute block number where the ROOT block of the BDMMU is placed.
-// HI = absolute block number of the last block which is reserved for this MMU and its datastructures
-// BLOCK_VIRTUALIZATION = # of physical blocks per virtual block
-// MY_BlockMemory::BLOCK_SIZE = size of a real block in bytes
-
-/*TODO: You actually should use BlockMemory_P::address_t LO & HI here, but that won't work because 
-BlockMemory_P hasn't been defined yet, but you can't define it before LO & HI because BlockMemory
-has a default value and LO & HI don't...*/
-
-
-	
-/*template <typename OsModel_P, 
-	typename OsModel_P::size_t reserved = 0, 
-	typename OsModel_P::size_t BLOCK_VIRTUALIZATION=1, 
-	typename OsModel_P::size_t MY_BlockMemory::BLOCK_SIZE=512,
-	typename Debug_P = typename OsModel_P::Debug,
-	typename BlockMemory_P = typename OsModel_P::BlockMemory
-	typename BlockMemory_P::address_t LO, 
-	typename BlockMemory_P::address_t HI>*/
 	
 	
 template <typename OsModel_P, 
@@ -400,15 +375,7 @@ struct BDMMU_Template_Wrapper {
 	};
 	
 };
-	
-	
 
-	
-			
-	
-
-
-    
 
 //
 #ifdef BDMMU_DEBUG
