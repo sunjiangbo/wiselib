@@ -387,7 +387,7 @@ struct BDMMU_Template_Wrapper {
 
 			bool persistent;
 
-			ExternalStack<block_address_t> stack;
+			ExternalStack<block_address_t, 1> stack;
 	};
 	
 };
