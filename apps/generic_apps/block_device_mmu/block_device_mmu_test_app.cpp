@@ -34,8 +34,8 @@ class BDMMUTestApp
 		
 		MMU_0_t mmu(sd_, debug_, false, true);
 		
-		debug_->debug("Stack size = %d", mmu.get_STACK_SIZE());
-		debug_->debug("MMU administers %d virtual block(s).", mmu.get_TOTAL_VBLOCKS());
+		debug_->debug("Stack size = %d", mmu.STACK_SIZE);
+		debug_->debug("MMU administers %d virtual block(s).", mmu.TOTAL_VBLOCKS);
 		debug_->debug("Reserved %d virtual block(s) for special purposes. (Starting from virtual block address 0.)\n", mmu.get_reserved());
 
 		size_t blocks_to_allocate = 5;
