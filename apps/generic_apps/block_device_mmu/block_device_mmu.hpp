@@ -129,11 +129,11 @@ struct BDMMU_Template_Wrapper {
 					debug_->debug("\n BDMMU destructor...");
 				#endif
 
-				uint32_t checkvalue = 42;
-				uint32_t data[BlockMemory::BLOCK_SIZE/sizeof(uint32_t)]; // = {0};
+				block_address_t checkvalue = 42;
+				block_address_t data[BlockMemory::BLOCK_SIZE/sizeof(block_address_t)]; // = {0};
 
-				for (unsigned int i = 0; i < BlockMemory::BLOCK_SIZE/sizeof(uint32_t); ++i) { //TODO use meta.h template magic here
-					data[i] = (uint32_t) 0;
+				for (unsigned int i = 0; i < BlockMemory::BLOCK_SIZE/sizeof(block_address_t); ++i) { //TODO use meta.h template magic here
+					data[i] = (block_address_t) 0;
 				}
 
 				if(persistent) {
@@ -392,6 +392,10 @@ struct BDMMU_Template_Wrapper {
 			const size_t STACK_SIZE;	// in real blocks
 			const size_t TOTAL_VBLOCKS;	// absolute block number of the last block administered by this BDMMU
 			const block_address_t FIRST_VBLOCK_AT;
+		
+			enum {
+				VIRTUAL_BLOCK_SIZE = BLOCK_VIRTUALIZATION * BlockMemory::BLOCK_SIZE
+			};
 		
 	};
 	
