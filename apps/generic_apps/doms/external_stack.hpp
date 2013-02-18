@@ -59,6 +59,8 @@ class ExternalStack{
 	Os::BlockMemory::self_pointer_t sd_;
     public:
 	ExternalStack(Os::BlockMemory::self_pointer_t sd, address_t beginMem, address_t endMem, bool forceNew=false): sd_(sd), minBlock_(beginMem+1), maxBlock_(endMem){
+	    debug_->debug("beginMem: %u",beginMem);
+	    debug_->debug("endMem: %u",endMem);
 	    if(BUFFERSIZE<1){ //da buffersize konstant=>kein Rechenaufwand
 		debug_->debug("EXTERNAL STACK ERROR: buffersize has to be at least 1!");
 		exit(1);
@@ -187,7 +189,8 @@ class ExternalStack{
 
 	    if(blocksToWrite>0){ 
 		err = sd_->write(buffer_,minBlock_+blocksOnSd_, blocksToWrite);
-		debug_->debug("STACK: %u",minBlock_+blocksOnSd_);
+		debug_->debug("STACK A: %u",minBlock_+blocksOnSd_);
+		debug_->debug("blocksOnSd_ %u",blocksOnSd_);
 		if(err!=Os::SUCCESS) return err;
 		itemsInBuffer_-=fullBlocksToWrite*MAX_ITEMS_PER_BLOCK;
 		blocksOnSd_+=fullBlocksToWrite;
@@ -207,7 +210,7 @@ class ExternalStack{
 	    blockWrite<uint64_t>(tmpBlock, 5, (uint64_t)valCode);
 
 	    err= sd_->write(tmpBlock,minBlock_-1,1);
-	    debug_->debug("STACK: %u",minBlock_-1);
+	    debug_->debug("STACK B: %u",minBlock_-1);
 	    return err;
 	}
 
@@ -237,7 +240,8 @@ class ExternalStack{
 		return err;
 	    }
 	    err = sd_->write(buffer_,minBlock_+blocksOnSd_, BUFFERSIZE);
-	    debug_->debug("STACK: % u", minBlock_+blocksOnSd_);
+	    debug_->debug("STACK C: % u", minBlock_+blocksOnSd_);
+	    debug_->debug("blocksOnSd_=%u",blocksOnSd_);
 	    if(err!=Os::SUCCESS) return err;
 	    itemsInBuffer_ = 0;
 	    blocksOnSd_+=BUFFERSIZE;
