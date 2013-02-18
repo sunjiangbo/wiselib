@@ -162,20 +162,23 @@ struct BDMMU_Template_Wrapper {
 
 				#ifdef BDMMU_DEBUG
 					if (x == OsModel::SUCCESS) {
-						debug_->debug("Write to block memory device successful.\n");
+						debug_->debug("BDMMU Destructor: Write to block memory device successful.\n");
 					} else {
-						debug_->debug("Write to block memory device failed.\n");
+						debug_->debug("BDMMU Destructor: Write to block memory device failed.\n");
 					}
 				#endif
 
 			}
-
+			
 			int block_alloc(block_address_t *vBlockNo) {
 				block_address_t p;
 				int r = stack.pop(&p);
 
 				if (r == OsModel::SUCCESS) { // The stack contains a free memory block
 					*vBlockNo = p;
+					#ifdef BDMMU_DEBUG
+						debug_->debug("block_alloc: success(%u)", *vBlockNo);
+					#endif
 					return OsModel::SUCCESS;
 				}
 
@@ -343,7 +346,7 @@ struct BDMMU_Template_Wrapper {
 				return FIRST_VBLOCK_AT + (v * BLOCK_VIRTUALIZATION);
 			}
 
-			size_t get_STACK_SIZE() {
+			/*size_t get_STACK_SIZE() {
 				return this->STACK_SIZE;
 			} 
 
@@ -357,9 +360,9 @@ struct BDMMU_Template_Wrapper {
 
 			size_t get_TOTAL_VBLOCKS() {
 				return this->TOTAL_VBLOCKS;
-			}
+			}*/
 
-			size_t get_reserved() {
+			block_address_t get_reserved() {
 				return reserved;
 			}
 
@@ -367,27 +370,29 @@ struct BDMMU_Template_Wrapper {
 				this->persistent = p;
 			}
 
-			bool getPeristent() {
+			bool isPeristent() {
 				return this->persistent;
 			}
 
 		private:
 
-			//TODO: Make all the const variables into enums
 			BlockMem_ptr bm_;		// pointer to this MMU's BlockMemory object
 			Debug_ptr debug_; 		// Pointer to a debug object for debug messages
-			const size_t BLOCKS;		// Total number of virtual blocks available in this MMU
-
-			const size_t MMU_DATA_SIZE; 	// size (in real blocks) of the MMU on the block device
-			const size_t STACK_SIZE;	// in real blocks
-
-			const size_t TOTAL_VBLOCKS;	// absolute block number of the last block administered by this BDMMU
-			const block_address_t FIRST_VBLOCK_AT;
+			
 			block_address_t next_vblock; 		// virtual block number denoting highest block number which has ever been used
-
 			bool persistent;
 
 			ExternalStack<block_address_t, 1> stack;
+			
+		public:
+			/* These constants were not placed into an enum because an enum uses only int values, 
+			which may overflow if values from a larger datatype are used*/
+			const size_t BLOCKS;		// Total number of virtual blocks available in this MMU
+			const size_t MMU_DATA_SIZE; 	// size (in real blocks) of the MMU on the block device
+			const size_t STACK_SIZE;	// in real blocks
+			const size_t TOTAL_VBLOCKS;	// absolute block number of the last block administered by this BDMMU
+			const block_address_t FIRST_VBLOCK_AT;
+		
 	};
 	
 };
