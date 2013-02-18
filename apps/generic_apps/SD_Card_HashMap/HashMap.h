@@ -163,6 +163,36 @@ public:
 		return 42;
 	}
 
+	int writeMetadata()
+	{
+		Os::block_data_t buffer[sd->BLOCK_SIZE];
+		int pos = 0;
+		pos += write<Os, Os::block_data_t, int>(buffer + pos, insertedElements);
+		pos += write<Os, Os::block_data_t, size_t>(buffer + pos, lastNewBlock);
+		pos += write<Os, Os::block_data_t, size_t>(buffer + pos, firstBlock);
+		pos += write<Os, Os::block_data_t, hashMapState>(buffer + pos, currentState);
+		return sd->write(buffer, fromBlock);
+	}
+
+	int readMetadata()
+	{
+		Os::block_data_t buffer[sd->BLOCK_SIZE];
+		int s = sd->read(buffer, fromBlock);
+		if(s == Os::SUCCESS)
+		{
+			int pos = 0;
+			read<Os, Os::block_data_t, int>(buffer + pos, insertedElements);
+			pos += sizeof(int);
+			read<Os, Os::block_data_t, size_t>(buffer + pos, lastNewBlock);
+			pos += sizeof(size_t);
+			read<Os, Os::block_data_t, size_t>(buffer + pos, firstBlock);
+			pos += sizeof(size_t);
+			read<Os, Os::block_data_t, hashMapState>(buffer + pos, currentState);
+			pos += sizeof(hashMapState);
+		}
+		return s;
+	}
+
 private:
 	Os::size_t computeHash(KeyType key)
 	{

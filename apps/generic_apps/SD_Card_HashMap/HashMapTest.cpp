@@ -128,12 +128,13 @@ public:
 		sd->init();
 //		generateGNUPLOTData();
 //		generateFillupAnimation();
-		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
-		if(!blockTest()) debug_->debug("blockTest failed!");
-		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
-		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
-		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
-		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
+		fillWithGoethe();
+//		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
+//		if(!blockTest()) debug_->debug("blockTest failed!");
+//		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
+//		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
+//		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+//		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
 //		maxLoadFactorTest();
 //		generateGNUPLOTScripts();
 		//generateFillupAnimation();
@@ -996,6 +997,120 @@ public:
 		sd->read(buffer, nr);
 		for(int i = 0; i < 50; i++) //only the first 50 bytes
 			debug_->debug("%3d", ((int)buffer[i]));
+	}
+
+	struct goetheline
+	{
+		char line[62];
+	};
+
+	struct goetheword
+	{
+		char word[30];
+		int idx;
+
+		bool operator==(const goetheword& o) const
+		{
+			for(int i = 0; i < 30; ++i)
+				if(o.word[i] != word[i])
+					return false;
+			if(o.idx == idx)
+				return true;
+			else
+				return false;
+		}
+	};
+
+	void fillWithGoethe()
+	{
+		wiselib::HashMap<int, goetheline> linesHM(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 2000);
+
+		FILE *fp;
+		fp = fopen("lines.txt", "r");
+		int lineNumber = 0;
+		while(! feof(fp))
+		{
+			char line[62];
+			fgets(line, 62, fp);
+
+			goetheline gl;
+			for(int i = 0; i < 62; i++)
+				gl.line[i] = line[i];
+
+			//printf("lineNumber: %d \n line: %s\n\n",lineNumber, line);
+			lineNumber++;
+			if(linesHM.putEntry(lineNumber-1, gl) != Os::SUCCESS)
+			{
+				debug_->debug("the hash map is too small");
+				break;
+			}
+		}
+		fclose(fp);
+
+		wiselib::HashMap<goetheword, int> wordsHM(debug_, sd, &wiselib::HashFunctionProvider<Os, goetheword>::fnv, 2000, 20000);
+		fp = fopen("words.txt", "r");
+		while(! feof(fp))
+		{
+			char line[62];
+			fgets(line, 62, fp);
+			char word[30] = "00000000000000000000000000000";
+
+			sscanf(line, "%d %s", &lineNumber, word);
+			int idx = 0;
+
+			goetheword gw;
+			for(int i = 0; i < 30; i++)
+				gw.word[i] = word[i];
+
+			for(int i = strlen(word); i < 30; i++)
+				gw.word[i] = '0';
+
+			gw.idx = 0;
+
+			while(wordsHM.containsKey(gw))
+			{
+				gw.idx++;
+			}
+
+			if(wordsHM.putEntry(gw, lineNumber) != Os::SUCCESS)
+			{
+				debug_->debug("words HM full at line %d!", lineNumber);
+				break;
+			}
+
+			printf("line: %d  word: %s\n", lineNumber, gw.word);
+
+
+		}
+		fclose(fp);
+
+		fp = fopen("sd_dump", "w");
+
+		sd->dumpToFile(fp);
+		fclose(fp);
+
+		char* word = "Religion";
+
+		goetheword gw;
+
+		for(int i = 0; i < strlen(word); i++)
+			gw.word[i] = word[i];
+		for(int i = strlen(word); i < 30; i++)
+			gw.word[i] = '0';
+
+		for(int i = 0; i < 30; i++)
+			printf("%c", gw.word[i]);
+		gw.idx = 0;
+
+		int occ = -1;
+
+		int ret = wordsHM.getEntry(gw, &occ);
+		debug_->debug("%s is at line %d", word, occ);
+
+		if(ret == Os::NO_VALUE)
+			debug_->debug("no value was found");
+
+		printf("ths lines is: %s\n", linesHM[occ].line);
 	}
 
 private:
