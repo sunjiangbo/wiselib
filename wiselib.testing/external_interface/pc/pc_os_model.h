@@ -60,8 +60,8 @@ namespace wiselib {
 			typedef PCOsModel AppMainParameter;
 			typedef PCOsModel Os;
 			
-			//typedef uint32_t size_t;
-			typedef unsigned long size_t;
+			typedef uint32_t size_t;
+//			typedef unsigned long size_t;
 			typedef uint8_t block_data_t;
 			
 			typedef PCClockModel<PCOsModel> Clock;
@@ -78,7 +78,7 @@ namespace wiselib {
 			typedef ComISenseRadioModel<PCOsModel, ISenseUart> Radio;
 			
 #if USE_RAM_BLOCK_MEMORY
-			typedef VirtualSD<PCOsModel> BlockMemory;
+			typedef VirtualSD<PCOsModel, 20000> BlockMemory;
 #endif
 #if USE_FILE_BLOCK_MEMORY
 			typedef FileBlockMemory<PCOsModel> BlockMemory;

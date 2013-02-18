@@ -1,6 +1,6 @@
 /*
  * HashMapIterator.h
- *  This class can be used to iterate over the block that were filled by a hashmap.
+ *  This class can be used to iterate over the block that were filled by a hash map.
  *  Created on: Jan 27, 2013
  *      Author: maximilian
  */
@@ -8,14 +8,18 @@
 #ifndef HASHMAPITERATOR_H_
 #define HASHMAPITERATOR_H_
 
+#include "Block.h"
 
 namespace wiselib {
 
-template<typename KeyType_P, typename ValueType_P>
+template<typename HashmapType_P>
 class HashMapIterator
 {
-	typedef KeyType_P KeyType;
-	typedef ValueType_P ValueType;
+	typedef HashmapType_P HashMapType;
+	typedef typename HashMapType::KeyType KeyType;
+	typedef typename HashMapType::ValueType ValueType;
+	typedef Block<KeyType, ValueType> BlockType;
+
 public:
 
 	/*
@@ -23,9 +27,11 @@ public:
 	 * Because all metadata is stored within the blocks no instance of the hashmap is required.
 	 */
 	HashMapIterator(size_t beginBlock, Os::BlockMemory::self_pointer_t sd)
-	: sd(sd), currentBlock(Block<KeyType, ValueType>(beginBlock, sd)), blockIterator(BlockIterator<KeyType, ValueType>(&currentBlock)), dead(false)
+	: sd(sd),
+	  currentBlock(BlockType(beginBlock, sd)),
+	  blockIterator(currentBlock.begin()),
+	  dead(false)
 	{
-
 	}
 
 	ValueType operator*() const
@@ -33,33 +39,54 @@ public:
 		return *blockIterator; //we just forward the hard work to the underlying BlockIterator
 	}
 
-	HashMapIterator<KeyType, ValueType>& operator++()
+	HashMapIterator<HashMapType>& operator++()
 	{
+		if(dead)
+		{
+			return *this;
+		}
+
 		++blockIterator;
-		if(blockIterator.reachedEnd())//we reached the end of the block
+		if(blockIterator == currentBlock.end())//we reached the end of the block
 		{
 			if(currentBlock.hasNextBlock()) //load the next block if there is one
 			{
-				currentBlock = Block<KeyType, ValueType>(currentBlock.getNextBlock(), sd);
-				blockIterator = BlockIterator<KeyType, ValueType>(&currentBlock);
+				currentBlock = BlockType(currentBlock.getNextBlock(), sd);
+				blockIterator = currentBlock.begin();
 			}
 			else //we reached the end of the hashmap
 			{
 				this->dead = true;
 			}
 		}
+
 		return *this;
 	}
 
-	bool reachedEnd()
+	bool operator==(const HashMapIterator<HashMapType>& o) const
 	{
-		return this->dead;
+		return o.blockIterator == blockIterator;
+	}
+
+	bool operator==(const int& o) const
+	{
+		return dead;
+	}
+
+	bool operator!=(const HashMapIterator<HashMapType>& o) const
+	{
+		return !(this == o);
+	}
+
+	bool operator!=(const int& o) const
+	{
+		return !dead;
 	}
 
 private:
 	Os::BlockMemory::self_pointer_t sd;
-	Block<KeyType, ValueType> currentBlock;
-	BlockIterator<KeyType, ValueType> blockIterator;
+	BlockType currentBlock;
+	typename BlockType::iterator blockIterator;
 	bool dead;
 };
 
