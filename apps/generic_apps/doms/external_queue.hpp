@@ -67,11 +67,11 @@ class ExternalQueue{
 		uint32_t tmpSizeof;   blockRead<uint32_t>(buffer_, 3, &tmpSizeof);
 		uint32_t tmpValCode;  blockRead<uint32_t>(buffer_, 4, &tmpValCode);
 
-		blockRead<address_t>(buffer_, 8, &blocksOnSd_);
-		blockRead<address_t>(buffer_, 12, &idxBeginSd_);
+		uint64_t tmpBlocksOnSd;	blockRead<uint64_t>(buffer_, 8, &tmpBlocksOnSd); blocksOnSd_=(address_t)tmpBlocksOnSd;
+		uint64_t tmpIdxBeginSd; blockRead<uint64_t>(buffer_, 12, &tmpIdxBeginSd); idxBeginSd_ = (address_t) tmpIdxBeginSd;
 
-		address_t tmpMinBlock; blockRead<address_t>(buffer_, 16, &tmpMinBlock);
-		address_t tmpMaxBlock; blockRead<address_t>(buffer_, 20, &tmpMaxBlock);
+		uint64_t tmpMinBlock; blockRead<uint64_t>(buffer_, 16, &tmpMinBlock);
+		uint64_t tmpMaxBlock; blockRead<uint64_t>(buffer_, 20, &tmpMaxBlock);
 
 		uint32_t valCode=itemsInRead_+itemsInWrite_+idxRead_+blocksOnSd_+idxBeginSd_;
 
@@ -224,12 +224,12 @@ class ExternalQueue{
 	    blockWrite<uint32_t>(tmpBlock,4,valCode);
 
 
-	    blockWrite<address_t>(tmpBlock,8,blocksOnSd_);
-	    blockWrite<address_t>(tmpBlock,12,idxBeginSd_);
+	    blockWrite<uint64_t>(tmpBlock,8,(uint64_t)blocksOnSd_);
+	    blockWrite<uint64_t>(tmpBlock,12,(uint64_t)idxBeginSd_);
 
-	    blockWrite<address_t>(tmpBlock,16,minBlock_);
-	    blockWrite<address_t>(tmpBlock,20,maxBlock_);
-		    err = sd_->write(tmpBlock,minBlock_-1,1);
+	    blockWrite<uint64_t>(tmpBlock,16,(uint64_t)minBlock_);
+	    blockWrite<uint64_t>(tmpBlock,20,(uint64_t)maxBlock_);
+	    err = sd_->write(tmpBlock,minBlock_-1,1);
 	    return err;
 
 	}
