@@ -99,12 +99,12 @@ class App {
 
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
-		List<Os, MMU_0_t, int, int, 512, false> list(debug_, &mmu_0);
+		List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
 		
 		
 		//List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
 			//this list saves numbers
-		debug_->debug("List created, filling with numbers");		
+		debug_->debug("List created. It is %d byte large", sizeof(list));		
 		for (int i = 0; i < 1000; i++){
 			list.add(i, i); //key a number with itself
 		}

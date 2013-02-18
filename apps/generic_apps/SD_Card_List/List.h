@@ -12,7 +12,7 @@ namespace wiselib {
 
 template<typename OsModel_P, typename BDMMU_P, typename KeyType_P, 
 	typename ValueType_P, 
-	typename OsModel_P::size_t blocksize = 512, bool loadFromDisk = false,
+	bool loadFromDisk = false,
 	typename OsModel_P::size_t buffersize = 1,
 	typename OsModel_P::size_t mergeVal = 75, //if 2 blocks combined into one would be less full than 75% - merge them when removing
 	typename OsModel_P::size_t splitVal = 80, //if 2 blocks are more than 75% full - split them when inserting (each of the 3 wouldbe 50% full)
@@ -39,7 +39,7 @@ class List{
 		//const CounterType HEAD = 0 //where the head of the list is located. since we get our own virtual memory partition, we can set this to 0.
 		
 		struct buffer_instance{
-			block_data_t data[blocksize];
+			block_data_t data[BDMMU::VIRTUAL_BLOCK_SIZE];
 			block_address_t last_read; //position of last block read
 			uint32_t last_id; //index of first element in last block read
 		};	
@@ -57,7 +57,7 @@ class List{
 		MMU_ptr mmu;
 		
 		//MemoryMap * mmu;
-		/* information about HEAD block: int-><0 [current elements in this block - always 0 (for searches)> ptr-><first block> ptr-><last block> int-><current elements in list><max elements per block><use keys><key_size(unreduced)><value_size><blocksize>
+		/* information about HEAD block: int-><0 [current elements in this block - always 0 (for searches)> ptr-><first block> ptr-><last block> int-><current elements in list><max elements per block><use keys><key_size(unreduced)><value_size><BDMMU::VIRTUAL_BLOCK_SIZE>
 		*/
 		/* Format of 1 block: int-><amount objects in this block> ptr-><next block> ptr-><previous block> [data] 
 		  getting element i in a block is at position 0 + int_size + 2 * ptr_size + i * value_size
@@ -129,8 +129,8 @@ class List{
 		}
 
 		//partner search:
-		block_data_t  data2[blocksize];
-		block_data_t  data3[blocksize];
+		block_data_t  data2[BDMMU::VIRTUAL_BLOCK_SIZE];
+		block_data_t  data3[BDMMU::VIRTUAL_BLOCK_SIZE];
 	
 		mmu->read(data2, data2_pos);
 		CounterType data2_amount = read<Os, block_data_t, CounterType>(data2);
@@ -181,7 +181,7 @@ class List{
 			mmu->write(data3,0);
 		
 			//prepare the new block (counter = 0, pre pointer, last pointer)
-			for (block_address_t i = 0; i < blocksize; i++){
+			for (block_address_t i = 0; i < BDMMU::VIRTUAL_BLOCK_SIZE; i++){
 				second[i] = 0;
 			}
 			write<Os, block_data_t, block_address_t>(second + offsetBackward, buffer[bufferPos].last_read); //write back pointer
@@ -438,7 +438,7 @@ class List{
 		List(Debug_ptr debug_, MMU_ptr mmu) : debug_(debug_), mmu(mmu){
 
 			if (loadFromDisk){//try to restore
-				block_data_t data[blocksize];
+				block_data_t data[BDMMU::VIRTUAL_BLOCK_SIZE];
 				mmu->read(data, 0); //this should be our head
 				//read & verify some values - if it fails we have to create like below //TODO
 				return;
@@ -449,7 +449,7 @@ class List{
 			key_size  = sizeof(KeyType);
 			useKeys = true;
 			totalCount = 0;
-			maxElements = (blocksize - (2 * ptr_size + cnt_size)) / (key_size + value_size);
+			maxElements = (BDMMU::VIRTUAL_BLOCK_SIZE - (2 * ptr_size + cnt_size)) / (key_size + value_size);
 			debug_->debug("maxElements is %d", maxElements);
 		
 			if (maxElements < 1) return; //TODO error
@@ -458,13 +458,13 @@ class List{
 				buffer[i].last_read = 0;
 				buffer[i].last_id = 0;
 			}			
-			for (block_address_t i = 0; i < blocksize; i++){
+			for (block_address_t i = 0; i < BDMMU::VIRTUAL_BLOCK_SIZE; i++){
 				buffer[0].data[i] = 0;
 			} 		
 			lastbuffer = 0;	
-		/* information about HEAD block: int-><0 [current elements in this block - always 0 (for searches)> ptr-><first block> ptr-><last block> int-><current elements in list><max elements per block><use keys><key_size(unreduced)><value_size><blocksize>
+		/* information about HEAD block: int-><0 [current elements in this block - always 0 (for searches)> ptr-><first block> ptr-><last block> int-><current elements in list><max elements per block><use keys><key_size(unreduced)><value_size><BDMMU::VIRTUAL_BLOCK_SIZE>
 		*/	
-			CounterType bSize = blocksize;
+			CounterType bSize = BDMMU::VIRTUAL_BLOCK_SIZE;
 			CounterType valsize = value_size; //saved value cannot be constant
 			write<Os, block_data_t, CounterType>(buffer[0].data + offsetMax, maxElements);
 			write<Os, block_data_t, bool>(buffer[0].data + offsetUseKey, useKeys);
@@ -483,7 +483,7 @@ class List{
 					key_size = sizeof(KeyType);
 				else
 					key_size = 0;
-				maxElements = (blocksize - 3 * ptr_size) / (key_size + value_size);
+				maxElements = (BDMMU::VIRTUAL_BLOCK_SIZE - 3 * ptr_size) / (key_size + value_size);
 			}
 			else
 			{
@@ -551,7 +551,7 @@ class List{
 				mmu->write(buffer[bufferPos].data, 0);
 		
 				//prepare the new block (counter = 0, pre pointer, last pointer)
-				for (block_address_t i = 0; i < blocksize; i++){
+				for (block_address_t i = 0; i < BDMMU::VIRTUAL_BLOCK_SIZE; i++){
 					buffer[bufferPos].data[i] = 0;
 				}
 				write<Os, block_data_t, block_address_t>(buffer[bufferPos].data + offsetBackward, buffer[bufferPos].last_read); //write back pointer
@@ -668,7 +668,7 @@ class List{
 		}
 
 		void sync(){ //saves the status of the list on the disk //TODO
-			block_data_t data[blocksize];
+			block_data_t data[BDMMU::VIRTUAL_BLOCK_SIZE];
 			mmu->read(data, 0);
 			debug_->debug("read HEAD");
 			//TODO: Make sure all is saved
