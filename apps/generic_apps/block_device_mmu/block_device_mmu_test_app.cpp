@@ -28,11 +28,13 @@ class BDMMUTestApp
 		
 		//typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
 		typedef typename BDMMU_Template_Wrapper<OsModel, OsModel::BlockMemory, OsModel::Debug>::BDMMU<0, 11, 1, 2> MMU_0_t;
+		MMU_0_t mmu(sd_, debug_, false, true);
 		
 		debug_->debug("sizeof(MMU_0_t) = %u", sizeof(MMU_0_t));
+		debug_->debug("sizeof(MMU_0_t.stack) = %u", mmu.sizeofStack());
 		//debug_->debug("MMU_0_t::e_TOTAL_VBLOCKS = %u", MMU_0_t::e_TOTAL_VBLOCKS);
 		
-		MMU_0_t mmu(sd_, debug_, false, true);
+		
 		
 		debug_->debug("Stack size = %d", mmu.STACK_SIZE);
 		debug_->debug("MMU administers %d virtual block(s).", mmu.TOTAL_VBLOCKS);
