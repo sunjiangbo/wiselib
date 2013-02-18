@@ -29,7 +29,9 @@ class BDMMUTestApp
 		
 		debug_->debug("sd_ = %x", sd_); //TODO
 		
-		typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		//typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		typedef typename BDMMU_Template_Wrapper<OsModel, OsModel::BlockMemory, OsModel::Debug>::BDMMU<0, 11, 1, 2, 512> MMU_0_t;
+		
 		MMU_0_t mmu(sd_, debug_, false, true);
 		
 		debug_->debug("Stack size = %d", mmu.get_STACK_SIZE());
