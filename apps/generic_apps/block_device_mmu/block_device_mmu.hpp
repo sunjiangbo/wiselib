@@ -1,10 +1,8 @@
-#ifndef BDMMU_HPP
-#define BDMMU_HPP
+#ifndef BLOCK_DEVICE_MMU_HPP
+#define BLOCK_DEVICE_MMU_HPP
 
 #include <external_interface/external_interface.h>
-//#include "external_stack.hpp"
 #include "../doms/external_stack.hpp"
-//#include "external_stack.hpp"
 
 //#define DEBUG
 //#define BDMMU_DEBUG
