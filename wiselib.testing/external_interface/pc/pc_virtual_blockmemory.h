@@ -302,6 +302,14 @@ public:
 		erase(0, nrOfBlocks);
 	}
 
+	void dumpToFile(FILE* f)
+	{
+		for(int i = 0; i < nrOfBlocks; ++i)
+		{
+			fwrite(memory[i], blocksize, 1, f);
+		}
+	}
+
 private:
 	block_data_t memory[nrOfBlocks][blocksize];
 	bool isWritten[nrOfBlocks];
