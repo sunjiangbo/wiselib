@@ -53,14 +53,14 @@ class ExternalStack{
 		sd_->read(buffer_, minBlock_-1, 1);
 
 		blockRead<uint16_t>(buffer_,0,&itemsInBuffer_);
-		uint32_t tmpBlocksOnSd=0; blockRead<uint32_t>(buffer_,4,&tmpBlocksOnSd); blocksOnSd_=(address_t)tmpBlocksOnSd;
+		uint64_t tmpBlocksOnSd=0; blockRead<uint64_t>(buffer_,1,&tmpBlocksOnSd); blocksOnSd_=(address_t)tmpBlocksOnSd;
 
-		uint32_t tmpMinBlock=0;   blockRead<uint32_t>(buffer_,8,&tmpMinBlock);
-		uint32_t tmpMaxBlock=0;   blockRead<uint32_t>(buffer_,12,&tmpMaxBlock);
-		uint32_t tmpSizeof=0;     blockRead<uint32_t>(buffer_,16,&tmpSizeof);
-		uint32_t tmpValcode=0;    blockRead<uint32_t>(buffer_,20,&tmpValcode);
+		uint64_t tmpMinBlock=0;   blockRead<uint64_t>(buffer_,2,&tmpMinBlock);
+		uint64_t tmpMaxBlock=0;   blockRead<uint64_t>(buffer_,3,&tmpMaxBlock);
+		uint64_t tmpSizeof=0;     blockRead<uint64_t>(buffer_,4,&tmpSizeof);
+		uint64_t tmpValcode=0;    blockRead<uint64_t>(buffer_,5,&tmpValcode);
 
-		uint32_t valCode = itemsInBuffer_+blocksOnSd_;
+		address_t valCode = itemsInBuffer_+blocksOnSd_;
 		if(tmpMinBlock!= minBlock_ || tmpMaxBlock != maxBlock_ || tmpSizeof != sizeof(T) || tmpValcode != valCode){
 		    //INKONSISTENT => Neuen Stack erstellen
 		    initNewStack();
@@ -181,15 +181,15 @@ class ExternalStack{
 		}
 	    }
 
-	    blockWrite<uint16_t>(tmpBlock, 0, itemsInBuffer_);
-	    blockWrite<uint32_t>(tmpBlock, 4, blocksOnSd_);
+	    blockWrite<uint16_t>(tmpBlock, 0, (uint16_t)itemsInBuffer_);
+	    blockWrite<uint64_t>(tmpBlock, 1, (uint64_t)blocksOnSd_);
 
-	    blockWrite<uint32_t>(tmpBlock, 8, minBlock_);
-	    blockWrite<uint32_t>(tmpBlock, 12, maxBlock_);
-	    blockWrite<uint32_t>(tmpBlock, 16, sizeof(T));
+	    blockWrite<uint64_t>(tmpBlock, 2, (uint64_t)minBlock_);
+	    blockWrite<uint64_t>(tmpBlock, 3, (uint64_t)maxBlock_);
+	    blockWrite<uint64_t>(tmpBlock, 4, (uint64_t)sizeof(T));
 
 	    uint32_t valCode = itemsInBuffer_+blocksOnSd_;
-	    blockWrite<uint32_t>(tmpBlock, 20, valCode);
+	    blockWrite<uint64_t>(tmpBlock, 5, (uint64_t)valCode);
 
 	    err= sd_->write(tmpBlock,minBlock_-1,1);
 	    return err;
