@@ -1,9 +1,11 @@
 //#define DEBUG
 #define USE_RAM_BLOCK_MEMORY 1
-
+//#define BDMMU_DEBUG
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
 #include "List.h"
+
+#include "../block_device_mmu/block_device_mmu.hpp"
 #define NR_OF_BLOCKS_TO_TEST 8
 
 using namespace wiselib;
@@ -92,21 +94,27 @@ class App {
 		
 		//typedef BDMMU<Os, 0, 20, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t; //Old signature
 		
-		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 20, 1, 1, 512> MMU_0_t;
+
+		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 1> MMU_0_t;
+
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
-		List<Os, MMU_0_t, int, int, 100, 200, 512, false> list(debug_, &mmu_0);
+		List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
 		
 		
 		//List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
 			//this list saves numbers
-		debug_->debug("List created, filling with numbers");		
+		debug_->debug("List created. It is %d byte large", sizeof(list));		
 		for (int i = 0; i < 1000; i++){
 			list.add(i, i); //key a number with itself
 		}
+		debug_->debug("List Filled, Removin 500");
 		for (int i = 0; i < 500; i++){
 			list.removeByIndex(0); //remove first 500 nrs
+			
+		
 		}
+		debug_->debug("500 removed, removing even numbers");
 		for (int i = 0; i < 250; i++){
 			list.removeByIndex(i); //remove every second number
 		}
@@ -119,10 +127,26 @@ class App {
 				debug_->debug("Aborting");		
 				return;
 				
+			}else{	
+				
 			}
 		}
 	
-		debug_->debug("Test finished succesfully");		
+		debug_->debug("RM Test finished succesfully. Inserting numbers again");
+		for (int i = 0; i < 250; i++){
+			list.insertByIndex(2 * i + 500, 2 * i + 500, i * 2); //insert all back in
+		}
+		debug_->debug("List should contain 500 numbers (500-999)");		
+		for (int i = 0; i < 500; i++){
+			int j = list.getValueByIndex(i);
+			if (j != i + 500)
+			{
+				debug_->debug("But there is a mistake with number %d - it says %d instead", i, j);		
+				debug_->debug("Aborting");		
+				return;
+				
+			}
+		}
 	}
 
 	/*void testInsertByIndex(){ //Test assumes add & getValueByIndex works fine - works!
