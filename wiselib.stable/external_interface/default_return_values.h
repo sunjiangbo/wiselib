@@ -39,6 +39,7 @@ namespace wiselib
       {
          SUCCESS         =   0, /// Default return value of success
          ERR_UNSPEC      =  -1, /// Unspecified error value - if no other fits
+         ERR_IO          =   5, /// Error occured in IO Device
          ERR_NOMEM       =  12, /// Out of memory
          ERR_BUSY        =  16, /// Device or resource busy - try again later
          ERR_NOTIMPL     =  38, /// Function not implemented

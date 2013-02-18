@@ -202,7 +202,7 @@ struct BDMMU_Template_Wrapper {
 							debug_->debug("block_alloc: IO error.");
 						#endif
 		
-						return OsModel::ERR_IO_HATES_YOU;
+						return OsModel::ERR_IO;
 					}
 				}
 
@@ -220,7 +220,7 @@ struct BDMMU_Template_Wrapper {
 						#ifdef BDMMU_DEBUG
 							debug_->debug("block_free: IO error.");
 						#endif
-						return OsModel::ERR_IO_HATES_YOU;
+						return OsModel::ERR_IO;
 					}
 				}
 				else {	
@@ -249,7 +249,7 @@ struct BDMMU_Template_Wrapper {
 						#ifdef BDMMU_DEBUG
 							debug_->debug("erase: IO error.");
 						#endif
-						return OsModel::ERR_IO_HATES_YOU;
+						return OsModel::ERR_IO;
 					}
 	
 				}
@@ -279,7 +279,7 @@ struct BDMMU_Template_Wrapper {
 						#ifdef BDMMU_DEBUG
 							debug_->debug("read: IO error.");
 						#endif
-						return OsModel::ERR_IO_HATES_YOU;
+						return OsModel::ERR_IO;
 					}
 				}
 
@@ -309,7 +309,7 @@ struct BDMMU_Template_Wrapper {
 						#ifdef BDMMU_DEBUG
 							debug_->debug("write: IO error.");
 						#endif
-						return OsModel::ERR_IO_HATES_YOU;
+						return OsModel::ERR_IO;
 					}
 				}
 
