@@ -187,11 +187,16 @@ struct BDMMU_Template_Wrapper {
 						if (next_vblock < TOTAL_VBLOCKS) { 
 							*vBlockNo = next_vblock;
 							next_vblock++;
+							
+							#ifdef BDMMU_DEBUG
+								debug_->debug("block_alloc: success(%u)", *vBlockNo);
+							#endif
+							
 							return OsModel::SUCCESS;
 						}
 						else {
 							#ifdef BDMMU_DEBUG
-								debug_->debug("There is no more free memory.");
+								debug_->debug("block_alloc: no free memory");
 							#endif
 							return OsModel::ERR_NOMEM;
 						}
@@ -212,40 +217,41 @@ struct BDMMU_Template_Wrapper {
 					int r = stack.push(vBlockNo);
 	
 					if (r == OsModel::SUCCESS) {
+						#ifdef BDMMU_DEBUG
+							debug_->debug("block_free(%u): success", vBlockNo);
+						#endif
 						return OsModel::SUCCESS;
 					} else {
 		
 						#ifdef BDMMU_DEBUG
-							debug_->debug("block_free: IO error.");
+							debug_->debug("block_free(%u): IO error.", vBlockNo);
 						#endif
 						return OsModel::ERR_IO;
 					}
 				}
 				else {	
 					#ifdef BDMMU_DEBUG
-						debug_->debug("Attempted free a block with an invalid virtual block address.\n");
+						debug_->debug("block_free(%u): invalid argument", vBlockNo);
 					#endif
-					return OsModel::ERR_UNSPEC; //OsModel::EINVAL would be good, if it just wasn't commented out...
+					return OsModel::ERR_UNSPEC;
 				}
 			}
 
 			int erase(block_address_t start_vblock, block_address_t vblocks) {
 				if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) {
 	
-					#ifdef BDMMU_DEBUG
-						debug_->debug("VIRTUAL BLOCKS: bm_->erase(%d, %d)", start_vblock, vblocks);
-						debug_->debug("REAL BLOCKS: bm_->erase(%d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
-					#endif
-	
 					int r = bm_->erase(vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 	
 					if (r == OsModel::SUCCESS) { 
+						#ifdef BDMMU_DEBUG
+							debug_->debug("erase(%u, %u): success", start_vblock, vblocks);
+						#endif
 						return OsModel::SUCCESS;
 					}
 	
 					else {
 						#ifdef BDMMU_DEBUG
-							debug_->debug("erase: IO error.");
+							debug_->debug("erase(%u, %u): IO error", start_vblock, vblocks);
 						#endif
 						return OsModel::ERR_IO;
 					}
@@ -254,9 +260,9 @@ struct BDMMU_Template_Wrapper {
 
 				else {
 					#ifdef BDMMU_DEBUG
-						debug_->debug("Attempted erase at invalid virtual block address(es).\n");
+						debug_->debug("erase(%u, %u): invalid arguments", start_vblock, vblocks);
 					#endif
-					return OsModel::ERR_UNSPEC; //EINVAL would be good
+					return OsModel::ERR_UNSPEC;
 				}
 			}
 
@@ -264,18 +270,16 @@ struct BDMMU_Template_Wrapper {
 
 				if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) {
 
-					#ifdef BDMMU_DEBUG
-						debug_->debug("VIRTUAL BLOCKS: bm_->read(buffer, %d, %d)", start_vblock, vblocks);
-						debug_->debug("REAL BLOCKS: bm_->read(buffer, %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
-					#endif
-
 					int r = bm_->read(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
 	
 					if (r == OsModel::SUCCESS) {
+						#ifdef BDMMU_DEBUG
+							debug_->debug("read(buffer, %u, %u): success", start_vblock, vblocks);
+						#endif
 						return OsModel::SUCCESS;
 					} else {
 						#ifdef BDMMU_DEBUG
-							debug_->debug("read: IO error.");
+							debug_->debug("read(buffer, %u, %u): IO Error", start_vblock, vblocks);
 						#endif
 						return OsModel::ERR_IO;
 					}
@@ -284,9 +288,9 @@ struct BDMMU_Template_Wrapper {
 
 				else {
 					#ifdef BDMMU_DEBUG
-						debug_->debug("Attempted read at invalid virtual block address(es).\n");
+						debug_->debug("read(buffer, %u, %u): invalid arguments", start_vblock, vblocks);
 					#endif
-					return OsModel::ERR_UNSPEC; // EINVAL would be good
+					return OsModel::ERR_UNSPEC;
 				}
 			}
 
@@ -294,18 +298,17 @@ struct BDMMU_Template_Wrapper {
 			int write(block_data_t *buffer, block_address_t start_vblock, block_address_t vblocks = 1) {
 
 				if(start_vblock >= 0 && start_vblock + vblocks < TOTAL_VBLOCKS) { 
-					#ifdef BDMMU_DEBUG
-						debug_->debug("VIRTUAL BLOCKS: bm_->write(buffer, %d, %d)", start_vblock, vblocks);
-						debug_->debug("REAL BLOCKS: bm_->write(buffer, %d, %d)\n", vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION);
-					#endif
 	
 					int r = bm_->write(buffer, vr(start_vblock), vblocks * BLOCK_VIRTUALIZATION); 
 	
 					if (r == OsModel::SUCCESS) {
+						#ifdef BDMMU_DEBUG
+						debug_->debug("write(buffer, %u, %u): success", start_vblock, vblocks);
+						#endif
 						return OsModel::SUCCESS;
 					} else {
 						#ifdef BDMMU_DEBUG
-							debug_->debug("write: IO error.");
+						debug_->debug("write(buffer, %u, %u): IO error", start_vblock, vblocks);
 						#endif
 						return OsModel::ERR_IO;
 					}
@@ -314,8 +317,8 @@ struct BDMMU_Template_Wrapper {
 
 				else {
 					#ifdef BDMMU_DEBUG
-						debug_->debug("Attempted write at invalid virtual block address(es).\n");
-					#endif
+						debug_->debug("write(buffer, %u, %u): invalid arguments", start_vblock, vblocks);
+						#endif
 					return OsModel::ERR_UNSPEC; //EINVAL would be good
 				}
 			}
