@@ -95,7 +95,7 @@ class App {
 		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 20, 1, 1, 512> MMU_0_t;
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
-		List<Os, MMU_0_t, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, &mmu_0);
+		List<Os, MMU_0_t, int, int, 100, 200, 512, false> list(debug_, &mmu_0);
 		
 		
 		//List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
