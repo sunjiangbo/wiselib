@@ -128,13 +128,14 @@ public:
 		sd->init();
 //		generateGNUPLOTData();
 //		generateFillupAnimation();
-		fillWithGoethe();
-//		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
-//		if(!blockTest()) debug_->debug("blockTest failed!");
-//		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
-//		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
-//		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
-//		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
+//		fillWithGoethe();
+
+		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
+		if(!blockTest()) debug_->debug("blockTest failed!");
+		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
+		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
+		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
 //		maxLoadFactorTest();
 //		generateGNUPLOTScripts();
 		//generateFillupAnimation();
@@ -152,7 +153,7 @@ public:
 	bool reverseFNVTest()
 	{
 		sd->erase(0, 1000);
-		wiselib::HashMap<size_t, uint16_t> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, uint32_t>::fnv, 0, 1000);
+		wiselib::HashMap<Os::size_t, uint16_t> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, Os::size_t>::fnv, 0, 1000);
 
 		wiselib::HashFunctionProvider<Os, uint16_t>::hashFunction myfnv = wiselib::HashFunctionProvider<Os, uint16_t>::fnv;
 		uint16_t i = 0;
@@ -916,7 +917,7 @@ public:
 		}
 
 	}
-
+/*
 	void generateGNUPLOTData()
 	{
 		FILE* file = fopen("blockmem.dat", "w");
@@ -934,7 +935,7 @@ public:
 
 //		sd->printGNUPLOTOutputBytes(0, 100, file, colorizeBlock<wiselib::Block<long, Value3> >);
 		fclose(file);
-	}
+	}*/
 
 	template<typename BlockType>
 	static int colorizeBlock(Os::size_t block, int position, int value)
@@ -954,7 +955,7 @@ public:
 		else
 			return 2;
 	}
-
+/*
 	void generateFillupAnimation()
 	{
 		wiselib::HashMap<int, long> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 50);
@@ -970,13 +971,13 @@ public:
 				sprintf(filename, "bild%04d.dot", imageCounter);
 				imageCounter++;
 				FILE* file = fopen(filename, "w");
-//				sd->printGNUPLOTOutputBytes(0, 50, file, colorizeBlock<wiselib::Block<int, long> >);
+				sd->printGNUPLOTOutputBytes(0, 50, file, colorizeBlock<wiselib::Block<int, long> >);
 				fclose(file);
 			}
 			debug_->debug("we inserted %d items", counter);
 			counter++;
 		}
-	}
+	}*/
 
 
 	void printBlock(wiselib::Block<int, long> b)
@@ -1007,7 +1008,7 @@ public:
 	struct goetheword
 	{
 		char word[30];
-		int idx;
+		uint16_t idx;
 
 		bool operator==(const goetheword& o) const
 		{
@@ -1023,11 +1024,28 @@ public:
 
 	void fillWithGoethe()
 	{
-		wiselib::HashMap<int, goetheline> linesHM(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 2000);
+		wiselib::HashMap<uint16_t, goetheline> linesHM(debug_, sd, &wiselib::HashFunctionProvider<Os, uint16_t>::fnv, 0, 2000);
+		wiselib::HashMap<goetheword, uint16_t> wordsHM(debug_, sd, &wiselib::HashFunctionProvider<Os, goetheword>::fnv, 2000, 20000);
 
+		wiselib::Block<uint16_t, goetheline> lineBlock(1, sd);
+
+		wiselib::Block<uint16_t, goetheline>::iterator it = lineBlock.begin();
+
+		debug_->debug("size of hashmap: %d", sizeof(lineBlock));
+
+		int count = 0;
+		while(it != lineBlock.end())
+		{
+			debug_->debug("%d: %s", count, (*it).line);
+			++it;
+			++count;
+		}
+
+		debug_->debug("blocklen: %d", lineBlock.getNumValues());
+		/*
 		FILE *fp;
 		fp = fopen("lines.txt", "r");
-		int lineNumber = 0;
+		uint16_t lineNumber = 0;
 		while(! feof(fp))
 		{
 			char line[62];
@@ -1044,16 +1062,16 @@ public:
 				debug_->debug("the hash map is too small");
 				break;
 			}
+			printf("line: %d", lineNumber);
 		}
 		fclose(fp);
 
-		wiselib::HashMap<goetheword, int> wordsHM(debug_, sd, &wiselib::HashFunctionProvider<Os, goetheword>::fnv, 2000, 20000);
 		fp = fopen("words.txt", "r");
 		while(! feof(fp))
 		{
 			char line[62];
 			fgets(line, 62, fp);
-			char word[30] = "00000000000000000000000000000";
+			char word[30];
 
 			sscanf(line, "%d %s", &lineNumber, word);
 			int idx = 0;
@@ -1063,7 +1081,7 @@ public:
 				gw.word[i] = word[i];
 
 			for(int i = strlen(word); i < 30; i++)
-				gw.word[i] = '0';
+				gw.word[i] = '\0';
 
 			gw.idx = 0;
 
@@ -1079,30 +1097,25 @@ public:
 			}
 
 			printf("line: %d  word: %s\n", lineNumber, gw.word);
-
-
 		}
 		fclose(fp);
+		*/
 
-		fp = fopen("sd_dump", "w");
 
-		sd->dumpToFile(fp);
-		fclose(fp);
 
-		char* word = "Religion";
+		char* word = "Kern";
 
 		goetheword gw;
 
 		for(int i = 0; i < strlen(word); i++)
 			gw.word[i] = word[i];
 		for(int i = strlen(word); i < 30; i++)
-			gw.word[i] = '0';
+			gw.word[i] = '\0';
 
-		for(int i = 0; i < 30; i++)
-			printf("%c", gw.word[i]);
+
 		gw.idx = 0;
 
-		int occ = -1;
+		uint16_t occ = 3;
 
 		int ret = wordsHM.getEntry(gw, &occ);
 		debug_->debug("%s is at line %d", word, occ);
@@ -1110,7 +1123,9 @@ public:
 		if(ret == Os::NO_VALUE)
 			debug_->debug("no value was found");
 
-		printf("ths lines is: %s\n", linesHM[occ].line);
+		debug_->debug("ths lines is: %s\n", linesHM[occ].line);
+
+//		sd->printASCIIOutputBytes(0, 1);
 	}
 
 private:

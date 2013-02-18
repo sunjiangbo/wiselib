@@ -79,7 +79,7 @@ public:
 		++blocksWritten_;
 		duration_ += 8;
 		if (block < 0 || block >= nrOfBlocks) {
-			std::cerr << "OVERFLOW VIRTUAL SD" << std::endl;
+			printf("OVERFLOW VIRTUAL SD: Stupid people trying to access block %u\n", block);
 			return ERR_UNSPEC;
 		}
 		for (int i = 0; i < blocksize; i++)
@@ -245,7 +245,7 @@ public:
 		{
 			for(int j = 0; j < blocksize; j++)
 			{
-				printf("%3d | ", ((int)memory[block][j]));
+				printf("%c | ", ((int)memory[block][j]));
 			}
 			printf("\n");
 		}

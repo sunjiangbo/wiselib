@@ -27,6 +27,7 @@ public:
 	typedef KeyType_P KeyType;
 	typedef ValueType_P ValueType;
 
+	typedef Os::size_t size_t;
 	typedef Fnv32<Os>::hash_t hash;
 	typedef Fnv32<Os>::block_data_t block_data;
 	typedef size_t (*hashFunction)(KeyType);

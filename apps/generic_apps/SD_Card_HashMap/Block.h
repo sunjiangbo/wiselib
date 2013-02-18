@@ -28,11 +28,11 @@ public:
 	typedef KeyType_P KeyType;
 	typedef ValueType_P ValueType;
 
-	typedef struct
+	struct keyValuePair
 	{
 		KeyType key;
 		ValueType value;
-	} keyValuePair;
+	} __attribute__((packed));
 
 	/*
 	 * Data type to hold and index of the kv-pairs position in the block. Counting first element, second element ...
@@ -49,13 +49,13 @@ public:
 	/*
 	 * The header to be stored at the beginning of each block
 	 */
-	typedef struct
+	struct header
 	{
-		long pi;
-		index_t numKVPairs;
-		Os::size_t nextBlock;
-		Os::size_t prevBlock;
-	} header;
+		Os::size_t prevBlock; // 4
+		Os::size_t nextBlock; // 4
+		uint16_t pi;		  // 2
+		index_t numKVPairs;   // 1
+	}__attribute__((packed));
 
 
 	/*
@@ -80,12 +80,12 @@ public:
 		head = read<Os, Os::block_data_t, header>(rawData);
 
 		//If the block has not been used yet
-		if(head.pi != 123456789)
+		if(head.pi != 1234)
 		{
 #ifdef DEBUG
 			printf("Block %d has not been used yet\n", nr);
 #endif
-			head.pi = 123456789;
+			head.pi = 1234;
 			head.numKVPairs = 0;
 			head.nextBlock = this->blockNr;
 			head.prevBlock = this->blockNr;
