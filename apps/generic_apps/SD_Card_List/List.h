@@ -18,52 +18,12 @@ ALLOW CHANGE ON FILL STATE OF BLOCKS FOR MERGE/SPLIT
 #ifndef __memlist_H__
 #define	__memlist_H__
 
-#include "../marco/BDMMU.hpp"
+#include "../block_device_mmu/block_device_mmu.hpp"
 
 namespace wiselib {
 
-/* A memoryMap is a manager for external data structures. It serves two main purposes: 
-* First, it manages free and used blocks and allows data structures to reserve space without writing into another structures space
-* Second, it allows the program it is created by to recover data structures after a restart without having to hardcode the head positions for all of them
-*/
-/*class MemoryMap {
-
-	private:
-
-		typedef OSMODEL Os;
-		Os::size_t HEAD; //first block of the map
-		Os::size_t size;
-		Os::size_t blocksize; //bits in a block
-		//1 bit / (remaining) block - usage[]
-		Os::size_t a;
-		Os::BlockMemory::self_pointer_t sd;
-		
-	public:
-
-		MemoryMap(Os::size_t block_start, Os::size_t block_end, Os::size_t blocksize, Os::BlockMemory::self_pointer_t sd){
-		a = 0;
-		this->sd = sd;
-		sd->init();
-	}
-	Os::size_t block_alloc(Os::size_t size = 1){
-	a = a + 1;
-	return a - 1;
-	}
-	void block_free(Os::size_t adress){
-	}
-	void read(Os::size_t adress, Os::block_data_t data[]){
-		sd->read(data, adress, 1);
-	}
-	void write(Os::size_t adress, Os::block_data_t data[]){
-		sd->write(data, adress, 1);
-	}
-	Os::size_t getBlockSize(){
-		return 512;
-	}
-};*/
-
 template<typename OsModel_P, typename BDMMU_P, typename KeyType_P, 
-	typename ValueType_P, typename CounterType_P, typename PointerType_P, 
+	typename ValueType_P,
 	typename OsModel_P::size_t fromBlock, typename OsModel_P::size_t toBlock, 
 	typename OsModel_P::size_t blocksize = 512, bool loadFromDisk = false,
 	typename Debug_P = typename OsModel_P::Debug>
@@ -77,19 +37,20 @@ class List{
 	typedef typename BDMMU::self_pointer_t MMU_ptr;
 	typedef typename Debug::self_pointer_t Debug_ptr;
 	typedef typename BDMMU::block_data_t block_data_t;
-	
+
+	typedef typename BDMMU::block_address_t block_address_t;
+	typedef typename Os::size_t CounterType;
+
 	typedef KeyType_P KeyType;
 	typedef ValueType_P ValueType;
-	typedef PointerType_P PointerType;
-	typedef PointerType_P CounterType;
-		
+ 
 
 	public: //TODO: private
 
-		//const Os::size_t HEAD = 0 //where the head of the list is located. since we get our own virtual memory partition, we can set this to 0.
+		//const CounterType HEAD = 0 //where the head of the list is located. since we get our own virtual memory partition, we can set this to 0.
 		
 		
-		CounterType totalCount; //amount of objs in list
+		uint32_t totalCount; //amount of objs in list
 		//here come options:
 		CounterType key_size;
 		bool useKeys;
@@ -99,8 +60,8 @@ class List{
 
 		Debug_ptr debug_;
 		MMU_ptr mmu;
-		PointerType last_read; //position of last block read
-		CounterType last_id; //index of first element in last block read
+		block_address_t last_read; //position of last block read
+		uint32_t last_id; //index of first element in last block read
 
 		//MemoryMap * mmu;
 		/* information about HEAD block: int-><0 [current elements in this block - always 0 (for searches)> ptr-><first block> ptr-><last block> int-><current elements in list><max elements per block><use keys><key_size(unreduced)><value_size><blocksize>
@@ -109,7 +70,7 @@ class List{
 		  getting element i in a block is at position 0 + int_size + 2 * ptr_size + i * value_size
 		*/
 
-		static const CounterType ptr_size = sizeof(PointerType);
+		static const CounterType ptr_size = sizeof(block_address_t);
 		static const CounterType cnt_size = sizeof(CounterType);
 		static const CounterType value_size = sizeof(ValueType);
 		//all
@@ -128,8 +89,8 @@ class List{
 
 
 	void readForward(block_data_t data[blocksize]){
-		last_read = read<Os, block_data_t, PointerType> (data + offsetForward);
-		last_id = last_id + read<Os, block_data_t, CounterType>(data);
+		last_read = read<Os, block_data_t, block_address_t> (data + offsetForward);
+		last_id = last_id + read<Os, block_data_t, uint32_t>(data);
 		mmu->read(data, last_read);
 		if (last_read == 0){
 			last_id = 0;
@@ -140,9 +101,9 @@ class List{
 		if (last_read == 0){
 			last_id = totalCount;
 		}
-		last_read = read<Os, block_data_t, PointerType>(data + offsetBackward);
+		last_read = read<Os, block_data_t, block_address_t>(data + offsetBackward);
 		mmu->read(data, last_read);
-		last_id = last_id - read<Os, block_data_t, CounterType>(data);
+		last_id = last_id - read<Os, block_data_t, uint32_t>(data);
 	}
 
 	CounterType calcBlocks(CounterType amount){
@@ -164,8 +125,8 @@ class List{
 		if (last_read == 0) return; //Dont do anything if this is about the HEAD block.
 
 		CounterType data_amount = read<Os, block_data_t, CounterType>(data);
-		PointerType data2_pos = read<Os, block_data_t, PointerType>(data + offsetBackward);
-		PointerType data3_pos = read<Os, block_data_t, PointerType>(data + offsetForward);
+		block_address_t data2_pos = read<Os, block_data_t, block_address_t>(data + offsetBackward);
+		block_address_t data3_pos = read<Os, block_data_t, block_address_t>(data + offsetForward);
 	
 		if (data2_pos == 0 && data3_pos == 0 && calcBlocks(data_amount) == 1){ //special case - last block in the list is getting smaller
 			if (data_amount == 0){ //collapse empty block
@@ -214,20 +175,20 @@ class List{
 		//	third = data3; // wont be used
 	
 		debug_->debug("Split - There is only one Block. Creating new and reassigning.");	
-			PointerType newpos; 
+			block_address_t newpos; 
 			mmu->block_alloc(&newpos);//request new adress	
 	
-			write<Os, block_data_t, PointerType>(first + offsetForward, newpos);//write new adress on this block
+			write<Os, block_data_t, block_address_t>(first + offsetForward, newpos);//write new adress on this block
 			//mmu->write(last_read, data); //will be written later
 			mmu->read(data3,0);
-			write<Os, block_data_t, PointerType>(data3 + offsetBackward, newpos); //write new end pointer on HEAD
+			write<Os, block_data_t, block_address_t>(data3 + offsetBackward, newpos); //write new end pointer on HEAD
 			mmu->write(data3,0);
 		
 			//prepare the new block (counter = 0, pre pointer, last pointer)
-			for (PointerType i = 0; i < blocksize; i++){
+			for (block_address_t i = 0; i < blocksize; i++){
 				second[i] = 0;
 			}
-			write<Os, block_data_t, PointerType>(second + offsetBackward, last_read); //write back pointer
+			write<Os, block_data_t, block_address_t>(second + offsetBackward, last_read); //write back pointer
 			//forward pointer to HEAD is already 0, no action needed
 			//now were ready to go on and treat this block as if it already existed on the card
 
@@ -244,17 +205,17 @@ class List{
 				write<Os, block_data_t, CounterType>(first, amount1); //write new Counter data
 		
 
-				PointerType ptr1 = read<Os, block_data_t, PointerType>(second + offsetBackward);
-				PointerType ptrfwd = read<Os, block_data_t, PointerType>(second + offsetForward);
+				block_address_t ptr1 = read<Os, block_data_t, block_address_t>(second + offsetBackward);
+				block_address_t ptrfwd = read<Os, block_data_t, block_address_t>(second + offsetForward);
 
-				write<Os, block_data_t, PointerType>(first + offsetForward, ptrfwd); //write new pointer
+				write<Os, block_data_t, block_address_t>(first + offsetForward, ptrfwd); //write new pointer
 				mmu->write(first, ptr1); //store first
 		
 				mmu->read(third, ptrfwd);
-				write<Os, block_data_t, PointerType>(third + offsetBackward, ptr1);
+				write<Os, block_data_t, block_address_t>(third + offsetBackward, ptr1);
 				mmu->write(third, ptrfwd); //make sure second is out of the list
 
-				mmu->block_free(read<Os, block_data_t, PointerType>(first + offsetForward)); //free second on sd card
+				mmu->block_free(read<Os, block_data_t, block_address_t>(first + offsetForward)); //free second on sd card
 				mmu->read(data, ptr1); //finally make sure data has the correct content.
 				debug_->debug("Merged some");		
 	
@@ -263,8 +224,8 @@ class List{
 
 				CounterType amount1 = read<Os, block_data_t, CounterType>(first);
 				CounterType amount2 = read<Os, block_data_t, CounterType>(second);
-				PointerType ptr1 = read<Os, block_data_t, PointerType>(second + offsetBackward);
-				PointerType ptr2 = read<Os, block_data_t, PointerType>(first + offsetForward);
+				block_address_t ptr1 = read<Os, block_data_t, block_address_t>(second + offsetBackward);
+				block_address_t ptr2 = read<Os, block_data_t, block_address_t>(first + offsetForward);
 
 				CounterType rmElem = 0;		
 				CounterType avg = (amount1 + amount2) / 2; 
@@ -324,15 +285,15 @@ class List{
 			}
 			else if (blocks == 3){ //3 - way split
 				//first create new 3rd block - that one we will put between first and second. (no changing external pointers)
-				PointerType ptr1 = read<Os, block_data_t, PointerType>(second + offsetBackward);
-				PointerType ptr2 = read<Os, block_data_t, PointerType>(first + offsetForward);
-				PointerType ptr3; 
+				block_address_t ptr1 = read<Os, block_data_t, block_address_t>(second + offsetBackward);
+				block_address_t ptr2 = read<Os, block_data_t, block_address_t>(first + offsetForward);
+				block_address_t ptr3; 
 				mmu->block_alloc(&ptr3);
 		
-				write<Os, block_data_t, PointerType>(first + offsetForward, ptr3);
-				write<Os, block_data_t, PointerType>(second + offsetBackward, ptr3); 
-				write<Os, block_data_t, PointerType>(third + offsetForward, ptr2); 
-				write<Os, block_data_t, PointerType>(third + offsetBackward, ptr1); 
+				write<Os, block_data_t, block_address_t>(first + offsetForward, ptr3);
+				write<Os, block_data_t, block_address_t>(second + offsetBackward, ptr3); 
+				write<Os, block_data_t, block_address_t>(third + offsetForward, ptr2); 
+				write<Os, block_data_t, block_address_t>(third + offsetBackward, ptr1); 
 				//The block has been inserted into the list now. 
 				CounterType amount1 = read<Os, block_data_t, CounterType>(first);
 				CounterType amount2 = read<Os, block_data_t, CounterType>(second);
@@ -395,8 +356,8 @@ class List{
 			}
 		}
 
-		bool scrollList(CounterType index,block_data_t data[blocksize]){ //requires lastRead to be in data
-			//Figure out how to scroll: from current or start, forward or backward (this cuts search worst & average case by 2, costing a single pointer in each block and 1 Os::size_t in ram)
+		bool scrollList(uint32_t index, block_data_t data[blocksize]){ //requires lastRead to be in data
+			//Figure out how to scroll: from current or start, forward or backward (this cuts search worst & average case by 2, costing a single pointer in each block and 1 CounterType in ram)
 			//first check if were already there
 			if (index >=last_id && index < last_id + read<Os, block_data_t, CounterType>(data)){
 				return true;
@@ -464,21 +425,20 @@ class List{
 			last_id = 0;
 			block_data_t data[blocksize];
 
-			for (PointerType i = 0; i < blocksize; i++){
+			for (block_address_t i = 0; i < blocksize; i++){
 				data[i] = 0;
 			} 			
 		/* information about HEAD block: int-><0 [current elements in this block - always 0 (for searches)> ptr-><first block> ptr-><last block> int-><current elements in list><max elements per block><use keys><key_size(unreduced)><value_size><blocksize>
 		*/	
-			CounterType valueSize = sizeof(ValueType);
 			CounterType bSize = blocksize;
+			CounterType valsize = value_size; //saved value cannot be constant
 			write<Os, block_data_t, CounterType>(data + offsetMax, maxElements);
 			write<Os, block_data_t, bool>(data + offsetUseKey, useKeys);
 			write<Os, block_data_t, CounterType>(data + offsetKeySize, key_size);
-			write<Os, block_data_t, CounterType>(data + offsetValueSize, valueSize);
+			write<Os, block_data_t, CounterType>(data + offsetValueSize, valsize);
 			write<Os, block_data_t, CounterType>(data + offsetBlockSize, bSize);
-			debug_->debug("foo"); //TODO
+
 			mmu->write(data, 0, 1);
-			debug_->debug("bar");//TODO
 		}
 
 		void setKeyUse(bool value){
@@ -503,7 +463,7 @@ class List{
 
 
 
-		void insertByIndex(KeyType key, ValueType value, CounterType index = 0){ //insert element before index - insert(e,5) will then have index 5
+		void insertByIndex(KeyType key, ValueType value, uint32_t index = 0){ //insert element before index - insert(e,5) will then have index 5
 
 			block_data_t data[blocksize];
 			if ((totalCount == 0) && (index == 0)){add(key, value); return;} //there is special code to handle empty list in add - cheap way of saving lines
@@ -522,7 +482,7 @@ class List{
 			}
 			//index right now is global, recalculate it to an index in this block
 			index = index - last_id;
-			for (PointerType i = offsetData + (amount) * (key_size + value_size) - 1; i >= offsetData + index * (key_size + value_size); i--){
+			for (block_address_t i = offsetData + (amount) * (key_size + value_size) - 1; i >= offsetData + index * (key_size + value_size); i--){
 				data[i + (key_size + value_size)] = data[i];
 			}
 			if (useKeys){
@@ -547,19 +507,19 @@ class List{
 			CounterType amount = read<Os, block_data_t, CounterType>(data);
 			if ((!(amount < maxElements)) || last_read == 0){ //there is no space, make a new block OR there are no elements in the list		
 				debug_->debug("Add: No space in Block. Making new one. Oh and the new id is %d", last_id + amount);	
-				CounterType newpos; 
+				block_address_t newpos; 
 				mmu->block_alloc(&newpos);//request new adress
-				write<Os, block_data_t, PointerType>(data + offsetForward, newpos);//write new adress on this block
+				write<Os, block_data_t, block_address_t>(data + offsetForward, newpos);//write new adress on this block
 				mmu->write(data, last_read);
 				mmu->read(data, 0);
-				write<Os, block_data_t, PointerType>(data + offsetBackward, newpos); //write new end pointer on HEAD
+				write<Os, block_data_t, block_address_t>(data + offsetBackward, newpos); //write new end pointer on HEAD
 				mmu->write(data, 0);
 		
 				//prepare the new block (counter = 0, pre pointer, last pointer)
-				for (PointerType i = 0; i < blocksize; i++){
+				for (block_address_t i = 0; i < blocksize; i++){
 					data[i] = 0;
 				}
-				write<Os, block_data_t, PointerType>(data + offsetBackward, last_read); //write back pointer
+				write<Os, block_data_t, block_address_t>(data + offsetBackward, last_read); //write back pointer
 				//forward pointer to HEAD is already 0, no action needed
 	
 				last_read = newpos;
@@ -579,13 +539,13 @@ class List{
 			//debug_->debug("index %d, last_read %d, LID %d, tcount %d", index, last_read, last_id, totalCount);
 	
 		}
-		void removeByIndex(PointerType pos){
+		void removeByIndex(block_address_t pos){
 			block_data_t data[blocksize];
 			mmu->read(data, last_read);
 			scrollList(pos, data);
 			CounterType amount = read<Os, block_data_t, CounterType>(data);
 			pos = pos - last_id;
-			for (PointerType i = 0; i < (amount - (pos + 1)) * (key_size + value_size); i++){ 
+			for (block_address_t i = 0; i < (amount - (pos + 1)) * (key_size + value_size); i++){ 
 				data[offsetData + pos * (key_size + value_size) + i] 
 					= data[offsetData + (pos + 1)* (key_size + value_size) + i] ;
 			}
@@ -602,11 +562,11 @@ class List{
 			remove(getIndex(key));
 		}
 
-		PointerType getIndexByKey(KeyType key){
+		block_address_t getIndexByKey(KeyType key){
 			//go through the list, checking each element. Start at last_read, going forwards jumping over 0.
 			block_data_t data[blocksize];
 			mmu->read(data, last_read);
-			PointerType start = last_read;
+			block_address_t start = last_read;
 			bool doOnce = true;
 			while (last_read != start || doOnce){
 				doOnce = false;
@@ -629,14 +589,14 @@ class List{
 				readForward(data);
 			}
 			totalCount = 0;
-			write<Os, block_data_t, PointerType>(data, 0);
-			write<Os, block_data_t, PointerType>(data, 0); 
+			write<Os, block_data_t, block_address_t>(data, 0);
+			write<Os, block_data_t, block_address_t>(data, 0); 
 			write<Os, block_data_t, CounterType>(data + offsetTotalCounter, totalCount);
 
 			mmu->write(data, 0);
 		}
 
-		KeyType getKeyByIndex(CounterType index){
+		KeyType getKeyByIndex(uint32_t index){
 	
 			//find position i
 			//return key
@@ -650,7 +610,7 @@ class List{
 		ValueType getValueByKey(KeyType key){ //returns element e, if in list
 			getByIndex(getIndex(key));
 		}
-		ValueType getValueByIndex(CounterType index){ //return element i
+		ValueType getValueByIndex(uint32_t index){ //return element i
 			//find position i
 			//return
 			block_data_t data[blocksize];	
@@ -666,7 +626,7 @@ class List{
 			//TODO: Make sure all is saved
 			CounterType c = 0;
 			write<Os, block_data_t, CounterType>(data, c); //write emptly slot
-			write<Os, block_data_t, CounterType>(data + offsetTotalCounter, totalCount); //write amount
+			write<Os, block_data_t, uint32_t>(data + offsetTotalCounter, totalCount); //write amount
 			write<Os, block_data_t, bool>(data + offsetUseKey, useKeys); //write amount
 			mmu->write(data, 0);
 			debug_->debug("Wrote HEAD");
