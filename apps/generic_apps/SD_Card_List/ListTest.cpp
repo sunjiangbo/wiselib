@@ -1,9 +1,11 @@
 //#define DEBUG
 #define USE_RAM_BLOCK_MEMORY 1
-#define BDMMU_DEBUG
+//#define BDMMU_DEBUG
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
 #include "List.h"
+
+#include "../block_device_mmu/block_device_mmu.hpp"
 #define NR_OF_BLOCKS_TO_TEST 8
 
 using namespace wiselib;
@@ -125,8 +127,7 @@ class App {
 				debug_->debug("Aborting");		
 				return;
 				
-			}else{
-debug_->debug("Entry %d says %d", i, j);		
+			}else{	
 				
 			}
 		}

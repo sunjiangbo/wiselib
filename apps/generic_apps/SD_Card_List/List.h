@@ -1,24 +1,12 @@
-/**
-THINGS FOR PRESI DO TO
-ITERATOR CONCEPT (NEXT PREV; BUFFER)
-WISELIB COMPATIBLE
-ALLOW CHANGE ON FILL STATE OF BLOCKS FOR MERGE/SPLIT
-*/
 
-
-
-/* Required FEATURES for list
-- handle both small values and big values (directly in block save and pointer to block with value) - pointer version not yet here. its not that much to add once this version works though.
-- handle both keyed and unkeyed values
-- independend from blocksize
-- (allow for blocksize to be unknown before compiling and automatically sort out if simple or complex list type is better)
-- allow for PREV and NEXT and well as indexed and keyed access
-- allow to be reconstructed from disk (with a SHORT check if there really is a list there. Nothing complex)
-*/
 #ifndef __memlist_H__
 #define	__memlist_H__
 
-#include "../block_device_mmu/block_device_mmu.hpp"
+#ifdef DEBUG
+	#ifndef BDMMU_DEBUG
+		#define LIST_DEBUG
+	#endif
+#endif
 
 namespace wiselib {
 
@@ -29,7 +17,7 @@ template<typename OsModel_P, typename BDMMU_P, typename KeyType_P,
 	typename OsModel_P::size_t mergeVal = 75, //if 2 blocks combined into one would be less full than 75% - merge them when removing
 	typename OsModel_P::size_t splitVal = 80, //if 2 blocks are more than 75% full - split them when inserting (each of the 3 wouldbe 50% full)
 	typename Debug_P = typename OsModel_P::Debug>
-	/*typename BlockMemory_P = typename OsModel_P::BlockMemory*/
+	/*typename BlockMemory_P = typename OsModel_P::BlockMemory*/ //We get this from MMU
 	
 class List{	
 	typedef OsModel_P Os;
@@ -45,9 +33,8 @@ class List{
 
 	typedef KeyType_P KeyType;
 	typedef ValueType_P ValueType;
- 
 
-	public: //TODO: private
+	protected:
 
 		//const CounterType HEAD = 0 //where the head of the list is located. since we get our own virtual memory partition, we can set this to 0.
 		
@@ -162,8 +149,6 @@ class List{
 		if (((d2_closeness < d3_closeness) || (data3_pos == 0)) && (data2_pos != 0)){ //use d2 either if its better or if its the only available
 			//d2 is BEFORE d
 			buffer[bufferPos].last_read = data2_pos;
-			debug_->debug("Split - set last_read to %d", data2_pos);	
-		
 			buffer[bufferPos].last_id = buffer[bufferPos].last_id - data2_amount;
 			first = data2;
 			second = buffer[bufferPos].data;
@@ -183,7 +168,9 @@ class List{
 			second = data2;
 		//	third = data3; // wont be used
 	
+#ifdef LIST_DEBUG
 		debug_->debug("Split - There is only one Block. Creating new and reassigning.");	
+#endif
 			block_address_t newpos; 
 			mmu->block_alloc(&newpos);//request new adress	
 	
@@ -201,7 +188,9 @@ class List{
 			//forward pointer to HEAD is already 0, no action needed
 			//now were ready to go on and treat this block as if it already existed on the card
 
+#ifdef LIST_DEBUG
 		debug_->debug("Extra Block %d created. LR= %d LID=%d cnt=%d", newpos, buffer[bufferPos].last_read, buffer[bufferPos].last_id, data_amount);
+#endif
 			}
 			//now that we decided who to play with, we decide what to do (depends on blocks)
 			if (blocks == 1){ //merge first and second.
@@ -226,10 +215,12 @@ class List{
 				write<Os, block_data_t, block_address_t>(third + offsetBackward, ptr1);
 				mmu->write(third, ptrfwd); //make sure second is out of the list
 
-				mmu->block_free(read<Os, block_data_t, block_address_t>(first + offsetForward)); //free second on sd card
+				mmu->block_free(ptr2); //free second on sd card
 				mmu->read(buffer[bufferPos].data, ptr1); //finally make sure data has the correct content.
+
+#ifdef LIST_DEBUG
 				debug_->debug("Merged Block %d and %d. The second is the one set free", ptr1, ptr2);		
-	
+#endif	
 			}
 			else if (blocks == 2){ //reassign elements. third isnt used
 
@@ -292,16 +283,18 @@ class List{
 				mmu->write(first, ptr1);
 				mmu->write(second, ptr2);
 				mmu->read(buffer[bufferPos].data, ptr1);	
+
+#ifdef LIST_DEBUG
 		debug_->debug("reassign completed between %d and %d. Filled: %d + %d %d", ptr1, ptr2, buffer[bufferPos].last_id, amount1, amount2);	
+#endif
 			}
 			else if (blocks == 3){ //3 - way split
 				//first create new 3rd block - that one we will put between first and second. (no changing external pointers)
 				block_address_t ptr1 = read<Os, block_data_t, block_address_t>(second + offsetBackward);
 				block_address_t ptr2 = read<Os, block_data_t, block_address_t>(first + offsetForward);
 				block_address_t ptr3; 
-				int a = mmu->block_alloc(&ptr3);
-		debug_->debug("a: %d, ptr3: %d", a, ptr3);	
-		
+				mmu->block_alloc(&ptr3);
+
 				write<Os, block_data_t, block_address_t>(first + offsetForward, ptr3);
 				write<Os, block_data_t, block_address_t>(second + offsetBackward, ptr3); 
 				write<Os, block_data_t, block_address_t>(third + offsetForward, ptr2); 
@@ -359,8 +352,10 @@ class List{
 				mmu->write(second, ptr2);
 				mmu->write(third, ptr3);
 				mmu->read(buffer[bufferPos].data, ptr1); //prepare data again.
+
+#ifdef LIST_DEBUG
 				debug_->debug("Did the split: New block %d between %d and %d. Filled: %d + %d %d %d",  ptr3, ptr1, ptr2, buffer[bufferPos].last_id, amount1, amount2, amount3);		
-	
+#endif	
 	
 			}
 			else {
@@ -441,8 +436,7 @@ class List{
 	public:
 
 		List(Debug_ptr debug_, MMU_ptr mmu) : debug_(debug_), mmu(mmu){
-			
-			debug_->debug("Memory map created");
+
 			if (loadFromDisk){//try to restore
 				block_data_t data[blocksize];
 				mmu->read(data, 0); //this should be our head
