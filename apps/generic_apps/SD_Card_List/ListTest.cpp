@@ -37,7 +37,7 @@ class App {
 		//testAdd();
 		//testInsertByIndex();
 		//testRemoveIndex();
-		testPersistenz();
+		testPersistenz();  //list itself works!
 		//testGetKeyIndexBothWays();
 
 //testRemoveByIndex
@@ -97,26 +97,28 @@ class App {
 		
 
 		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 1> MMU_0_t;
-
-		MMU_0_t mmu_0(sd, debug_, false, true);
 		{
-			List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
-			debug_->debug("List created. It is %d byte large", sizeof(list));		
-			for (int i = 0; i < 1000; i++){
-				list.add(i, i); //key a number with itself
+			MMU_0_t mmu_0(sd, debug_, false, true);
+			{
+				List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
+				debug_->debug("List created. It is %d byte large", sizeof(list));		
+				for (int i = 0; i < 1000; i++){
+					list.add(i, i); //key a number with itself
+				}
+				list.sync();
 			}
-			list.sync();
-		}
-		{
-			List<Os, MMU_0_t, int, int, true> list(debug_, &mmu_0);
-			debug_->debug("2nd List created. Filling another 1k", sizeof(list));		
-			for (int i = 1000; i < 2000; i++){
-				list.add(i, i); //key a number with itself
-			}
+			{
+				List<Os, MMU_0_t, int, int, true> list(debug_, &mmu_0);
+				debug_->debug("2nd List created. Filling another 1k", sizeof(list));		
+				for (int i = 1000; i < 2000; i++){
+					list.add(i, i); //key a number with itself
+				}
 			
-			list.sync();
+				list.sync();
+			}
 		}
 		{
+			MMU_0_t mmu_0(sd, debug_, true, true);
 			List<Os, MMU_0_t, int, int, true> list(debug_, &mmu_0);
 			debug_->debug("3rd List created. Reading");		
 			for (int i = 0; i < 2000; i++){
@@ -144,7 +146,7 @@ class App {
 
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
-		List<Os, MMU_0_t, int, int, true> list(debug_, &mmu_0);
+		List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
 		
 		
 		//List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);

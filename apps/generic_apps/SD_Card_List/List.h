@@ -49,6 +49,7 @@ class List{
 		//here come options:
 		CounterType key_size;
 		bool useKeys;
+		bool syncOnDelete;
 		CounterType maxElements;
 
 		//Os::Debug::self_pointer_t 
@@ -456,15 +457,15 @@ class List{
 			
 			//create a new list
 			//mmu->block_alloc(); //This was originally to reserve the 0th block fo rthe head, this is now handled by the MMU though
-			debug_->debug("HEAD reserved");
+			//debug_->debug("HEAD reserved");
 			key_size  = sizeof(KeyType);
 			useKeys = true;
 			totalCount = 0;
 			maxElements = (BDMMU::VIRTUAL_BLOCK_SIZE - (2 * ptr_size + cnt_size)) / (key_size + value_size);
-			debug_->debug("maxElements is %d", maxElements);
+			//debug_->debug("maxElements is %d", maxElements);
 		
 			if (maxElements < 1) return; //TODO error
-			debug_->debug("Preparing to write new, empty head");
+			//debug_->debug("Preparing to write new, empty head");
 			for (CounterType i = 0; i < buffersize; i++){
 				buffer[i].last_read = 0;
 				buffer[i].last_id = 0;
@@ -474,7 +475,7 @@ class List{
 			}			
 					
 			lastbuffer = 0;	
-
+			syncOnDelete = loadFromDisk;
 			if (loadFromDisk){//try to restore
 				block_data_t data[BDMMU::VIRTUAL_BLOCK_SIZE];
 				mmu->read(data, 0); //this should be our head
@@ -483,11 +484,11 @@ class List{
 						buffer[i].data[j] = data[0];
 					} 
 				}	
-				debug_->debug("Restoring Values" 	);
+				//debug_->debug("Restoring Values" 	);
 			//Important values to restore: useKeys, totalcount
 				useKeys = read<Os, block_data_t, CounterType>(data + offsetUseKey);
 				totalCount = read<Os, block_data_t, uint32_t>(data + offsetTotalCounter);
-				debug_->debug("Read %d", totalCount);
+				//debug_->debug("Read %d", totalCount);
 			
 				//All other values could be used to make sure the List is of the right type - however since its only a check and not possible to make a correct List from the disk this is less important than other issues. 
 
@@ -505,6 +506,10 @@ class List{
 			write<Os, block_data_t, CounterType>(buffer[0].data + offsetBlockSize, bSize);
 
 			mmu->write(buffer[0].data, 0, 1);
+		}
+
+		void setPersistence(bool value){
+			syncOnDelete = value;
 		}
 
 		void setKeyUse(bool value){
@@ -724,18 +729,20 @@ class List{
 
 			return read<Os, block_data_t, ValueType>(buffer[bufferPos].data + offsetData + (index - buffer[bufferPos].last_id) * (key_size + value_size) + key_size);
 		}
-	
+		~List(){
+			if(syncOnDelete) sync();
+		}
 		void sync(){ //saves the status of the list on the disk //TODO
 			block_data_t data[BDMMU::VIRTUAL_BLOCK_SIZE];
 			mmu->read(data, 0);
-			debug_->debug("read HEAD");
-			//TODO: Make sure all is saved
+			//debug_->debug("read HEAD");
+			//TODO: Make sure buffers - if saveBuffers are implemented - are saved
 			write<Os, block_data_t, uint32_t>(data + offsetTotalCounter, totalCount); //write amount
-debug_->debug("wrote %d", totalCount);
+			//debug_->debug("wrote %d", totalCount);
 			
 			write<Os, block_data_t, bool>(data + offsetUseKey, useKeys); //write value
 			mmu->write(data, 0);
-			debug_->debug("Wrote HEAD");
+			//debug_->debug("Wrote HEAD");
 	
 		}
 }; //end class List
