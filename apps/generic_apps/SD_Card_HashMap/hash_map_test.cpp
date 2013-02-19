@@ -973,7 +973,9 @@ public:
 				sd->printGNUPLOTOutputBytes(0, 50, file, colorizeBlock<wiselib::Block<int, long> >);
 				fclose(file);
 			}
-			debug_->debug("we inserted %d items", counter);
+			if(counter == 300)
+				sd->printGraphBytes(3, 10, stdout);
+//			debug_->debug("we inserted %d items", counter);
 			counter++;
 		}
 	}

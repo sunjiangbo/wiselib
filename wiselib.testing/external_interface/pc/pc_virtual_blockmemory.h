@@ -242,9 +242,9 @@ public:
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
 		for(int block = fromBlock; block <= toBlock; block++)
 		{
-			for(int j = 0; j < blocksize; j++)
+			for(int j = 0; j < 20; j++)
 			{
-				printf("%c | ", ((int)memory[block][j]));
+				printf("%3d|", ((int)memory[block][j]));
 			}
 			printf("\n");
 		}
@@ -263,7 +263,7 @@ public:
 	void printGNUPLOTOutputBytes(size_t fromBlock, size_t toBlock, FILE* f)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
-		for(size_t block = toBlock; (block + 1) > fromBlock; block--)
+		for(size_t block = fromBlock; block < toBlock; ++block)
 			{
 				for(int j = 0; j < blocksize; j++)
 				{
@@ -280,7 +280,7 @@ public:
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
 
-		for(size_t block = toBlock; (block + 1) > fromBlock; block--)
+		for(size_t block = fromBlock; block < toBlock; ++block)
 			{
 				for(int j = 0; j < blocksize; j++)
 				{
