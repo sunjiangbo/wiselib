@@ -215,7 +215,12 @@ class List{
 				mmu->read(third, ptrfwd);
 				write<Os, block_data_t, block_address_t>(third + offsetBackward, ptr1);
 				mmu->write(third, ptrfwd); //make sure second is out of the list
-
+#ifdef LIST_VIRT
+				for (block_address_t i = 0; i < BDMMU::VIRTUAL_BLOCK_SIZE; i++){
+					second[i] = 0;
+				}
+				mmu->write(second, ptr2);
+#endif
 				mmu->block_free(ptr2); //free second on sd card
 				mmu->read(buffer[bufferPos].data, ptr1); //finally make sure data has the correct content.
 				//reset problematic buffers
@@ -290,7 +295,14 @@ class List{
 				}
 				write<Os, block_data_t, CounterType>(first, amount1);
 				write<Os, block_data_t, CounterType>(second, amount2);
-				
+#ifdef LIST_VIRT
+				for (block_address_t i = 0; i < BDMMU::VIRTUAL_BLOCK_SIZE; i++){
+					if (i >= offsetData + amount1 * (key_size + value_size))					
+						first[i] = 0;	
+					if (i >= offsetData + amount2 * (key_size + value_size))					
+						second[i] = 0;
+				}
+#endif
 				mmu->write(first, ptr1);
 				mmu->write(second, ptr2);
 				mmu->read(buffer[bufferPos].data, ptr1);	
@@ -357,7 +369,14 @@ class List{
 				write<Os, block_data_t, CounterType>(first, amount1);
 				write<Os, block_data_t, CounterType>(second, amount2);
 				write<Os, block_data_t, CounterType>(third, amount3);
-		
+#ifdef LIST_VIRT
+				for (block_address_t i = 0; i < BDMMU::VIRTUAL_BLOCK_SIZE; i++){
+					if (i >= offsetData + amount1 * (key_size + value_size))					
+						first[i] = 0;	
+					if (i >= offsetData + amount2 * (key_size + value_size))					
+						second[i] = 0;
+				}
+#endif
 				//save and done!
 				mmu->write(first, ptr1);
 				mmu->write(second, ptr2);
