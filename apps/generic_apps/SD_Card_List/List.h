@@ -49,6 +49,7 @@ class List{
 		//here come options:
 		CounterType key_size;
 		bool useKeys;
+		bool syncOnDelete;
 		CounterType maxElements;
 
 		//Os::Debug::self_pointer_t 
@@ -62,23 +63,23 @@ class List{
 		/* Format of 1 block: int-><amount objects in this block> ptr-><next block> ptr-><previous block> [data] 
 		  getting element i in a block is at position 0 + int_size + 2 * ptr_size + i * value_size
 		*/
-
-		static const CounterType ptr_size = sizeof(block_address_t);
-		static const CounterType cnt_size = sizeof(CounterType);
-		static const CounterType value_size = sizeof(ValueType);
+		enum {
+		 ptr_size = sizeof(block_address_t),
+		 cnt_size = sizeof(CounterType),
+		value_size = sizeof(ValueType),
 		//all
-		static const CounterType offsetForward = cnt_size;
-		static const CounterType offsetBackward = offsetForward + ptr_size;
+		offsetForward = cnt_size,
+		offsetBackward = offsetForward + ptr_size,
 		//data only
-		static const CounterType offsetData = offsetBackward + ptr_size;
+		offsetData = offsetBackward + ptr_size,
 		//head only
-		static const CounterType offsetTotalCounter = offsetBackward + ptr_size;
-		static const CounterType offsetMax = offsetTotalCounter + cnt_size;
-		static const CounterType offsetUseKey = offsetMax + cnt_size;
-		static const CounterType offsetKeySize = offsetUseKey + sizeof(bool);
-		static const CounterType offsetValueSize = offsetKeySize + cnt_size;
-		static const CounterType offsetBlockSize = offsetValueSize + cnt_size;
-
+		offsetTotalCounter = offsetBackward + ptr_size,
+		offsetMax = offsetTotalCounter + sizeof(uint32_t),
+		offsetUseKey = offsetMax + cnt_size,
+		offsetKeySize = offsetUseKey + sizeof(bool),
+		offsetValueSize = offsetKeySize + cnt_size,
+		offsetBlockSize = offsetValueSize + cnt_size
+		};
 
 
 	void readForward(CounterType bufferPos){
@@ -217,7 +218,17 @@ class List{
 
 				mmu->block_free(ptr2); //free second on sd card
 				mmu->read(buffer[bufferPos].data, ptr1); //finally make sure data has the correct content.
-
+				//reset problematic buffers
+				for (CounterType i = 0; i < buffersize; i++){
+					if (buffer[i].last_read == ptr2)
+					{
+						buffer[i].last_read = 0;
+						buffer[i].last_id = 0;
+						for (block_address_t j = 0; j < BDMMU::VIRTUAL_BLOCK_SIZE; j++){
+							buffer[i].data[j] = 0;
+						} 
+					}
+				}
 #ifdef LIST_DEBUG
 				debug_->debug("Merged Block %d and %d. The second is the one set free", ptr1, ptr2);		
 #endif	
@@ -351,8 +362,19 @@ class List{
 				mmu->write(first, ptr1);
 				mmu->write(second, ptr2);
 				mmu->write(third, ptr3);
-				mmu->read(buffer[bufferPos].data, ptr1); //prepare data again.
-
+				//mmu->read(buffer[bufferPos].data, ptr1); //prepare data again. - this is now done via the buffer adjustment
+				//adjust buffers
+				for (CounterType i = 0; i < buffersize; i++){
+					if (buffer[i].last_read == ptr1) //Either buffers are out of date
+					{
+						mmu->read(buffer[i].data, ptr1);
+					} 
+					else if (buffer[i].last_read == ptr2) //Either buffers are out of date
+					{
+						buffer[i].last_id = buffer[bufferPos].last_id + amount1 + amount3; //Take a, add b-a and c-b and voila you have c
+						mmu->read(buffer[i].data, ptr2);
+					}
+				}
 #ifdef LIST_DEBUG
 				debug_->debug("Did the split: New block %d between %d and %d. Filled: %d + %d %d %d",  ptr3, ptr1, ptr2, buffer[bufferPos].last_id, amount1, amount2, amount3);		
 #endif	
@@ -363,12 +385,7 @@ class List{
 			}
 		}
 	
-		bool scrollBuffer(uint32_t index, CounterType bufferPos){//scroll this buffer to pos x
-			if (index >= totalCount){	
-				return false; //element not in list - trying to insert at the end will call add() instead
-			}
-			return true; //TODO
-		}
+		
 		bool scrollList(uint32_t index, CounterType& bufferPos){ //scroll a buffer to pos x
 			//Figure out how to scroll: from a current buffer or start, forward or backward (this cuts search worst & average case by 2, costing a single pointer in each block and 1 CounterType in ram)
 			if (index >= totalCount){	
@@ -437,31 +454,47 @@ class List{
 
 		List(Debug_ptr debug_, MMU_ptr mmu) : debug_(debug_), mmu(mmu){
 
-			if (loadFromDisk){//try to restore
-				block_data_t data[BDMMU::VIRTUAL_BLOCK_SIZE];
-				mmu->read(data, 0); //this should be our head
-				//read & verify some values - if it fails we have to create like below //TODO
-				return;
-			}
+			
 			//create a new list
 			//mmu->block_alloc(); //This was originally to reserve the 0th block fo rthe head, this is now handled by the MMU though
-			debug_->debug("HEAD reserved");
+			//debug_->debug("HEAD reserved");
 			key_size  = sizeof(KeyType);
 			useKeys = true;
 			totalCount = 0;
 			maxElements = (BDMMU::VIRTUAL_BLOCK_SIZE - (2 * ptr_size + cnt_size)) / (key_size + value_size);
-			debug_->debug("maxElements is %d", maxElements);
+			//debug_->debug("maxElements is %d", maxElements);
 		
 			if (maxElements < 1) return; //TODO error
-			debug_->debug("Preparing to write new, empty head");
+			//debug_->debug("Preparing to write new, empty head");
 			for (CounterType i = 0; i < buffersize; i++){
 				buffer[i].last_read = 0;
 				buffer[i].last_id = 0;
+				for (block_address_t j = 0; j < BDMMU::VIRTUAL_BLOCK_SIZE; j++){
+					buffer[i].data[j] = 0;
+				} 
 			}			
-			for (block_address_t i = 0; i < BDMMU::VIRTUAL_BLOCK_SIZE; i++){
-				buffer[0].data[i] = 0;
-			} 		
+					
 			lastbuffer = 0;	
+			syncOnDelete = loadFromDisk;
+			if (loadFromDisk){//try to restore
+				block_data_t data[BDMMU::VIRTUAL_BLOCK_SIZE];
+				mmu->read(data, 0); //this should be our head
+				for (CounterType i = 0; i < buffersize; i++){
+					for (block_address_t j = 0; j < BDMMU::VIRTUAL_BLOCK_SIZE; j++){
+						buffer[i].data[j] = data[0];
+					} 
+				}	
+				//debug_->debug("Restoring Values" 	);
+			//Important values to restore: useKeys, totalcount
+				useKeys = read<Os, block_data_t, CounterType>(data + offsetUseKey);
+				totalCount = read<Os, block_data_t, uint32_t>(data + offsetTotalCounter);
+				//debug_->debug("Read %d", totalCount);
+			
+				//All other values could be used to make sure the List is of the right type - however since its only a check and not possible to make a correct List from the disk this is less important than other issues. 
+
+				return;
+			}
+
 		/* information about HEAD block: int-><0 [current elements in this block - always 0 (for searches)> ptr-><first block> ptr-><last block> int-><current elements in list><max elements per block><use keys><key_size(unreduced)><value_size><BDMMU::VIRTUAL_BLOCK_SIZE>
 		*/	
 			CounterType bSize = BDMMU::VIRTUAL_BLOCK_SIZE;
@@ -473,6 +506,10 @@ class List{
 			write<Os, block_data_t, CounterType>(buffer[0].data + offsetBlockSize, bSize);
 
 			mmu->write(buffer[0].data, 0, 1);
+		}
+
+		void setPersistence(bool value){
+			syncOnDelete = value;
 		}
 
 		void setKeyUse(bool value){
@@ -509,21 +546,20 @@ class List{
 			read<Os, block_data_t, CounterType>(buffer[bufferPos].data, amount);
 			if (amount == maxElements){
 		//debug_->debug("Doing the balance for %d with LID %d", last_read, last_id);
-				debug_->debug("rebalance when inserting %d at %d", value, index);	
 				rebalance(bufferPos);
 				scrollList(index, bufferPos);
 				amount = read<Os, block_data_t, CounterType>(buffer[bufferPos].data);
 
 			}
 			//index right now is global, recalculate it to an index in this block
-			index = index - buffer[bufferPos].last_id;
-			for (block_address_t i = offsetData + (amount) * (key_size + value_size) - 1; i >= offsetData + index * (key_size + value_size); i--){
+			CounterType pos = index - buffer[bufferPos].last_id;
+			for (block_address_t i = offsetData + (amount) * (key_size + value_size) - 1; i >= offsetData + pos * (key_size + value_size); i--){
 				buffer[bufferPos].data[i + (key_size + value_size)] = buffer[bufferPos].data[i];
 			}
 			if (useKeys){
-				write<Os, block_data_t, KeyType>(buffer[bufferPos].data + offsetData + index * (key_size + value_size), key); //write key
+				write<Os, block_data_t, KeyType>(buffer[bufferPos].data + offsetData + pos * (key_size + value_size), key); //write key
 			}		
-			write<Os, block_data_t, ValueType>(buffer[bufferPos].data + offsetData + index * (key_size + value_size) + key_size, value); //write value
+			write<Os, block_data_t, ValueType>(buffer[bufferPos].data + offsetData + pos * (key_size + value_size) + key_size, value); //write value
 	
 	
 			amount = amount + 1;
@@ -531,18 +567,28 @@ class List{
 			write<Os, block_data_t, CounterType>(buffer[bufferPos].data, amount); //write amount
 			mmu->write(buffer[bufferPos].data, buffer[bufferPos].last_read); //and save it all
 		//debug_->debug("index %d, last_read %d, LID %d, tcount %d", index, last_read, last_id, totalCount);
+			//Now adjust the buffers
+			for (CounterType i = 0; i < buffersize; i++){
+				if (buffer[bufferPos].last_id < buffer[i].last_id)
+				{
+					buffer[i].last_id = buffer[i].last_id + 1; 
+				}
+			}
 	
 		}
 
 		void add(KeyType key, ValueType value){ //add element to list
 			CounterType bufferPos = 0;			
 			scrollList(totalCount - 1, bufferPos);
-			
+
 			CounterType amount = read<Os, block_data_t, CounterType>(buffer[bufferPos].data);
 			if ((!(amount < maxElements)) || buffer[bufferPos].last_read == 0){ //there is no space, make a new block OR there are no elements in the list		
-				debug_->debug("Add: No space in Block. Making new one. Oh and the new id is %d", buffer[bufferPos].last_id + amount);	
+
 				block_address_t newpos; 
 				mmu->block_alloc(&newpos);//request new adress
+#ifdef LIST_DEBUG
+				debug_->debug("Add: No space in Block. Making new one. new count is %d, new block ID is %d", buffer[bufferPos].last_id + amount, newpos);	
+#endif
 				write<Os, block_data_t, block_address_t>(buffer[bufferPos].data + offsetForward, newpos);//write new adress on this block
 				mmu->write(buffer[bufferPos].data, buffer[bufferPos].last_read);
 			
@@ -571,6 +617,7 @@ class List{
 			totalCount = totalCount + 1;
 			write<Os, block_data_t, CounterType>(buffer[bufferPos].data, amount); //write amount
 			mmu->write(buffer[bufferPos].data, buffer[bufferPos].last_read); //and save it all
+			//since add cannot add before any existing buffers, no adjustment is needed.
 			//debug_->debug("index %d, last_read %d, LID %d, tcount %d", index, last_read, last_id, totalCount);
 	
 		}
@@ -592,6 +639,13 @@ class List{
 			totalCount = totalCount - 1;
 			write<Os, block_data_t, CounterType>(buffer[bufferPos].data, amount); //write amount#
 	
+			//adjust the buffers before possibly triggering Merges, since rebalance takes in a "dirty" buffer state
+			for (CounterType i = 0; i < buffersize; i++){
+				if (buffer[bufferPos].last_id < buffer[i].last_id)
+				{
+					buffer[i].last_id = buffer[i].last_id - 1; 
+				}
+			}
 		
 			//check if removal would trigger a merge (counter - 1 <  max / 3)
 			if (amount < maxElements / 3){
@@ -599,9 +653,10 @@ class List{
 				rebalance(bufferPos);
 			}
 			else {mmu->write(buffer[bufferPos].data, buffer[bufferPos].last_read);}
+			
 
-		
 		}
+
 		void removeByKey(KeyType key){
 			remove(getIndex(key));
 		}
@@ -627,6 +682,7 @@ class List{
 		}
 
 		void clear(){ //remove all elements
+	
 			mmu->read(buffer[0].data, 0);
 			buffer[0].last_read = 0;
 			readForward(0);
@@ -640,7 +696,14 @@ class List{
 			write<Os, block_data_t, CounterType>(buffer[0].data + offsetTotalCounter, totalCount);
 
 			mmu->write(buffer[0].data, 0);
-			//TODO clear buffers;
+
+			for (CounterType i = 0; i < buffersize; i++){
+				buffer[i].last_id = 0;
+				buffer[i].last_read = 0;
+				for (block_address_t j = 0; j < BDMMU::VIRTUAL_BLOCK_SIZE; j++){
+					buffer[i].data[j] = 0;
+				} 
+			}
 		}
 
 		KeyType getKeyByIndex(uint32_t index){
@@ -666,18 +729,20 @@ class List{
 
 			return read<Os, block_data_t, ValueType>(buffer[bufferPos].data + offsetData + (index - buffer[bufferPos].last_id) * (key_size + value_size) + key_size);
 		}
-
+		~List(){
+			if(syncOnDelete) sync();
+		}
 		void sync(){ //saves the status of the list on the disk //TODO
 			block_data_t data[BDMMU::VIRTUAL_BLOCK_SIZE];
 			mmu->read(data, 0);
-			debug_->debug("read HEAD");
-			//TODO: Make sure all is saved
-			CounterType c = 0;
-			write<Os, block_data_t, CounterType>(data, c); //write emptly slot
+			//debug_->debug("read HEAD");
+			//TODO: Make sure buffers - if saveBuffers are implemented - are saved
 			write<Os, block_data_t, uint32_t>(data + offsetTotalCounter, totalCount); //write amount
-			write<Os, block_data_t, bool>(data + offsetUseKey, useKeys); //write amount
+			//debug_->debug("wrote %d", totalCount);
+			
+			write<Os, block_data_t, bool>(data + offsetUseKey, useKeys); //write value
 			mmu->write(data, 0);
-			debug_->debug("Wrote HEAD");
+			//debug_->debug("Wrote HEAD");
 	
 		}
 }; //end class List
