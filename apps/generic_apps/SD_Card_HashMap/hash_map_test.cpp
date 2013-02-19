@@ -1,5 +1,5 @@
 //define DEBUG
-#define USE_RAM_BLOCK_MEMORY 1
+#define USE_FILE_BLOCK_MEMORY 1
 
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
@@ -127,8 +127,8 @@ public:
 
 		sd->init();
 //		generateGNUPLOTData();
-		generateFillupAnimation();
-//		fillWithGoethe();
+//		generateFillupAnimation();
+		fillWithGoethe();
 
 //		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
 //		if(!blockTest()) debug_->debug("blockTest failed!");
@@ -954,7 +954,7 @@ public:
 		else
 			return value/2 + 512;
 	}
-
+/*
 	void generateFillupAnimation()
 	{
 		wiselib::HashMap<int, long> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 50);
@@ -974,11 +974,15 @@ public:
 				fclose(file);
 			}
 			if(counter == 300)
-				sd->printGraphBytes(3, 10, stdout);
+			{
+				FILE* file = fopen("dummy.dot", "w");
+				sd->printGraphBytes(3, 10, file);
+				fclose(file);
+			}
 //			debug_->debug("we inserted %d items", counter);
 			counter++;
 		}
-	}
+	}*/
 
 
 	void printBlock(wiselib::Block<int, long> b)
@@ -1033,18 +1037,6 @@ public:
 
 		wiselib::Block<uint16_t, goetheline>::iterator it = lineBlock.begin();
 
-		debug_->debug("size of hashmap: %d", sizeof(lineBlock));
-
-		int count = 0;
-		while(it != lineBlock.end())
-		{
-			debug_->debug("%d: %s", count, (*it).line);
-			++it;
-			++count;
-		}
-
-		debug_->debug("blocklen: %d", lineBlock.getNumValues());
-		/*
 		FILE *fp;
 		fp = fopen("lines.txt", "r");
 		uint16_t lineNumber = 0;
@@ -1101,12 +1093,21 @@ public:
 			printf("line: %d  word: %s\n", lineNumber, gw.word);
 		}
 		fclose(fp);
-		*/
+
+
+		debug_->debug("");
+
+		lookForWord("Kern", linesHM, wordsHM);
+		lookForWord("Religion", linesHM, wordsHM);
+		lookForWord("Kunst", linesHM, wordsHM);
 
 
 
-		char* word = "Kern";
+//		sd->printASCIIOutputBytes(0, 1);
+	}
 
+	void lookForWord(char* word, wiselib::HashMap<uint16_t, goetheline> linesHM, wiselib::HashMap<goetheword, uint16_t> wordsHM)
+	{
 		goetheword gw;
 
 		for(int i = 0; i < strlen(word); i++)
@@ -1119,15 +1120,15 @@ public:
 
 		uint16_t occ = 3;
 
+		debug_->debug("looking for %s ...", word, occ);
+
 		int ret = wordsHM.getEntry(gw, &occ);
 		debug_->debug("%s is at line %d", word, occ);
 
 		if(ret == Os::NO_VALUE)
 			debug_->debug("no value was found");
 
-		debug_->debug("ths lines is: %s\n", linesHM[occ].line);
-
-//		sd->printASCIIOutputBytes(0, 1);
+		debug_->debug("%d: %s\n", occ, linesHM[occ].line);
 	}
 
 private:
