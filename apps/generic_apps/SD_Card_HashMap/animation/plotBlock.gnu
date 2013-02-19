@@ -25,3 +25,4 @@ do for [ii=1:numImages-1] {
 	plot sprintf("./bild%04d.dot", ii)  matrix with image
 #	print sprintf("./bild%04d.dot", ii)
 }
+pause -1
