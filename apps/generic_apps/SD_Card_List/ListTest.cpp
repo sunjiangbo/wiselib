@@ -76,6 +76,7 @@ class App {
 		for (int i = 800; i < 3000; i++)
 		{
 			int a = rand() % count;
+			//debug_->debug("pulled %d", a);
 			if (2 * a < count){
 				list.removeByIndex(a);
 			}
