@@ -375,6 +375,8 @@ class List{
 						first[i] = 0;	
 					if (i >= offsetData + amount2 * (key_size + value_size))					
 						second[i] = 0;
+					if (i >= offsetData + amount3 * (key_size + value_size))					
+						third[i] = 0;
 				}
 #endif
 				//save and done!
