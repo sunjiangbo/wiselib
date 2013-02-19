@@ -73,7 +73,7 @@ class App {
 		}
 		
 		int count = 800;
-		for (int i = 800; i < 3000; i++)
+		for (int i = 800; i < 6000; i++)
 		{
 			int a = rand() % count;
 			//debug_->debug("pulled %d", a);
