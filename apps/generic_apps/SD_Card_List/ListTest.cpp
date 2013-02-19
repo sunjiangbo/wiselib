@@ -8,6 +8,8 @@
 #include "../block_device_mmu/block_device_mmu.hpp"
 #define NR_OF_BLOCKS_TO_TEST 8
 
+#include <time.h>
+#include <stdlib.h> 
 using namespace wiselib;
 
 
@@ -33,21 +35,65 @@ class App {
 		debug_ = &FacetProvider<Os, Os::Debug>::get_facet(value);
 		sd = &FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 		sd->init();
-		debug_->debug("sd = %x", sd); //TODO
+		//debug_->debug("sd = %x", sd);
 		//testAdd();
 		//testInsertByIndex();
 		//testRemoveIndex();
-		testPersistenz();  //list itself works!
+		//testPersistenz();  //list itself works!
 		//testGetKeyIndexBothWays();
-
-//testRemoveByIndex
-//testSync
-//testListRecreation
+		generateFillupAnimation();
 //testKeyUse (on all tests)
-	debug_->debug("About to exit");
+	//debug_->debug("About to exit");
 		
 		exit(0);
 	}
+
+	void generateFillupAnimation()
+	{
+		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 1> MMU_0_t;
+		MMU_0_t mmu_0(sd, debug_, false, true);
+		List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
+
+		srand (time(NULL));
+
+		long value = 0xFFFFFFFFL;
+		int imageCounter = 0;
+		for (int i = 0; i < 800; i++){
+			list.add(-1, i); //key a number with itself
+			if(i % 15 == 0)
+			{
+				char filename[20];
+				sprintf(filename, "bild%04d.dot", imageCounter);
+				imageCounter++;
+				FILE* file = fopen(filename, "w");
+				sd->printGNUPLOTOutputBytes(0, 50, file);
+				fclose(file);
+			}
+		}
+		
+		int count = 800;
+		for (int i = 800; i < 3000; i++)
+		{
+			int a = rand() % count;
+			if (2 * a < count){
+				list.removeByIndex(a);
+			}
+			else{
+				list.insertByIndex(-1,i,a);
+			}
+
+			if(i % 5 == 0)
+			{
+				char filename[20];
+				sprintf(filename, "bild%04d.dot", imageCounter);
+				imageCounter++;
+				FILE* file = fopen(filename, "w");
+				sd->printGNUPLOTOutputBytes(0, 50, file);
+				fclose(file);
+			}
+		}
+	}
+
 
 	Message makeMessage(const char* string)
 	{
