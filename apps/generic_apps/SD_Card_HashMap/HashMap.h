@@ -13,6 +13,7 @@
 #include <util/serialization/serialization.h>
 #include <algorithms/hash/fnv.h>
 #include "Block.h"
+#include "HashMapIterator.h"
 
 namespace wiselib {
 
@@ -26,14 +27,16 @@ public:
 	typedef KeyType_P KeyType;
 	typedef ValueType_P ValueType;
 
+	typedef Os::size_t size_t;
 	typedef Fnv32<Os>::hash_t hash;
 	typedef Fnv32<Os>::block_data_t block_data;
 	typedef size_t (*hashFunction)(KeyType);
+	typedef HashMapIterator<HashMap<KeyType, ValueType> > iterator;
 
 
 	/*
-	 * Creates a new hashmap that operates on a given block memory, between given block numbers and uses a given hashFunction.
-	 *
+	 * Creates a new hashmap that operates on a given block memory,
+	 * between given block numbers and uses a given hashFunction.
 	 */
 	HashMap(Os::Debug::self_pointer_t debug_, Os::BlockMemory::self_pointer_t sd, hashFunction hash, int fromBlock = 0, int toBlock = 100)
 	: hashFunc(hash), insertedElements(0), fromBlock(fromBlock), toBlock(toBlock), lastNewBlock(0), firstBlock(0), currentState(INTACT)
@@ -45,7 +48,9 @@ public:
 
 	/*
 	 * Inserts a new key value pair into the hashmap.
-	 * Returns SD_ERROR if there was an IO problem and HASHMAP_FULL when there is no space left in the hashmap.
+	 * @return:
+	 * 	Os::ERR_NOMEM if the hash map is full
+	 * 	The block interfaces write error code otherwise
 	 */
 	int putEntry(KeyType key, ValueType& value)
 	{
@@ -77,6 +82,12 @@ public:
 		return writingToSd;
 	}
 
+	/*
+	 * Retrieves an entry from the hash map based on a given key
+	 * @return:
+	 * 	Os::SUCCESS if everything went ok,
+	 *  Os::NO_VALUE if no value could be found for the given key
+	 */
 	int getEntry(KeyType key, ValueType* value)
 	{
 		Block<KeyType, ValueType> block(computeHash(key), sd);
@@ -85,8 +96,9 @@ public:
 
 	/*
 	 * Removes an entry from the hashmap based on a given key.
-	 * Returns NO_VALUE_FOR_THAT_KEY if the hashmap did not contain the key.
-	 * Return SD_ERROR if there was an IO error.
+	 * @return:
+	 * 	OS::NO_VALUE if the key was not in the hash map.
+	 * 	The writing error code of the block memory otherwise
 	 */
 	int removeEntry(KeyType key)
 	{
@@ -108,7 +120,8 @@ public:
 
 	/*
 	 * Retrives an entry from the hashmap based on a given key.
-	 * Only keys that are already in the hashmap might be retrieved, otherwise the behavior is undefined.
+	 * Only keys that are already in the hashmap might be retrieved,
+	 * otherwise the return value will be empty.
 	 */
 	const ValueType operator[](KeyType key)
 	{
@@ -133,25 +146,58 @@ public:
 	{
 		Block<KeyType, ValueType> block(computeHash(0), sd);
 		int valuesPerBlock = block.maxNumValues();
-		unsigned long int maxElements = valuesPerBlock * (toBlock - fromBlock);
+		unsigned long int maxElements = valuesPerBlock * (toBlock - fromBlock - 1);
 		return ((float)insertedElements)/maxElements;
 	}
 
 	/*
-	 * Returns the address of the first block that was used.
-	 * Use this method to create your iterator!
+	 * For the iterator concept
 	 */
-	size_t getFirstUsedBlock()
+
+	iterator begin()
 	{
-		return firstBlock;
+		return iterator(firstBlock, sd);
+	}
+
+	int end()
+	{
+		return 42;
+	}
+
+	int writeMetadata()
+	{
+		Os::block_data_t buffer[sd->BLOCK_SIZE];
+		int pos = 0;
+		pos += write<Os, Os::block_data_t, int>(buffer + pos, insertedElements);
+		pos += write<Os, Os::block_data_t, size_t>(buffer + pos, lastNewBlock);
+		pos += write<Os, Os::block_data_t, size_t>(buffer + pos, firstBlock);
+		pos += write<Os, Os::block_data_t, hashMapState>(buffer + pos, currentState);
+		return sd->write(buffer, fromBlock);
+	}
+
+	int readMetadata()
+	{
+		Os::block_data_t buffer[sd->BLOCK_SIZE];
+		int s = sd->read(buffer, fromBlock);
+		if(s == Os::SUCCESS)
+		{
+			int pos = 0;
+			read<Os, Os::block_data_t, int>(buffer + pos, insertedElements);
+			pos += sizeof(int);
+			read<Os, Os::block_data_t, size_t>(buffer + pos, lastNewBlock);
+			pos += sizeof(size_t);
+			read<Os, Os::block_data_t, size_t>(buffer + pos, firstBlock);
+			pos += sizeof(size_t);
+			read<Os, Os::block_data_t, hashMapState>(buffer + pos, currentState);
+			pos += sizeof(hashMapState);
+		}
+		return s;
 	}
 
 private:
 	Os::size_t computeHash(KeyType key)
 	{
-		return (hashFunc(key) % (toBlock - fromBlock)) + fromBlock;
-		//return (key % (toBlock - fromBlock)) + fromBlock;
-		//return (Fnv32<Os>::hash((const block_data*) &key, sizeof(key)) % (toBlock - fromBlock)) + fromBlock;
+		return (hashFunc(key) % (toBlock - (fromBlock + 1))) + fromBlock + 1; //The first block is for meta data
 	}
 
 	hashFunction hashFunc;
@@ -167,6 +213,12 @@ private:
 	size_t firstBlock;
 
 	//TODO: somehow react to a broken state
+	/*
+	 * Keeps track of the linkage state of the blocks.
+	 * If something messed up while linking together the blocks the state will go to BROKEN.
+	 * As of know there is no way to recover from this state and nothing will happen if the
+	 * hash map is broken. Only the iterator breaks anyways so who cars?
+	 */
 	enum hashMapState{INTACT, BROKEN};
 	hashMapState currentState;
 };

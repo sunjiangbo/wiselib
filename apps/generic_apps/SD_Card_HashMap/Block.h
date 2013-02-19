@@ -12,6 +12,7 @@
 #include "util/serialization/simple_types.h"
 #include <util/meta.h>
 
+#include "BlockIterator.h"
 #include "Stopwatch.h"
 
 
@@ -27,26 +28,34 @@ public:
 	typedef KeyType_P KeyType;
 	typedef ValueType_P ValueType;
 
-	typedef struct
+	struct keyValuePair
 	{
 		KeyType key;
 		ValueType value;
-	} keyValuePair;
+	} __attribute__((packed));
 
-//	typedef SmallUint<(blocksize - sizeof(header)) / sizeof(keyValuePair)>  index_t; //TODO: how to solve this with template magic? we have circular references there!
-	typedef typename SmallUint<(blocksize - (sizeof(Os::size_t) * 2 + sizeof(long) + 8)) / sizeof(keyValuePair)>::t index_t; //TODO: not working
-//	typedef uint16_t index_t;
+	/*
+	 * Data type to hold and index of the kv-pairs position in the block. Counting first element, second element ...
+	 */
+	typedef typename SmallUint<(blocksize - (sizeof(Os::size_t) * 2 + sizeof(long) + 8)) / sizeof(keyValuePair)>::t index_t;
+
+	/*
+	 * A data type to hold a position of a kv-pair in the block as in counting the byte offset from the start of the block.
+	 */
+	typedef typename SmallUint<blocksize>::t posInBlock_t;
+
+	typedef BlockIterator<Block<KeyType, ValueType, blocksize> > iterator;
 
 	/*
 	 * The header to be stored at the beginning of each block
 	 */
-	typedef struct
+	struct header
 	{
-		long pi;
-		index_t numKVPairs;
-		Os::size_t nextBlock;
-		Os::size_t prevBlock;
-	} header;
+		Os::size_t prevBlock; // 4
+		Os::size_t nextBlock; // 4
+		uint16_t pi;		  // 2
+		index_t numKVPairs;   // 1
+	}__attribute__((packed));
 
 
 	/*
@@ -71,12 +80,12 @@ public:
 		head = read<Os, Os::block_data_t, header>(rawData);
 
 		//If the block has not been used yet
-		if(head.pi != 123456789)
+		if(head.pi != 1234)
 		{
 #ifdef DEBUG
 			printf("Block %d has not been used yet\n", nr);
 #endif
-			head.pi = 123456789;
+			head.pi = 1234;
 			head.numKVPairs = 0;
 			head.nextBlock = this->blockNr;
 			head.prevBlock = this->blockNr;
@@ -86,6 +95,11 @@ public:
 			printf("Block %d contains %d elements\n", nr, head.numKVPairs);
 #endif
 	}
+
+	//___________________________________________________
+	/*
+	 * The following methods deal with the chaining feature of the blocks
+	 */
 
 	Os::size_t getNextBlock()
 	{
@@ -117,114 +131,22 @@ public:
 		return head.prevBlock != blockNr;
 	}
 
-	bool isEmpty()
-	{
-		return getNumValues() == 0;
-	}
-
-	int getValueByID(index_t id, ValueType* value)
-	{
-		if(id < getNumValues() && id >= 0)
-		{
-			*value = getKVPairByID(id).value;
-			return Os::SUCCESS;
-		}
-		else
-			return Os::NO_VALUE;
-	}
-
 	/*
-	 * Returns the value by ID, not by Key like the hash map. Unspecified behavior if the index is out of range!
+	 * Appends a given block to this block.
+	 * Just the pointers are set. No IOs happening.
 	 */
-	const ValueType operator[](index_t idx)
-	{
-		ValueType value;
-		getValueByID(idx, &value);
-		return value;
-	}
-
-	int getValueByKey(KeyType key, ValueType* value)
-	{
-		for(index_t i = 0; i < getNumValues(); i++)
-		{
-			keyValuePair kvPair = getKVPairByID(i);
-			if(kvPair.key == key)
-			{
-				*value = kvPair.value;
-				return Os::SUCCESS;
-			}
-		}
-		return Os::NO_VALUE;
-	}
-
-	bool containsKey(KeyType key)
-	{
-		return getIDForKey(key) != -1;
-	}
-
-	bool containsID(uint8_t id)
-	{
-		return id < getNumValues() && id >= 0;
-	}
-
-	int insertValue(KeyType key, ValueType& value)
-	{
-		if(getNumValues() < maxNumValues())
-		{
-			keyValuePair pair;
-			pair.key = key;
-			pair.value = value;
-			write<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(getNumValues()) , pair);
-			head.numKVPairs = getNumValues() + 1;
-			return Os::SUCCESS;
-		}
-		else
-		{
-			return Os::ERR_NOMEM;
-		}
-	}
-
-	int removeValue(KeyType key)
-	{
-		index_t valueID = getIDForKey(key);
-		if(valueID == -1)
-			return Os::NO_VALUE;
-
-		//we just put the last element in place of the current element.
-		moveKVPair(head.numKVPairs - 1, valueID);
-		head.numKVPairs--;
-		return Os::SUCCESS;
-	}
-
-	index_t getNumValues()
-	{
-		return head.numKVPairs;
-	}
-
-	int maxNumValues()
-	{
-		return (blocksize - sizeof(header)) / sizeof(keyValuePair);
-	}
-
-	int writeBack()
-	{
-		write<Os, Os::block_data_t, header>(rawData, head); //Writing the header back to the buffer
-#ifdef SPEED_MEASUREMENT
-		IOStopwatch.startMeasurement();
-#endif
-		int s = sd->write(rawData, blockNr);
-#ifdef SPEED_MEASUREMENT
-		IOStopwatch.stopMeasurement();
-#endif
-		return s;
-	}
-
 	void append(Block* nextBlock)
 	{
 		nextBlock->setPrevBlock(this->blockNr);
 		this->setNextBlock(nextBlock->blockNr);
 	}
 
+	/*
+	 * Removes the Block from the double linked list that it is in.
+	 * The pointer of the previous and the next block are updated automagically.
+	 * Up to 4 IOs are happening in this method!
+	 * @return: Os::SUCESS if everything went ok, Os::IO_HATES_YOU if there was trouble with the block device
+	 */
 	int removeFromChain()
 	{
 		if(!hasPrevBlock() && !hasNextBlock()) //special case if we are not connected anyways not really necessary but it saves some io's
@@ -266,47 +188,222 @@ public:
 		else
 			return Os::ERR_IO_HATES_YOU;
 	}
+//___________________________________________________
+
+
+	/*
+	 * Methods for the iterator concept
+	 */
+
+	iterator end()
+	{
+		return iterator(this, getNumValues());
+	}
+
+	iterator begin()
+	{
+		return iterator(this, 0);
+	}
+
+
+	/*
+	 * @return: Os::SUCCESS if the value was found, Os::NO_VALUE if the index was out of bounds.
+	 */
+	int getValueByIndex(index_t idx, ValueType* value)
+	{
+		if(idx < getNumValues() && idx >= 0)
+		{
+			*value = getKVPairByIndex(idx).value;
+			return Os::SUCCESS;
+		}
+		else
+			return Os::NO_VALUE;
+	}
+
+	/*
+	 * @return: Os::SUCCESS if everything went ok, Os::NO_VALUE if no value could be found for the given key
+	 */
+	int getValueByKey(KeyType key, ValueType* value)
+	{
+		for(index_t i = 0; i < getNumValues(); i++)
+		{
+			keyValuePair kvPair = getKVPairByIndex(i);
+			if(kvPair.key == key)
+			{
+				*value = kvPair.value;
+				return Os::SUCCESS;
+			}
+		}
+		return Os::NO_VALUE;
+	}
+
+	/*
+	 * Returns the value by ID, not by Key like the hash map. Unspecified behavior if the index is out of range!
+	 */
+	const ValueType operator[](index_t idx)
+	{
+		ValueType value;
+		getValueByIndex(idx, &value);
+		return value;
+	}
+
+	bool containsKey(KeyType key)
+	{
+		return getIndexForKey(key) != -1;
+	}
+
+	bool containsIndex(uint8_t id)
+	{
+		return id < getNumValues() && id >= 0;
+	}
+
+	/*
+	 * Inserts a new key value pair in the block
+	 * @return: OS::ERR_NOMEM if the block is already full, OS::SUCESS if everything went ok.
+	 */
+	int insertValue(KeyType key, ValueType& value)
+	{
+		int16_t pos = getIndexForKey(key); //define at what position the pair should be inserted
+		if(pos == -1) //if the key was not yet inserted into the block we append it to the end and increase the number of elements in the block
+		{
+			if(getNumValues() < maxNumValues()) //we only insert if the block is not full
+			{
+				pos = getNumValues();
+				++head.numKVPairs;
+			}
+			else
+				return Os::ERR_NOMEM;
+		}
+		keyValuePair pair;
+		pair.key = key;
+		pair.value = value;
+		insertKVPairAtIndex(pair, pos);
+		return Os::SUCCESS;
+	}
+
+	/*
+	 * Removes a key value pair from the block.
+	 * @return: Os::SUCESS if everything went ok, Os::NO_VALUE if the key was not found in the block.
+	 */
+	int removeValue(KeyType key)
+	{
+		index_t valueID = getIndexForKey(key);
+		if(valueID == -1)
+			return Os::NO_VALUE;
+
+		//we just put the last element in place of the current element.
+		moveKVPair(head.numKVPairs - 1, valueID);
+		head.numKVPairs--;
+		return Os::SUCCESS;
+	}
+
+	/*
+	 * Returns the number of key value pairs stored in this block
+	 */
+	index_t getNumValues()
+	{
+		return head.numKVPairs;
+	}
+
+	/*
+	 * returns the maximum number of values that this block could contain.
+	 */
+	index_t maxNumValues()
+	{
+		return (blocksize - sizeof(header)) / sizeof(keyValuePair);
+	}
+
+	/*
+	 * checks if the number of key value pairs in this block is 0.
+	 */
+	bool isEmpty()
+	{
+		return getNumValues() == 0;
+	}
+
+	/*
+	 * Writes the block back to the block device.
+	 * @return: the error code that the block device returned from writing.
+	 */
+	int writeBack()
+	{
+		write<Os, Os::block_data_t, header>(rawData, head); //Writing the header back to the buffer
+#ifdef SPEED_MEASUREMENT
+		IOStopwatch.startMeasurement();
+#endif
+		int s = sd->write(rawData, blockNr);
+#ifdef SPEED_MEASUREMENT
+		IOStopwatch.stopMeasurement();
+#endif
+		return s;
+	}
 
 private:
+	/*
+	 * A buffer for the actual data in the block
+	 */
 	Os::block_data_t rawData[blocksize];
+
+	/*
+	 * A pointer to the block device
+	 */
 	Os::BlockMemory::self_pointer_t sd;
+
+	/*
+	 * The number of the block on the block device
+	 */
 	Os::size_t blockNr;
+
+	/*
+	 * here we cache the header so we do not have to read or write it from the raw buffer all the time
+	 */
 	header head;
 
-
-	keyValuePair getKVPairByID(index_t id)
+	/*
+	 * Returns the key value pair based on a index. No range checking is done!
+	 */
+	keyValuePair getKVPairByIndex(index_t id)
 	{
 		return read<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id));
 	}
 
-	index_t computePairOffset(index_t id)
+	/*
+	 * Computes a byte offset of a given index within the block.
+	 */
+	posInBlock_t computePairOffset(index_t id)
 	{
 		return sizeof(header) + id * sizeof(keyValuePair);
 	}
 
 	/**
-	 * Returns the id for the given key or -1 if the key does not exist.
+	 * Returns the index for the given key or -1 if the key does not exist.
 	 */
-	int16_t getIDForKey(KeyType k) //we use a int16_t instead of uint_8 in case we want to return -1;
+	int16_t getIndexForKey(KeyType k) //we use a int16_t instead of uint_8 in case we want to return -1;
 	{
 		for(index_t i = 0; i < head.numKVPairs; ++i)
 		{
-			if(getKVPairByID(i).key == k)
+			if(getKVPairByIndex(i).key == k)
 				return i;
 		}
 		return -1;
 	}
 
+	/*
+	 * Moves a given Key Value pair from a given index to a given index
+	 */
 	void moveKVPair(index_t fromID, index_t toID)
 	{
 		if(fromID != toID)
 		{
-			keyValuePair p = getKVPairByID(fromID);
-			insertKVPairAtID(p, toID);
+			keyValuePair p = getKVPairByIndex(fromID);
+			insertKVPairAtIndex(p, toID);
 		}
 	}
 
-	void insertKVPairAtID(keyValuePair kvp, index_t id)
+	/*
+	 * Inserts a key value pair at a given index position. No range checking is done!
+	 */
+	void insertKVPairAtIndex(keyValuePair kvp, index_t id)
 	{
 		write<Os, Os::block_data_t, keyValuePair>(rawData + computePairOffset(id) , kvp);
 	}

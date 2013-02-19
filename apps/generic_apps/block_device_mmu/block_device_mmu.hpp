@@ -62,14 +62,13 @@ struct BDMMU_Template_Wrapper {
 
 				bm_(bm_), 
 				debug_(debug_),
-				BLOCKS(HI - LO + 1), 
-
+				
+				/*BLOCKS(HI - LO + 1), 
 				MMU_DATA_SIZE(1),
-				/*STACK_SIZE( BLOCKS * sizeof(block_address_t) / MY_BlockMemory::BLOCK_SIZE + 1 + 1 + 2),*/
 				STACK_SIZE(BLOCKS/(BlockMemory::BLOCK_SIZE/sizeof(block_address_t) )+1+1+2),
 
 				TOTAL_VBLOCKS( (BLOCKS - MMU_DATA_SIZE - STACK_SIZE) / BLOCK_VIRTUALIZATION ), 
-				FIRST_VBLOCK_AT(LO + MMU_DATA_SIZE + STACK_SIZE),
+				FIRST_VBLOCK_AT(LO + MMU_DATA_SIZE + STACK_SIZE),*/
 				next_vblock(reserved), 
 
 				persistent(persistent),	
@@ -349,6 +348,10 @@ struct BDMMU_Template_Wrapper {
 				return this->persistent;
 			}
 
+			int sizeofStack() {
+				return sizeof(ExternalStack<block_address_t, 1>);
+			}
+
 		private:
 
 			BlockMem_ptr bm_;		// pointer to this MMU's BlockMemory object
@@ -362,11 +365,17 @@ struct BDMMU_Template_Wrapper {
 		public:
 			/* These constants were not placed into an enum because an enum uses only int values, 
 			which may overflow if values from a larger datatype are used*/
-			const size_t BLOCKS;		// Total number of virtual blocks available in this MMU
-			const size_t MMU_DATA_SIZE; 	// size (in real blocks) of the MMU on the block device
-			const size_t STACK_SIZE;	// in real blocks
-			const size_t TOTAL_VBLOCKS;	// absolute block number of the last block administered by this BDMMU
-			const block_address_t FIRST_VBLOCK_AT;
+			static const size_t BLOCKS = HI - LO + 1;			// Total number of virtual blocks available in this MMU
+			static const size_t MMU_DATA_SIZE = 1; 		// size (in real blocks) of the MMU on the block device
+			
+			// in real blocks
+			static const size_t STACK_SIZE = BLOCKS/(BlockMemory::BLOCK_SIZE/sizeof(block_address_t) )+1+1+2;
+			
+			// absolute block number of the last block administered by this BDMMU
+			static const size_t TOTAL_VBLOCKS = (BLOCKS - MMU_DATA_SIZE - STACK_SIZE) / BLOCK_VIRTUALIZATION;
+			
+			
+			static const block_address_t FIRST_VBLOCK_AT = LO + MMU_DATA_SIZE + STACK_SIZE;
 		
 			enum {
 				VIRTUAL_BLOCK_SIZE = BLOCK_VIRTUALIZATION * BlockMemory::BLOCK_SIZE

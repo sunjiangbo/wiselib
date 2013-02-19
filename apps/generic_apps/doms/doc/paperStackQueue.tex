@@ -135,6 +135,23 @@ Eine grobe Funktionsweise ist in den Darstellungen in der Sektion 'Optimierungen
 \hline
 \multicolumn{9}{c}{Grobe Speichereinteilung Stack (Beispielhaft)}
 \end{tabular}
+\begin{center}
+
+
+\begin{tabular}{|l|l|}
+\hline
+Operation & Beschreibung\\
+\hline
+PUSH(X) & Ein Element am Ende des Stacks einfuegen\\
+POP():X & Das oberste Element des Stacks auslesen und entfernen\\
+TOP():X & Das oberste Element des Stacks auslesen ohne es zu entfernen\\
+SIZE(): int & Anzahl der enthaltenen Elemente\\
+ISEMPTY(): bool & true wenn kein Element im Stack enthalten\\
+FLUSH() & Buffer und Metadaten auf externen Speicher schreiben\\
+\hline
+\multicolumn{2}{l}{Uebersicht ueber Funktionen}
+\end{tabular}
+\end{center}
 \subsection{Queue}
 Die Queue ist etwas komplizierter als der Stack, da wir an beiden Enden einen Buffer brauchen. Der Lesebuffer besteht aus genau einem Block der selber als Queue mit rotierendem Anfang verwaltet wird. Da der Lesebuffer nicht gefuellt wird, muss er nur bei Zerstoerung der Queue ausgelagert werden. Der Schreibebuffer entspricht einem Stack mit festem Anfang um an einem Stueck auf den externen Speicher geschrieben werden zu koennen. Die Bloecke auf dem externen Speicher sind als Queue mit rotierendem Anfang organisiert. Die Queue ist voll, wenn die Anzahl der beschriebenen Bloecke der Differenz zwischen niedrigsten und hoechstem zugeteilten Block entspricht.\\
 Solange keine Bloecke auf den externen Speicher ausgelagert sind, wird der Lesebuffer moeglichst intensiv benutzt. So wird geprueft, ob ein einzufuegendes Element gleich in den Lesebuffer kann oder ob man anstatt den vollen Schreibebuffer auszulagern, einige Elemente in den Lesebuffer schieben kann um ein wenig Platz zu schaffen.\\
@@ -146,51 +163,72 @@ Es ist durch die rotierende Umsetzung im externen Speicher, der Moment zu beruec
 \bf{1} & \bf{2} & \bf{3} & \it{4} & \it{5} & $\cdots$ & \it{n} & \it{n+1} & \bf{n+2} & \bf{n+3} & \bf{n+4} & \bf{n+5} & \bf{n+6} \\
 \hline
 \multicolumn{12}{c}{Grobe Speichereinteilung Queue (Beispielhaft)}
+\end{tabular}\\
+\begin{center}
+
+
+\begin{tabular}{|l|l|}
+\hline
+Operation & Beschreibung\\
+\hline
+OFFER(X) & Ein Element am Ende der Queue einfuegen\\
+POLL():X & Das erste Element der Queue auslesen und entfernen\\
+PEAK():X & Das erste Element der Queue auslesen ohne es zu entfernen\\
+SIZE(): int & Anzahl der enthaltenen Elemente\\
+ISEMPTY(): bool & true wenn kein Element in Queue enthalten\\
+FLUSH() & Buffer und Metadaten auf externen Speicher schreiben\\
+\hline
+\multicolumn{2}{l}{Uebersicht ueber Funktionen}
 \end{tabular}
-\\
-\\Beispielablauf: (Lesebuffer[1 Block], Schreibebuffer[1 Block], Externer Speicher)\\
+\end{center}
+\begin{center}
+
 \begin{tabular}{c || c | c || c | c ||    || c | c || c | c || c | c || c}
 & \multicolumn{2}{c}{L} & \multicolumn{2}{c ||||}{S} & \multicolumn{6}{c||}{E} & Operation\\
 \hline
-Start & \underline{\bf{1}} & \bf{2} & \bf{3} & \bf{4} & & & & & & & POP(): 1\\
+Start & \underline{\bf{1}} & \bf{2} & \bf{3} & \bf{4} & & & & & & & POLL(): 1\\
 \hline
-& & \underline{\bf{2}} & \bf{3} & \bf{4} & & & & & & & POP(): 2\\
+& & \underline{\bf{2}} & \bf{3} & \bf{4} & & & & & & & POLL(): 2\\
 \hline
-& & & \bf{3} & \bf{4} & & & & & & & POP()\\
+& & & \bf{3} & \bf{4} & & & & & & & POLL()\\
 \hline
 Verschieben & \underline{\bf{3}} & \bf{4} & & & & & & && & : 3\\
 \hline
-Auslesen & & \underline{\bf{4}} & & & & & & & & & PUSH(5,6,7)\\
+Auslesen & & \underline{\bf{4}} & & & & & & & & & OFFER(5,6,7)\\
 \hline
-& \bf{5} & \underline{\bf{4}} & \bf{6} & \bf{7} & & & & & & & PUSH(8,9)\\
+& \bf{5} & \underline{\bf{4}} & \bf{6} & \bf{7} & & & & & & & OFFER(8,9)\\
 \hline
 Auslagern & \bf{5} & \underline{\bf{4}} & & & \it{6} & \it{7} & & & & \\
 \hline
-Einfuegen & \bf{5} & \underline{\bf{4}} & \bf{8} & \bf{9} & \it{6} & \it{7} & & & & & PUSH(10)\\
+Einfuegen & \bf{5} & \underline{\bf{4}} & \bf{8} & \bf{9} & \it{6} & \it{7} & & & & & OFFER(10)\\
 \hline
 Auslagern & \bf{5} & \underline{\bf{4}} &  & & \it{6} & \it{7} & \it{8} & \it{9} & & & \\
 \hline
-Einfuegen & \bf{5} & \underline{\bf{4}} & \bf{10} & & \it{6} & \it{7} & \it{8} & \it{9} & & & POP(): 4\\
+Einfuegen & \bf{5} & \underline{\bf{4}} & \bf{10} & & \it{6} & \it{7} & \it{8} & \it{9} & & & POLL(): 4\\
 \hline
-& \underline{\bf{5}} & & \bf{10} & & \it{6} & \it{7} & \it{8} & \it{9} & & & POP(): 5\\
+& \underline{\bf{5}} & & \bf{10} & & \it{6} & \it{7} & \it{8} & \it{9} & & & POLL(): 5\\
 \hline
-&  & & \bf{10} & & \it{6} & \it{7} & \it{8} & \it{9} & & & POP()\\
+&  & & \bf{10} & & \it{6} & \it{7} & \it{8} & \it{9} & & & POLL()\\
 \hline
 Einlagern & \underline{\bf{6}} & \bf{7} & \bf{10} & &  &  & \it{8} & \it{9} & & & : 6 \\
 \hline
-Auslesen &  &\underline{\bf{7}}  & \bf{10} & &  &  & \it{8} & \it{9} & & & POP(): 7\\
+Auslesen &  &\underline{\bf{7}}  & \bf{10} & &  &  & \it{8} & \it{9} & & & POLL(): 7\\
 \hline
-& & & \bf{10} & &  &  & \it{8} & \it{9} & & & POP()\\
+& & & \bf{10} & &  &  & \it{8} & \it{9} & & & POLL()\\
 \hline
 Einlagern & \underline{\bf{8}} & \bf{9} & \bf{10} & & & & & & & & : 8\\
 \hline
-& & \underline{\bf{9}} & \bf{10} & & & & & & & & POP(): 9\\
+& & \underline{\bf{9}} & \bf{10} & & & & & & & & POLL(): 9\\
 \hline
-& & & \bf{10} & & & & & & & & POP()\\
+& & & \bf{10} & & & & & & & & POLL()\\
 \hline
 Verschieben & \underline{\bf{10}} & & & & & & & & & & : 10\\
 \hline
 Leer & & & & & &&&&&&\\
 \hline
+\multicolumn{12}{c}{Beispielablauf: (Lesebuffer[1 Block], Schreibebuffer[1 Block], Externer Speicher)}
 \end{tabular}
+
+\end{center}
+
 \end{document}

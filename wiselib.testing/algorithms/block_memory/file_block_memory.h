@@ -75,6 +75,11 @@ namespace wiselib {
 				return SUCCESS;
 			}
 
+			int erase(address_t start_block, address_t blocks) {
+				wipe();
+				return SUCCESS;
+			}
+
 			int read(block_data_t* buffer, address_t a) {
 				open();
 				stream_.seekg(a * BLOCK_SIZE);
