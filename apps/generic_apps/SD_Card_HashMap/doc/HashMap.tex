@@ -1,0 +1,171 @@
+%%This is a very basic article template.
+%%There is just one section and two subsections.
+\documentclass{article}
+\usepackage[ngerman]{babel}
+\usepackage[utf8]{inputenc}
+\author{Maximilian Ernestus}
+\title{Notizen zur Hashmap im Externspeicher}
+\begin{document}
+\maketitle
+
+\section{Aufgabenstellung}
+Aufgabe war es eine Hashmap zu implementieren, die in einem generischen Block
+Interface beliebige Paare aus Schlüsseln und Werten speichern kann. Bei den
+Schlüsseln und Werten darf es sich um beliebige Datentypen konstanter Länge
+handeln. Die einzige einschränkung ist, dass für den Datentyp des Schlüssels
+die $==$ Operation implementiert sein muss.\\
+Der Schlüssel bestimmt jeweils in welchem Block das Wertepaar gespeichert werden
+soll; innerhalb der Blöcke werden die Daten sequenziell gespeichert. Um die
+Werte in den Blöcken unterscheiden zu können müssen sie zusammen mit Ihren
+Schlüsseln gespeichert werden.\\
+Ein Iterator soll implementiert werden, der es erlaubt sequenziell durch alle
+Werte in der Hashmap zu iterieren. Die Reihenfolge der Werte ist dabei nicht
+vorgegeben.\\
+Die Hashfunktion soll vom Benutzer der Hashmap selbst wählbar sein.
+
+\section{Umsetzung}
+
+Die Funktionalität der Hashmap wurde auf zwei Klassen: \texttt{HashMap} und
+\texttt{Block} aufgeteilt.
+\subsection{\texttt{Hashmap}}
+\subsubsection{Einfügen}
+Beim Einfügen in die Hashmap wird zunächst die Blocknummer mit Hilfe der
+Hashfunktion und den Angaben zum Anfangs-- und Endblock auf dem Block Interface
+ermittelt. Mit dieser Blocknummer wird ein neues \texttt{Block} Objekt
+erzeugt.\\
+Das \texttt{Block} Objekt läd im Konstruktor bereits sämtliche Daten aus dem
+Block Interface. Anschließend kann das Wertepaar im Block gespeichert werden und
+der Block wieder zurück auf das Block Interface geschrieben werden.\\
+Im Normalfall (siehe unten für Ausnahmen) werden zum Einfügen ein lesendes und
+ein schreibendes I/O ausgeführt. Wenn ein Block voll ist oder Fehler bei den I/Os
+auftreten wird die Hashmap nicht veränder und die Funktion gibt einen
+entsprechenden Fehlercode zurück.
+
+\subsubsection{Auslesen}
+Beim Auslesen wird ebenso wie beim Einfügen zunächst die Blocknummer ermittelt
+und anschließend ein \texttt{Block} Objekt erzeugt, aus dem dann der
+entsprechende Wert gelesen werden kann. \\
+Im Gegensatz zum Einfügen wird nur ein lesendes I/O benötigt.
+
+\subsubsection{Löschen}
+Genau wie beim Einfügen und Auslesen wird beim Löschen erst die Blocknummer
+ermittelt und ein Blockobjekt erzeugt, aus dem dann das entsprechende Element
+gelöscht wird. Anschließend muss der Blockinhalt wieder zurück auf das Block
+Interface geschrieben werden.\\
+Im Normalfall (für Ausnahmen siehe unten) sind also ein lesendes und ein
+schreibendes I/O nötig.
+
+\subsection{Verkettung der Blöcke}
+Damit über alle Elemente der Hashmap iteriert werden kann ohne leere Blöcke
+auslesen zu müssen sind die Blöcke der Hashmap doppelt verkettet. Das wird durch
+zusätzliche I/Os und schlechtere Speicherausnutzung des Block Devices erkauft: Am
+Anfang eines jeden Blocks stehen die Adressen des Nachfolgers und des Vorgängers. Die Blöcke
+werden in die verkette Liste in der Reihenfolge ihrer Erstbenutzung eingefügt.\\
+Es kommt deshalb beim Einfügen zu zwei zusätzlichen I/Os (eins lesend, eins
+schreibend) wenn der Block noch nicht genutzt wurde und an die Liste angehägt
+werden muss. Beim Löschen sind sogar bis zu vier zusätzliche I/Os nötig, weil im
+Vorgängerblock und im Nachfolgerblock die Adressen umgehägt werden müssen.
+
+\subsection{\texttt{Block}}
+Die \texttt{Block} Klasse speichert einen Block des Block Interfaces im RAM und
+bietet Methoden um Wertepaare einzufügen, zu löschen, auszulesen und um Blöcke
+miteinander zu verketten. In einem Header werden Metainformationen (Anzahl der
+Wertepaare, nächster Block, vorheriger Block und eine nicht zufällige Zahl, die
+helfen soll benutzte Blöcke von unbenutzten Blöcken zu unterscheiden)
+gespeichert.
+\begin{table}[htb]
+\begin{tabular}{|c|c|c|c|||c|c||c|}
+\hline
+123456789 & \# Paare & nächster Bl. & vorheriger Bl. &
+Schl. 1 & Wert 1 & Schl. 2 \ldots \\
+\hline
+\end{tabular}
+\caption{Layout eines Blocks}
+\end{table}
+
+\subsubsection{Einfügen}
+Die Wertepaare werden in der Reihenfolge im Block abgespeichert wie sie
+eingefügt werden. Zuerst der Schlüssel, dann der Wert.
+
+\subsubsection{Auslesen}
+Zum Auslesen muss der Block sequenziell durchlaufen werden bis das gesuchte
+Wertepaar gefunden wurde.
+
+\subsubsection{Löschen}
+Wenn ein Wertepaar aus einem Block gelöscht werden soll, wird es einfach durch
+das letzte Wertepaar am Ende des Blockes überschrieben und die Anzahl der
+Wertepaare wird um eins verringert.\\
+
+\section{Analyse}
+Variablen:\\
+$B$ = Blockgröße\\
+$a$ = Adressgröße\\
+$k$ = Schküssellänge\\
+$v$ = Wertelänge\\
+$l$ = \texttt{sizeof(long)}\\
+Obige Angaben in Bytes.
+$b$ = Anzahl der Blöcke\\
+
+\subsection{Zeitkomplexität}
+Messungen haben ergeben, dass 99,4\% der Ausführungszeit mit I/Os verbraucht
+werden. Ich beschränke mich bei der Analyse der Zeitkomplexität deshalb auf das
+Zählen von I/Os.
+
+\subsubsection{Einfügen O(6)}
+Im \emph{besten} Fall wird ein Wertepaar in einen Block eingefügt, der bereits
+benutzt wurde. Dann ist er nämlich bereits in beiden Richtungen verkettet und es werden
+nur ein lesendes und ein schreibendes I/O benötigt.\\
+Im \emph{schlechtesten} Fall handelt es sich um einen leeren Block, dann muss er
+in zwei Richtungen verkettet werden. Es sind dann drei lesende und drei schreibende
+I/Os nötig. Wenn von einer gleichverteilten Hashfunktion und nur einfügenden
+Operationen ausgegangen wird, sollte dieser schlimmste Fall jedoch nur bei jedem
+$\frac{(B-l-2\cdot a -1)}{k+v}$ten Einfügen auftreten.\\
+Da Kollisionen nicht durch Open Adressing o.ä behandelt werden, ist die
+Komplexität für das Einfügen konstant.
+
+\subsubsection{Auslesen O(1)}
+In jedem Fall ist zum Auslesen eines Wertepaares nur ein I/O nötig. Die
+Komplexität ist also konstant.
+
+\subsubsection{Löschen O(8)}
+Im \emph{besten} Fall wird ein Wertepaar aus einem Block gelöscht, der mehr als
+ein Element enthält. Dann sind ein lesendes und ein schreibendes I/O notwendig.\\
+Im \emph{schlimmsten} Fall handelt es sich bei dem Wertepaar gerade um das
+letzte Element des Blocks und der Block muss aus der Verkettung entfernt werden. Es
+sind dann vier weitere I/Os nötig.\\
+Insgesamt bleibt die Komplexität trotzdem konstant.
+
+\subsection{Speicherkomplexität}
+\subsubsection{Auf dem Externspeicher}
+Da in jedem Block einige Metadaten und zu jedem Wert der entsprechende Schlüssel
+gespeichert werden, ist der Speicheroverhead im Vergleich zu einer
+konventionellen Hashmap relativ hoch. Im besten Fall (wenn die Hashmap
+vollständig gefüllt ist) handelt es sich dabei immer noch um $b\cdot (l +
+1 + 2\cdot a)$ Bytes für die Metadaten und $k\cdot b \cdot
+\big\lfloor\frac{B - (l + 1 + 2\cdot a)}{k + v}\big\rfloor$ Bytes für die
+Schlüssel. Insgesamt also $\frac{b\cdot (l + 1 + 2\cdot a) + k\cdot b \cdot
+\big\lfloor\frac{B - (l + 1 + 2\cdot a)}{k + v}\big\rfloor \cdot 100}{B\cdot
+b}\%$ des Speichers.\\
+In der Praxis wird aber viel mehr Speicher verschwendet, weil selbst bei einer
+vollständig gleichverteilten Hashfunktion nicht zu erwarten ist, dass der
+Loadfactor der Hashmap auf 1 steigt.\\
+Im Fall von Microcontrollern mit einer SD Karte spielt der
+Speicherverbrauch jedoch keine besonders große Rolle, weil der Externspeicher im
+Vergleich zum Arbeitsspeicher fast unendlich groß ist.
+
+\subsubsection{Im Arbeitsspeicher}
+Im Normalzustand belegt die Hashmap nur wenige Byte im Arbeitsspeicher (z.B. 25
+Byte auf der Arduino Platform). Wenn ein Wert eingefügt oder ausgelesen wird
+werden aber temporär mindestens 512 Byte ($B$) benötigt. Wenn die Verkettung
+von Blöcken umgehängt werden muss können es sogar bis zu ca. 1,5kB
+($3\cdot B$) werden.
+
+\subsection{Vorteile durch die Verkettung der Blöcke}
+Im Nachhinein hat sich die Verkettung der Blöcke als schwachsinnig
+herausgestellt. Auch wenn nicht allzu viele zusätzliche I/Os entstehen wird die
+Verkettung der Blöcke im Schnitt schon nach $B$ eingefügten Werten überflüssig,
+weil dann sowieso alle Blöcke benutzt werden und sie genauso gut sequentiell
+durchlaufen werden könnten.\\
+Die Verkettung bringt also nur in seltenen Spezialfällen Vorteile, bläht aber
+den Quellcode unnötig auf.
+\end{document}
