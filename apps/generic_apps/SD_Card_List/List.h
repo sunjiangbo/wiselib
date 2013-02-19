@@ -253,6 +253,7 @@ class List{
 						if (useKeys){
 							KeyType key = read<Os, block_data_t, KeyType>(
 									second + offsetData + rmElem * (key_size + value_size));
+							
 							write<Os, block_data_t, KeyType>
 								(first + offsetData + amount1 * (key_size + value_size), key);
 					
@@ -280,6 +281,7 @@ class List{
 						if (useKeys){
 							KeyType key = read<Os, block_data_t, KeyType>(
 									first + offsetData + (avg + rmElem - 1) * (key_size + value_size));
+							
 							write<Os, block_data_t, KeyType>
 								(second + offsetData + rmElem * (key_size + value_size), key);
 					
@@ -329,6 +331,7 @@ class List{
 				CounterType avg = (amount1 + amount2 + 1) / 3; //if not +1 the new block may end up with avg+2 entries - this way its avg+1 on either third or both first and second - which is best distribution possible
 				CounterType rmElem = 0;
 				//One of the Blocks needs to be at least half filled, the other full for this to start - we can use that to optimise a bit since we will only shuffle from first and/or second to third
+				CounterType safe = amount1;
 				while (avg < amount1){
 						if (useKeys){
 							KeyType key = read<Os, block_data_t, KeyType>(
@@ -556,7 +559,7 @@ class List{
 
 
 		void insertByIndex(KeyType key, ValueType value, uint32_t index = 0){ //insert element before index - insert(e,5) will then have index 5
-
+			
 			if (totalCount == index){add(key, value); return;} //there is special code to handle empty list in add - cheap way of saving lines
 			CounterType bufferPos = 0;			
 			scrollList(index, bufferPos);
@@ -749,10 +752,12 @@ class List{
 			//find position i
 			//return
 			CounterType bufferPos = 0;			
-			
+			if (index >= totalCount) return -1;
 			scrollList(index , bufferPos);
-
-			return read<Os, block_data_t, ValueType>(buffer[bufferPos].data + offsetData + (index - buffer[bufferPos].last_id) * (key_size + value_size) + key_size);
+			
+			ValueType v = read<Os, block_data_t, ValueType>(buffer[bufferPos].data + offsetData + (index - buffer[bufferPos].last_id) * (key_size + value_size) + key_size);
+			//debug_->debug("value %d, count %d, lr %d", v, totalCount, buffer[bufferPos].last_read); 
+			return v;
 		}
 		~List(){
 			if(syncOnDelete) sync();

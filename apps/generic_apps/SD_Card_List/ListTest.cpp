@@ -4,6 +4,7 @@
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
 #define LIST_VIRT
+//#define LIST_DEBUG
 #include "List.h"
 
 #include "../block_device_mmu/block_device_mmu.hpp"
@@ -55,7 +56,7 @@ class App {
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
 
-		srand (time(NULL));
+		srand (345);//time(NULL));
 
 		long value = 0xFFFFFFFFL;
 		int imageCounter = 0;
@@ -75,13 +76,18 @@ class App {
 		int count = 800;
 		for (int i = 800; i < 6000; i++)
 		{
+
+	
+				
 			int a = rand() % count;
 			//debug_->debug("pulled %d", a);
 			if (2 * a < count){
 				list.removeByIndex(a);
+				count--;
 			}
 			else{
 				list.insertByIndex(-1,i,a);
+				count++;
 			}
 
 			if(i % 5 == 0)
@@ -187,7 +193,7 @@ class App {
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Remove");
 		
-		//typedef BDMMU<Os, 0, 20, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t; //Old signature
+		//typedef BDMMU<Os, 0, 50, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t; //Old signature
 		
 
 		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 1> MMU_0_t;
@@ -229,7 +235,9 @@ class App {
 	
 		debug_->debug("RM Test finished succesfully. Inserting numbers again");
 		for (int i = 0; i < 250; i++){
+			
 			list.insertByIndex(2 * i + 500, 2 * i + 500, i * 2); //insert all back in
+			 
 		}
 		debug_->debug("List should contain 500 numbers (500-999)");		
 		for (int i = 0; i < 500; i++){
