@@ -12,8 +12,8 @@
 #include <external_interface/external_interface.h>
 #include <util/serialization/serialization.h>
 #include <algorithms/hash/fnv.h>
-#include "Block.h"
-#include "HashMapIterator.h"
+#include "block.h"
+#include "hash_map_iterator.h"
 
 namespace wiselib {
 

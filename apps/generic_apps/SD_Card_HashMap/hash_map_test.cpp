@@ -3,12 +3,12 @@
 
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
-#include "HashMap.h"
-#include "Block.h"
-#include "BlockIterator.h"
-#include "Stopwatch.h"
-#include "HashMapIterator.h"
-#include "HashFunctionProvider.h"
+#include "hash_map.h"
+#include "block.h"
+#include "block_iterator.h"
+#include "stopwatch.h"
+#include "hash_map_iterator.h"
+#include "hash_function_provider.h"
 #include <stdio.h>
 
 
@@ -127,15 +127,15 @@ public:
 
 		sd->init();
 //		generateGNUPLOTData();
-//		generateFillupAnimation();
+		generateFillupAnimation();
 //		fillWithGoethe();
 
-		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
-		if(!blockTest()) debug_->debug("blockTest failed!");
-		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
-		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
-		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
-		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
+//		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
+//		if(!blockTest()) debug_->debug("blockTest failed!");
+//		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
+//		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
+//		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
+//		if(!reverseFNVTest()) debug_->debug("reverseFNVTest failed!");
 //		maxLoadFactorTest();
 //		generateGNUPLOTScripts();
 		//generateFillupAnimation();
@@ -394,7 +394,6 @@ public:
 				return false;
 			}
 		}
-
 
 		{
 			wiselib::Block<int, long> readBlock(0, sd);
@@ -941,21 +940,21 @@ public:
 	static int colorizeBlock(Os::size_t block, int position, int value)
 	{
 		if(value == 0)
-			return -1;
+			return 0;
 
 		if(position < sizeof(typename BlockType::header))
-			return 0;
+			return value/2;
 
 
 
 		int posInKVPair = (position - sizeof(typename BlockType::header)) % sizeof(typename BlockType::keyValuePair);
 
 		if(posInKVPair < sizeof(typename BlockType::KeyType))
-			return 1;
+			return value/2 + 255;
 		else
-			return 2;
+			return value/2 + 512;
 	}
-/*
+
 	void generateFillupAnimation()
 	{
 		wiselib::HashMap<int, long> hashMap(debug_, sd, &wiselib::HashFunctionProvider<Os, int>::fnv, 0, 50);
@@ -977,11 +976,12 @@ public:
 			debug_->debug("we inserted %d items", counter);
 			counter++;
 		}
-	}*/
+	}
 
 
 	void printBlock(wiselib::Block<int, long> b)
 	{
+
 		int numValues = b.getNumValues();
 		debug_->debug("\n\nBlock:__________");
 		for(int i = 0; i < numValues; i++)

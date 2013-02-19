@@ -12,9 +12,11 @@
 #include "util/serialization/simple_types.h"
 #include <util/meta.h>
 
-#include "BlockIterator.h"
-#include "Stopwatch.h"
+#include "block_iterator.h"
 
+#ifdef SPEED_MEASUREMENT
+#include "stopwatch.h"
+#endif
 
 namespace wiselib {
 
@@ -186,7 +188,7 @@ public:
 		if(prevBlock.writeBack() == Os::SUCCESS && nextBlock.writeBack() == Os::SUCCESS)
 			return Os::SUCCESS;
 		else
-			return Os::ERR_IO_HATES_YOU;
+			return Os::ERR_IO;
 	}
 //___________________________________________________
 

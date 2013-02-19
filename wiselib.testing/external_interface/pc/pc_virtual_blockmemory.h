@@ -14,6 +14,7 @@ namespace wiselib {
 
 /*
 * @brief A virtual bock memory for the PC os model. It implements the block memory interface.
+* @author Dominik Krupke
 * @author Maximilian Ernestus
 *
 * The data is stored in the ram (huge waste but who cares, it is just used for debugging)
@@ -26,9 +27,7 @@ template<typename OsModel_P, int nrOfBlocks = 1000, int blocksize = 512>
 class VirtualSD {
 
 public:
-	/*
-	 * weird wiselib stuff comes here
-	 */
+
 	typedef OsModel_P OsModel;
 	typedef typename OsModel::block_data_t block_data_t;
 	typedef typename OsModel::size_t size_t;

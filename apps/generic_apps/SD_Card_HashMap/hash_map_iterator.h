@@ -8,7 +8,7 @@
 #ifndef HASHMAPITERATOR_H_
 #define HASHMAPITERATOR_H_
 
-#include "Block.h"
+#include "block.h"
 
 namespace wiselib {
 
