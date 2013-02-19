@@ -1,21 +1,38 @@
+/**
+ * Sehr effiziente Implementierung einer Queue fuer SD-Karten.
+ * Ist Persistent und fuer (sehr)grosse Datenmengen geeignet.
+ * Braucht mindestens zwei Bloecke im Arbeitsspeicher (durch Persistenz muess die Queue aber nicht dauerhaft im Speicher sein)
+ * Author: Dominik Krupke
+ * Das Wissen ueber die Implementierung von externen Stacks und Queues wurde auf 10 Seiten PDF festgehalten
+ **/
+ 
 #ifndef EXTERNAL_QUEUE_HPP
 #define EXTERNAL_QUEUE_HPP
 #include <external_interface/external_interface.h>
 #define BLOCK_SIZE_DEFINE Os::BlockMemory::BLOCK_SIZE
 
 //#define DEBUG
-//#define INFO
-
-using namespace wiselib;
-//14011050
+ 
+using namespace wiselib
 /**
- * Eine extrem IO-effiziente Implementierung einer Queue fuer die Wiselib. Ihr Nachteil ist leider ein relativ hoher RAM-Verbrauch 
- * von mindestens 2 Bloecken, dafuer erreicht sie fast den minimal moeglichen IO-Durchschnitt pro Operation.
- * Die Queue ist standardmaessig persistent und kann nicht ueberlaufen. Als Folge dieser Schutzmassnahme ist 
- * es nicht immer Moeglich den Speicherplatz vollstaendig zu nutzen. 
- * Sollte man mehrere Queue im begrenzten RAM haben, so sollte man die Persistenz ausnutzen => 
- * die Queue zerstoeren und wiederherstellen bei Bedarf
- */
+  * Template:
+  * 	Type_P: Type der zu speichernden Elemente 
+  *			(darf durch Bit-Kompatible Typen getauscht werden sizeof(alt)==sizeof(neu))
+  * 	BUFFERSIZE: Groesse des Buffers in Bloeckgroessen. Mindestens 1.
+  * 			(darf beliebig geaendert werden)
+  * 	PERSISTENT: Entscheidet ob der Stack persistent sein soll. Falls false wird ein neuer Stack erstellt und bei Zerstoerung nicht gespeichert.
+  * 
+  * Konstruktor:
+  * 	sd: Pointer auf das BlockMemory
+  * 	beginMem: Erster zugeteilter Block (wird fuer MetaDaten verwendet)
+  * 			(Nicht aenderbar)
+  * 	endMem: Letzter zugeteilter Block
+  * 			(Nicht aenderbar)
+  * 	forceNew: Verhindert das Wiederherstellen bzw. erzwingt das Erstellen eines neuen leeren Stacks.
+  *
+  * ACHTUNG: Der zugeteilte Speicherbereich muss innerhalb des zulaessigen Bereichs des Blockmemorys liegen. Andernfalls kann es zu undefinierten Verhalten (Auch Datenverlust auf dem kompletten Speicher) kommen!
+  */
+;
 template<class T, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
 class ExternalQueue{
     public:
@@ -24,9 +41,9 @@ class ExternalQueue{
 	typedef typename Os::BlockMemory::address_t address_t;
 
     private:
-	const uint16_t MAX_ITEMS_PER_BLOCK = BLOCK_SIZE_DEFINE /sizeof(T);
+	static const uint16_t MAX_ITEMS_PER_BLOCK = Os::BlockMemory::BLOCK_SIZE /sizeof(T);
 
-	block_data_t buffer_[BUFFERSIZE*BLOCK_SIZE_DEFINE ]; //Der Buffer
+	block_data_t buffer_[BUFFERSIZE*Os::BlockMemory::BLOCK_SIZE ]; //Der Buffer
 
 	uint16_t itemsInRead_; //Anzahl der Elemente im Readbuffer
 	uint16_t itemsInWrite_; //Anzahl der Elemente im Writebuffer
@@ -79,12 +96,12 @@ class ExternalQueue{
 		    initNewQueue(beginMem);
 		} else {
 		    if(itemsInWrite_>0){
-			sd_->read(&buffer_[BLOCK_SIZE_DEFINE], calcIdxOfNextFreeBlock(),1);
+			sd_->read(&buffer_[Os::BlockMemory::BLOCK_SIZE], calcIdxOfNextFreeBlock(),1);
 		    }
 		    if(itemsInRead_>0){
 			sd_->read(buffer_,calcIdxOfFirstFreeBlock(),1);
 		    }
-#ifdef INFO
+#ifdef DEBUG
 		    debug_->debug("EXTERNAL_QUEUE INFO: reloaded old queue");
 #endif
 		}
@@ -94,7 +111,7 @@ class ExternalQueue{
 
 
 	~ExternalQueue(){
-#ifdef INFO
+#ifdef DEBUG
 	    debug_->debug("EXTERNAL_QUEUE INFO: destroyed queue");
 #endif
 	    if(PERSISTENT){
@@ -108,7 +125,7 @@ class ExternalQueue{
 	 */
 	int offer(T x){//TODO groessere Sicherheit vor Datenverlust
 	    int err = Os::SUCCESS;
-	    if(blocksOnSdLeft()<BUFFERSIZE){
+	    if(blocksOnSdLeft()<=BUFFERSIZE){
 		return Os::ERR_NOMEM;
 	    }
 	    if(blocksOnSd_==0){
@@ -173,7 +190,7 @@ class ExternalQueue{
 	 * so laesst sie sich garantiert wiederherstellen. 
 	 */
 	int flush(){
-	    block_data_t tmpBlock[BLOCK_SIZE_DEFINE];
+	    block_data_t tmpBlock[Os::BlockMemory::BLOCK_SIZE];
 	    return flush(tmpBlock);
 	}
 
@@ -190,20 +207,20 @@ class ExternalQueue{
 	    if(blocksToWrite>0){
 		address_t max=maxBlock_-(calcIdxOfNextFreeBlock()-1);//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 		if(max>=blocksToWrite){
-		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), blocksToWrite);
+		    err = sd_->write(&buffer_[Os::BlockMemory::BLOCK_SIZE ], calcIdxOfNextFreeBlock(), blocksToWrite);
 		    if(err!=Os::SUCCESS) return err;
 
 		    blocksOnSd_+=fullBlocksToWrite;
 		} else {
-		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), max);
+		    err = sd_->write(&buffer_[Os::BlockMemory::BLOCK_SIZE ], calcIdxOfNextFreeBlock(), max);
 		    if(err!=Os::SUCCESS) return err;
 		    blocksOnSd_+=max;
-		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE +BLOCK_SIZE_DEFINE *max], calcIdxOfNextFreeBlock(), blocksToWrite-max);
+		    err = sd_->write(&buffer_[Os::BlockMemory::BLOCK_SIZE +Os::BlockMemory::BLOCK_SIZE *max], calcIdxOfNextFreeBlock(), blocksToWrite-max);
 		    if(err!=Os::SUCCESS) return err;
 		    blocksOnSd_+=fullBlocksToWrite-max;
 		}
 		if(tmpBlock!=buffer_ && fullBlocksToWrite>0 && fullBlocksToWrite<blocksToWrite){
-		    moveBlocks(&buffer_[(1+fullBlocksToWrite)*BLOCK_SIZE_DEFINE],&buffer_[BLOCK_SIZE_DEFINE],1);
+		    moveBlocks(&buffer_[(1+fullBlocksToWrite)*Os::BlockMemory::BLOCK_SIZE],&buffer_[Os::BlockMemory::BLOCK_SIZE],1);
 		}
 		itemsInWrite_%=MAX_ITEMS_PER_BLOCK; //Beim reload werden unvollstaendige Bloecke automatisch wieder in den Buffer geladen
 	    }
@@ -244,7 +261,7 @@ class ExternalQueue{
 
 	    blocksOnSd_=0;
 	    idxBeginSd_=beginMem+1;
-#ifdef INFO
+#ifdef DEBUG
 	    debug_->debug("EXTERNAL_QUEUE INFO: inited new queue");
 #endif
 	}
@@ -263,7 +280,7 @@ class ExternalQueue{
 
 		//Bloecke um einen nach vorne Schieben und damit den Readbuffer fuellen
 		uint8_t blocksToMove=itemsInWrite_/MAX_ITEMS_PER_BLOCK+(itemsInWrite_%MAX_ITEMS_PER_BLOCK>0?1:0);//Wir wollen keine leeren Bloecke verschieben
-		moveBlocks(&buffer_[BLOCK_SIZE_DEFINE],buffer_,blocksToMove);
+		moveBlocks(&buffer_[Os::BlockMemory::BLOCK_SIZE],buffer_,blocksToMove);
 
 		idxRead_=0;//Die Bloecke in Write sind geordnet
 
@@ -317,7 +334,7 @@ class ExternalQueue{
 	 * Fuegt ein Element in den WriteBuffer ein
 	 */
 	void addLast_write(T x){
-	    blockWrite<T>(&buffer_[BLOCK_SIZE_DEFINE ], itemsInWrite_, x);
+	    blockWrite<T>(&buffer_[Os::BlockMemory::BLOCK_SIZE ], itemsInWrite_, x);
 	    ++itemsInWrite_;
 	}
 
@@ -343,7 +360,7 @@ class ExternalQueue{
 	    int err = Os::SUCCESS;
 	    //  if(blocksOnSdLeft()<=BUFFERSIZE) return false; //Es ist nicht genug platz auf der SD
 	    if(blocksOnSd_<=0 && itemsInRead_<=0){ //erster Block von Write kann nach Read kopiert werden
-		moveBlocks(&buffer_[BLOCK_SIZE_DEFINE],buffer_,BUFFERSIZE-1);
+		moveBlocks(&buffer_[Os::BlockMemory::BLOCK_SIZE],buffer_,BUFFERSIZE-1);
 		itemsInWrite_-=MAX_ITEMS_PER_BLOCK;
 		itemsInRead_=MAX_ITEMS_PER_BLOCK;
 		idxRead_=0;
@@ -353,18 +370,18 @@ class ExternalQueue{
 		address_t max=maxBlock_-calcIdxOfNextFreeBlock()+1;//Maximal in einem Stueck schreibbare bloecke
 
 		if(max>=BUFFERSIZE-1){//Der komplette Buffer kann in einem Stueck geschrieben werden.
-		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), BUFFERSIZE-1);
+		    err = sd_->write(&buffer_[Os::BlockMemory::BLOCK_SIZE ], calcIdxOfNextFreeBlock(), BUFFERSIZE-1);
 		    if(err!=Os::SUCCESS) return err;
 		    blocksOnSd_+=BUFFERSIZE-1;
 		    itemsInWrite_=0;
 		} else {//Nur der vordere Teil kann in einem Stueck geschrieben werden. Der hintere wird nach vorne geschoben
 		    uint8_t blocksLeft= BUFFERSIZE-1-max;
-		    err = sd_->write(&buffer_[BLOCK_SIZE_DEFINE ], calcIdxOfNextFreeBlock(), max);
+		    err = sd_->write(&buffer_[Os::BlockMemory::BLOCK_SIZE ], calcIdxOfNextFreeBlock(), max);
 		    if(err!=Os::SUCCESS) return err;
 		    blocksOnSd_+=max;
 		    itemsInWrite_-=max*MAX_ITEMS_PER_BLOCK;
 
-		    moveBlocks(&buffer_[(max+1)*BLOCK_SIZE_DEFINE],&buffer_[BLOCK_SIZE_DEFINE],blocksLeft);
+		    moveBlocks(&buffer_[(max+1)*Os::BlockMemory::BLOCK_SIZE],&buffer_[Os::BlockMemory::BLOCK_SIZE],blocksLeft);
 		}
 	    }
 
@@ -404,8 +421,8 @@ class ExternalQueue{
 	 */
 	template<class S>
 	    void blockRead(block_data_t* block, uint16_t idx, S* x){
-		uint16_t maxPerBlock = BLOCK_SIZE_DEFINE /sizeof(S);
-		S* castedBlock = (S*) &block[BLOCK_SIZE_DEFINE *(idx/maxPerBlock)];
+		uint16_t maxPerBlock = Os::BlockMemory::BLOCK_SIZE /sizeof(S);
+		S* castedBlock = (S*) &block[Os::BlockMemory::BLOCK_SIZE *(idx/maxPerBlock)];
 		*x=castedBlock[idx%maxPerBlock];
 	    }
 
@@ -414,15 +431,18 @@ class ExternalQueue{
 	 */
 	template<class S>
 	    void blockWrite(block_data_t* block, uint16_t idx, S x){
-		uint16_t maxPerBlock = BLOCK_SIZE_DEFINE /sizeof(S);
-		S* castedBlock = (S*) &block[BLOCK_SIZE_DEFINE *(idx/maxPerBlock)];
+		uint16_t maxPerBlock = Os::BlockMemory::BLOCK_SIZE /sizeof(S);
+		S* castedBlock = (S*) &block[Os::BlockMemory::BLOCK_SIZE *(idx/maxPerBlock)];
 		castedBlock[idx%maxPerBlock]=x;
 	    }
 
+	/**
+	  * Verschiebt n Bloecke im Hauptspeicher
+	  */
 	void moveBlocks(block_data_t* from, block_data_t* to, uint8_t count){
 	    for(uint8_t i=0;i<count; i++){
-		for(uint16_t j=0; j<BLOCK_SIZE_DEFINE; j++){
-		    to[i*BLOCK_SIZE_DEFINE+j]=from[i*BLOCK_SIZE_DEFINE+j];
+		for(uint16_t j=0; j<Os::BlockMemory::BLOCK_SIZE; j++){
+		    to[i*Os::BlockMemory::BLOCK_SIZE+j]=from[i*Os::BlockMemory::BLOCK_SIZE+j];
 		}
 	    }
 	}

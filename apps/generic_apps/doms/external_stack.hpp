@@ -3,13 +3,14 @@
   * Ist Persistent und fuer (sehr)grosse Datenmengen geeignet.
   * Braucht mindestens einen Block im Arbeitsspeicher (durch Persistenz muss der Stack aber nicht dauerhaft im Speicher sein)
   * Author: Dominik Krupke
-  * Das Wissen ueber die Implementierung von externen Stacks und Queues wurde auf 9 Seiten PDF festgehalten.
+  * Das Wissen ueber die Implementierung von externen Stacks und Queues wurde auf 10 Seiten PDF festgehalten.
   */
 #ifndef EXTERNAL_STACK_HPP
 #define EXTERNAL_STACK_HPP
 
 #include <external_interface/external_interface.h>
-#define BLOCK_SIZE_DEFINE Os::BlockMemory::BLOCK_SIZE
+
+//#define DEBUG
 
 using namespace wiselib;
 
@@ -29,6 +30,7 @@ using namespace wiselib;
   * 			(Nicht aenderbar)
   * 	forceNew: Verhindert das Wiederherstellen bzw. erzwingt das Erstellen eines neuen leeren Stacks.
   *
+  * ACHTUNG: Der zugeteilte Speicherbereich muss innerhalb des zulaessigen Bereichs des Blockmemorys liegen. Andernfalls kann es zu undefinierten Verhalten (Auch Datenverlust auf dem kompletten Speicher) kommen!
   */
 template<typename Type_P, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
 class ExternalStack{
@@ -89,6 +91,9 @@ class ExternalStack{
 		    if(itemsInBuffer_>0){
 			sd_->read(buffer_,minBlock_+blocksOnSd_, 1);
 		    }
+#ifdef DEBUG
+		    debug_->debug("EXTERNAL_QUEUE INFO: reloaded old stack");
+#endif
 		}
 
 	    }
@@ -101,7 +106,7 @@ class ExternalStack{
 	    if(PERSISTENT){
 		flush(buffer_);
 	    }
-#ifdef INFO
+#ifdef DEBUG
 	    debug_->debug("EXTERNAL_STACK INFO: destroyed stack");
 #endif
 	}
@@ -111,7 +116,7 @@ class ExternalStack{
 	 */
 	int push(T x){
 	    int err = Os::SUCCESS;
-	    if(minBlock_-1+blocksOnSd_+BUFFERSIZE>maxBlock_){
+	    if(minBlock_-1+blocksOnSd_+BUFFERSIZE>=maxBlock_){
 		return Os::ERR_NOMEM;
 	    }
 	    if(itemsInBuffer_>=MAX_ITEMS_IN_BUFFER){
@@ -215,7 +220,7 @@ class ExternalStack{
 	void  initNewStack(){
 	    itemsInBuffer_=0;
 	    blocksOnSd_=0;
-#ifdef INFO
+#ifdef DEBUG
 	    debug_->debug("EXTERNAL_STACK INFO: inited new stack");
 #endif
 	}
@@ -270,6 +275,9 @@ class ExternalStack{
 	}
 
 
+	/**
+	  * Verschiebt n Bloecke im Hauptspeicher
+	  */
 	void moveBlocks(block_data_t* from, block_data_t* to, uint8_t count){
 	    for(uint8_t i=0;i<count; i++){
 		for(uint16_t j=0; j<Os::BlockMemory::BLOCK_SIZE; j++){
@@ -279,14 +287,18 @@ class ExternalStack{
 	}
 
 
-
+/**
+  * Hilfsfunktion zum Auslesen von Elementen aus Bloecken
+  */
 	template<class S>
 	    void blockRead(block_data_t* block, uint16_t idx, S* x){
 		uint16_t maxPerBlock = Os::BlockMemory::BLOCK_SIZE/sizeof(S);
 		S* castedBlock = (S*) &block[Os::BlockMemory::BLOCK_SIZE*(idx/maxPerBlock)];
 		*x=castedBlock[idx%maxPerBlock];
 	    }
-
+/**
+  * Hilfsfunktion zum Schreiben von Elementen in Bloecke
+  */
 	template<class S>
 	    void blockWrite(block_data_t* block, uint16_t idx, S x){
 		uint16_t maxPerBlock = Os::BlockMemory::BLOCK_SIZE/sizeof(S);
