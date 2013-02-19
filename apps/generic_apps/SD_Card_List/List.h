@@ -633,8 +633,11 @@ class List{
 				buffer[bufferPos].data[offsetData + pos * (key_size + value_size) + i] 
 					= buffer[bufferPos].data[offsetData + (pos + 1)* (key_size + value_size) + i] ;
 			}
-			
-		
+#ifdef LIST_VIRT
+			for (block_address_t i = 0; i < key_size + value_size)
+				buffer[bufferPos].data[offsetData + amount * (key_size + value_size) + i] = 0;
+			}
+#endif
 			amount = amount - 1;
 			totalCount = totalCount - 1;
 			write<Os, block_data_t, CounterType>(buffer[bufferPos].data, amount); //write amount#

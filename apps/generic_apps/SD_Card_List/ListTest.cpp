@@ -3,6 +3,7 @@
 //#define BDMMU_DEBUG
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
+#define LIST_VIRT
 #include "List.h"
 
 #include "../block_device_mmu/block_device_mmu.hpp"
