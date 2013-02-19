@@ -19,8 +19,8 @@ class App {
 	    debug_->debug( "SD Card test application running" );
 	    sd_ = &wiselib::FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 	    sd_->init();
-	    srand(9);
-	    for(uint32_t i=1; i<100000; i++){
+	    srand(9);/*
+	    for(uint32_t i=1; i<100000; i*=10){
 		test_stack<1>(i);
 		test_stack<2>(i);
 		test_stack<3>(i);
@@ -37,11 +37,13 @@ class App {
 		test_queue<8>(i);
 		test_queue<12>(i);
 
-	    }
+	    }*/
 	    test_stack<1>(100);
 	    test_queue<2>(100);
 	    test_stack<2>(1000);
 	    test_stack<2>(10000);
+	    test_stack<2>(100000);
+	    exit(0);
 	    //	test_queue<2>();
 	    /* 
 	       for(uint64_t i=1;i<=100000; i*=10){
