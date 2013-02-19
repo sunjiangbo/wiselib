@@ -36,14 +36,16 @@ class App {
 		debug_->debug("sd = %x", sd); //TODO
 		//testAdd();
 		//testInsertByIndex();
-		testRemoveIndex();
+		//testRemoveIndex();
+		testPersistenz();
 		//testGetKeyIndexBothWays();
 
 //testRemoveByIndex
 //testSync
 //testListRecreation
 //testKeyUse (on all tests)
-	
+	debug_->debug("About to exit");
+		
 		exit(0);
 	}
 
@@ -87,8 +89,51 @@ class App {
 	
 		debug_->debug("Test finished succesfully");		
 	}*/
+ 	void testPersistenz(){ 
+		debug_->debug("Official Test start here");
+		debug_->debug("Testing: Persistenz");
+		
+		//typedef BDMMU<Os, 0, 20, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t; //Old signature
+		
 
-	void testRemoveIndex(){ //Test assumes add & getValueByIndex works fine
+		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 1> MMU_0_t;
+
+		MMU_0_t mmu_0(sd, debug_, false, true);
+		{
+			List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
+			debug_->debug("List created. It is %d byte large", sizeof(list));		
+			for (int i = 0; i < 1000; i++){
+				list.add(i, i); //key a number with itself
+			}
+			list.sync();
+		}
+		{
+			List<Os, MMU_0_t, int, int, true> list(debug_, &mmu_0);
+			debug_->debug("2nd List created. Filling another 1k", sizeof(list));		
+			for (int i = 1000; i < 2000; i++){
+				list.add(i, i); //key a number with itself
+			}
+			
+			list.sync();
+		}
+		{
+			List<Os, MMU_0_t, int, int, true> list(debug_, &mmu_0);
+			debug_->debug("3rd List created. Reading");		
+			for (int i = 0; i < 2000; i++){
+				int j = list.getValueByIndex(i);
+				if (j != i)
+				{
+					debug_->debug("But there is a mistake with number %d - it says %d instead", i, j);		
+					debug_->debug("Aborting");		
+					return;
+				}
+			}
+		}
+		debug_->debug("Persistence Test finished succesfully.");
+		
+	}
+
+	 void testRemoveIndex(){ //Test assumes add & getValueByIndex works fine
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Remove");
 		
@@ -99,7 +144,7 @@ class App {
 
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
-		List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
+		List<Os, MMU_0_t, int, int, true> list(debug_, &mmu_0);
 		
 		
 		//List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
@@ -147,6 +192,8 @@ class App {
 				
 			}
 		}
+		debug_->debug("insert Test finished succesfully.");
+		list.sync();
 	}
 
 	/*void testInsertByIndex(){ //Test assumes add & getValueByIndex works fine - works!
