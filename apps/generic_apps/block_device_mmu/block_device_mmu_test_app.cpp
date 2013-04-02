@@ -118,7 +118,10 @@ class BDMMUTestApp
 		#endif //DEF_TEST_EXPLICIT_OUPUT
 		
 		#ifdef DEF_TEST_MINIMAL_OUTPUT
-		debug_->debug("test_write_read_1024(%d) = %d", start_address, wr_success);
+		debug_->debug("start_address = %d", start_address);
+		debug_->debug("wr_success = %d", wr_success);
+		debug_->debug("test_write_read_512(%d) = %d", start_address, wr_success);
+		debug_->debug("wr_success = %d", wr_success);
 		#endif //DEF_TEST_MINIMAL_OUTPUT
 				
 		return wr_success;
@@ -145,6 +148,7 @@ class BDMMUTestApp
 		
 		#ifdef DEF_TEST_MINIMAL_OUTPUT
 		debug_->debug("test_write_read_1024(%d) = %d", start_address, wr_success);
+		debug_->debug("= %d", wr_success);
 		#endif //DEF_TEST_MINIMAL_OUTPUT
 		
 		return wr_success;
