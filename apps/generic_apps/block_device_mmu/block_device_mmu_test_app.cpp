@@ -152,11 +152,15 @@ class BDMMUTestApp
 		debug_->debug("test_write_read_1024(%d) = %d", (int)start_address, (int)wr_success);
 		debug_->debug("= %d", wr_success);
 		
-		size_t foo = 42;
+		int foo = 42;
 		bool bar = 0;
 		int blah = 42;
-		debug_->debug("foo = %d, bar = %d, blah = %d", foo, bar, blah);
+		debug_->debug("mark_0: foo = %d, bar = %d, blah = %d", foo, bar, blah);
 		
+		size_t foo1 = 42;
+		bool bar1 = 0;
+		int blah1 = 42;
+		debug_->debug("mark_1: foo = %d, bar = %d, blah = %d", foo1, bar1, blah1);
 		
 		#endif //DEF_TEST_MINIMAL_OUTPUT
 		
