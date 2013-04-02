@@ -22,6 +22,8 @@ them as a parameter.*/
 
 //TODO: It is assumed that a block is at least ~40(?) Bytes in size. Write that in the documentation somewhere.
 //TODO: Use Wise_testing utils meta.h for template magic with data types to ensure they are as small as possible for the given range
+//TODO: Change the design so that generic block sizes are possible
+//TODO: Write a stack which doesn't have its own buffer, but just writes everything to the SD directly
 
 using namespace wiselib;
 	
