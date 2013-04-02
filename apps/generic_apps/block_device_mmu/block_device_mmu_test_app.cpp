@@ -145,7 +145,11 @@ class BDMMUTestApp
 		#endif //DEF_TEST_EXPLICIT_OUPUT
 		
 		#ifdef DEF_TEST_MINIMAL_OUTPUT
+		debug_->debug("sizeof(size_t) = %d", sizeof(size_t));
+		debug_->debug("sizeof(bool) = %d", sizeof(bool));
+		debug_->debug("sizeof(int) = %d", sizeof(int));
 		debug_->debug("test_write_read_1024(%d) = %d", start_address, wr_success);
+		debug_->debug("test_write_read_1024(%d) = %d", (int)start_address, (int)wr_success);
 		debug_->debug("= %d", wr_success);
 		#endif //DEF_TEST_MINIMAL_OUTPUT
 		
