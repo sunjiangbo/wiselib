@@ -1,8 +1,8 @@
-#define USE_RAM_BLOCK_MEMORY 1
+#define USE_RAM_BLOCK_MEMORY 1 //TODO
 #include <external_interface/external_interface.h>
 #define INFO
-#include "external_stack.hpp"
-#include "external_queue.hpp"
+#include <algorithms/block_memory/buffered_stack.h>
+#include <algorithms/block_memory/buffered_queue.h>
 #define RELOAD
 //15011034
 typedef wiselib::OSMODEL Os;
@@ -84,10 +84,10 @@ class App {
 	template<int buffersize>
 	    void test_stack(uint64_t perrun){
 		debug_->debug("Testing Stack");
-		ExternalStack<uint64_t, buffersize> testA(sd_,10001,20000,true);
-		ExternalStack<uint64_t, buffersize> testB(sd_,20001,30000,true);
+		BufferedStack<uint64_t, buffersize> testA(sd_,10001,20000,true);
+		BufferedStack<uint64_t, buffersize> testB(sd_,20001,30000,true);
 		{
-		    ExternalStack<uint64_t, buffersize> es(sd_,1,3,true);
+		    BufferedStack<uint64_t, buffersize> es(sd_,1,3,true);
 		    if(es.size()!=0){
 			debug_->debug("wrong size");
 			exit(1);
@@ -96,7 +96,7 @@ class App {
 			debug_->debug("empty wrong");
 			exit(1);
 		    }
-		    es.~ExternalStack();
+		    es.~BufferedStack();
 		}
 		bool toA=true;
 
@@ -107,7 +107,7 @@ class App {
 		uint64_t toPush=0;
 
 		for(uint64_t i=0; i<=101; i++){
-		    ExternalStack<uint64_t, buffersize> es(sd_,1,10000);
+		    BufferedStack<uint64_t, buffersize> es(sd_,1,10000);
 		    for(uint64_t j=0; j<perrun; j++){
 			int d = rand() %100;
 			toPush = (rand()%1000);
@@ -167,12 +167,12 @@ class App {
 
 
 		    }
-		    //  es.~ExternalStack();
+		    //  es.~BufferedStack();
 
 		    debug_->debug(">>%d ",i);
 
 		}
-		    ExternalStack<uint64_t, buffersize> es(sd_,1,10000);
+		    BufferedStack<uint64_t, buffersize> es(sd_,1,10000);
 		while(!es.isEmpty()){
 		    int succ = es.pop(&poped);
 		    if((succ!=Os::SUCCESS && inStack>0) || (succ==Os::SUCCESS && inStack<=0)){
@@ -217,7 +217,7 @@ class App {
 
 		debug_->debug("Testing Queue");
 		{
-		    ExternalQueue<uint64_t, 2> eq(sd_,0,10);
+		    BufferedQueue<uint64_t, 2> eq(sd_,0,10);
 		    if(eq.size()!=0){
 			debug_->debug("wrong size");
 			exit(1);
@@ -227,12 +227,12 @@ class App {
 			exit(1);
 		    }
 
-		    eq.~ExternalQueue();
+		    eq.~BufferedQueue();
 		}
 
-		//ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,1,10000);
+		//BufferedQueue<uint64_t, BUFFERSIZE> eq(sd_,1,10000);
 #ifndef RELOAD
-		ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,0,2000,true);
+		BufferedQueue<uint64_t, BUFFERSIZE> eq(sd_,0,2000,true);
 #endif
 		uint64_t push=0;
 		uint64_t pop=0;
@@ -246,7 +246,7 @@ class App {
 		    xpop = 0;
 		    xpush = 0;
 #ifdef RELOAD
-		    ExternalQueue<uint64_t, BUFFERSIZE> eq(sd_,0,2000);
+		    BufferedQueue<uint64_t, BUFFERSIZE> eq(sd_,0,2000);
 #endif
 		    for(uint64_t j=0; j<perrun; j++){
 			int d = rand()%100;
@@ -306,7 +306,7 @@ class App {
 		    eq.flush();
 		    debug_->debug(">>>> RUNTHROUGH %u",perrun/10000);
 
-		    // eq.~ExternalQueue();
+		    // eq.~BufferedQueue();
 		    /*
 		       debug_->debug("%d0000 IOs: ",i);
 		       debug_->debug("pushed %d Elements", xpush);

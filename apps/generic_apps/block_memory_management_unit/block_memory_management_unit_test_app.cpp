@@ -2,17 +2,20 @@
  * Test application for BDMMU
  */
 
-#define USE_RAM_BLOCK_MEMORY 1
+#define USE_RAM_BLOCK_MEMORY 1 //TODO: Get rid of this once you've fixed the PC_OsModel's Block memory
 //#define DEBUG
 
 #include <external_interface/external_interface.h>
-#include "block_device_mmu.hpp"
+//#include "block_memory_management_unit.h" //TODO: get rid of it
+#include <algorithms/block_memory/block_memory_management_unit.h>
  
-#define DEF_BLOCK_NUMBER_NULL_VALUE 999999999
+#define DEF_BLOCK_NUMBER_NULL_VALUE 999999999 //TODO: Find some more elegant solution for this. I think Henning had an Enum for an invalid / null address somewhere
 #define DEF_TEST_MINIMAL_OUTPUT
 //#define DEF_TEST_EXPLICIT_OUTPUT
 
 typedef wiselib::OSMODEL OsModel;
+
+//TODO: How about some Doxygen Documentation?
 
 class BDMMUTestApp
 {

@@ -5,8 +5,8 @@
   * Author: Dominik Krupke
   * Das Wissen ueber die Implementierung von externen Stacks und Queues wurde auf 10 Seiten PDF festgehalten.
   */
-#ifndef EXTERNAL_STACK_HPP
-#define EXTERNAL_STACK_HPP
+#ifndef BUFFERED_STACK_H
+#define BUFFERED_STACK_H
 
 #include <external_interface/external_interface.h>
 
@@ -33,7 +33,7 @@ using namespace wiselib;
   * ACHTUNG: Der zugeteilte Speicherbereich muss innerhalb des zulaessigen Bereichs des Blockmemorys liegen. Andernfalls kann es zu undefinierten Verhalten (Auch Datenverlust auf dem kompletten Speicher) kommen!
   */
 template<typename Type_P, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
-class ExternalStack{
+class BufferedStack{
     public:
 	typedef wiselib::OSMODEL Os;
 	typedef typename Os::BlockMemory::block_data_t block_data_t;
@@ -60,7 +60,7 @@ class ExternalStack{
 	Os::Debug::self_pointer_t debug_;
 	Os::BlockMemory::self_pointer_t sd_;
     public:
-	ExternalStack(Os::BlockMemory::self_pointer_t sd, address_t beginMem, address_t endMem, bool forceNew=false): sd_(sd), minBlock_(beginMem+1), maxBlock_(endMem){
+	BufferedStack(Os::BlockMemory::self_pointer_t sd, address_t beginMem, address_t endMem, bool forceNew=false): sd_(sd), minBlock_(beginMem+1), maxBlock_(endMem){
 	    if(BUFFERSIZE<1){ //da buffersize konstant=>kein Rechenaufwand
 		debug_->debug("EXTERNAL STACK ERROR: buffersize has to be at least 1!");
 		exit(1);
@@ -102,7 +102,7 @@ class ExternalStack{
 	}
 
 
-	~ExternalStack(){
+	~BufferedStack(){
 	    if(PERSISTENT){
 		flush(buffer_);
 	    }

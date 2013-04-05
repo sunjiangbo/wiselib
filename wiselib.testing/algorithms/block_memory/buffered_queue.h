@@ -6,8 +6,8 @@
  * Das Wissen ueber die Implementierung von externen Stacks und Queues wurde auf 10 Seiten PDF festgehalten
  **/
  
-#ifndef EXTERNAL_QUEUE_HPP
-#define EXTERNAL_QUEUE_HPP
+#ifndef BUFFERED_QUEUE_H
+#define BUFFERED_QUEUE_H
 #include <external_interface/external_interface.h>
 #define BLOCK_SIZE_DEFINE Os::BlockMemory::BLOCK_SIZE
 
@@ -34,7 +34,7 @@ using namespace wiselib
   */
 ;
 template<class T, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
-class ExternalQueue{
+class BufferedQueue{
     public:
 	typedef wiselib::OSMODEL Os;
 	typedef typename Os::BlockMemory::block_data_t block_data_t;
@@ -68,7 +68,7 @@ class ExternalQueue{
 	 * forceNew - Erzwingt das Erstellen einer neuen Queue. Die alte Queue dieses Speicherplatzes wird, falls sie vorhanden war, ueberschrieben
 	 *
 	 */
-	ExternalQueue(Os::BlockMemory::self_pointer_t sd,address_t beginMem, address_t endMem, bool forceNew=false):sd_(sd),minBlock_(beginMem+1),maxBlock_(endMem){
+	BufferedQueue(Os::BlockMemory::self_pointer_t sd,address_t beginMem, address_t endMem, bool forceNew=false):sd_(sd),minBlock_(beginMem+1),maxBlock_(endMem){
 	    if(BUFFERSIZE<2){
 		debug_->debug("EXTERNAL_QUEUE ERROR: Tried to init with Buffersize %d, but Buffersize has to be at least 2");
 		exit(1);
@@ -110,7 +110,7 @@ class ExternalQueue{
 	}
 
 
-	~ExternalQueue(){
+	~BufferedQueue(){
 #ifdef DEBUG
 	    debug_->debug("EXTERNAL_QUEUE INFO: destroyed queue");
 #endif

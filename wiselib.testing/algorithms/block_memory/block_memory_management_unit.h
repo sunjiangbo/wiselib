@@ -1,8 +1,9 @@
-#ifndef BLOCK_DEVICE_MMU_HPP
-#define BLOCK_DEVICE_MMU_HPP
+#ifndef BLOCK_MEMORY_MANAGEMENT_UNIT_H
+#define BLOCK_MEMORY_MANAGEMENT_UNIT_H
 
 #include <external_interface/external_interface.h>
-#include "../doms/external_stack.hpp"
+//#include "../doms/external_stack.hpp" //TODO
+#include <algorithms/block_memory/buffered_stack.h>
 
 //#define DEBUG
 //#define BDMMU_DEBUG
@@ -351,7 +352,7 @@ struct BDMMU_Template_Wrapper {
 			}
 
 			int sizeofStack() {
-				return sizeof(ExternalStack<block_address_t, 1>);
+				return sizeof(BufferedStack<block_address_t, 1>);
 			}
 
 		private:
@@ -362,7 +363,7 @@ struct BDMMU_Template_Wrapper {
 			block_address_t next_vblock; 		// virtual block number denoting highest block number which has ever been used
 			bool persistent;
 
-			ExternalStack<block_address_t, 1> stack;
+			BufferedStack<block_address_t, 1> stack;
 			
 		public:
 			/* These constants were not placed into an enum because an enum uses only int values, 
