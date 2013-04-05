@@ -1,0 +1,8 @@
+Format:
+
+<W/R><number><C/R>
+<W/R>: Write / Read
+<number>: Number of Blocks read/written
+<C/R> Continuous / Random positions
+
+Peak: special test for peaks: Finds 2 peaks, then tests 20 Blocks around 2nd peak multiple times

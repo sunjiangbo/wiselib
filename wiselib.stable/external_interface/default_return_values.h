@@ -39,11 +39,12 @@ namespace wiselib
       {
          SUCCESS         =   0, /// Default return value of success
          ERR_UNSPEC      =  -1, /// Unspecified error value - if no other fits
+         ERR_IO          =   5, /// Error occured in IO Device
          ERR_NOMEM       =  12, /// Out of memory
          ERR_BUSY        =  16, /// Device or resource busy - try again later
          ERR_NOTIMPL     =  38, /// Function not implemented
          ERR_NETDOWN     = 100, /// Network is down
-         ERR_HOSTUNREACH = 113  /// No route to host
+         ERR_HOSTUNREACH = 113, /// No route to host
 //EINVAL       =  22, /// Invalid argument
 //EFBIG        =  27, /// File too large - not only files, but also passed buffers
 //EDOM         =  33, /// Math argument out of domain of func

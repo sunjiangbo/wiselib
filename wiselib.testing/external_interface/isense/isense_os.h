@@ -27,6 +27,9 @@
 #include "external_interface/isense/isense_distance.h"
 #include "external_interface/isense/isense_duty_cycling.h"
 #include "external_interface/isense/isense_extended_debug.h"
+#include "external_interface/isense/isense_radio.h"
+#include "external_interface/isense/isense_debug.h"
+#include "external_interface/isense/isense_clock.h"
 #include "external_interface/isense/isense_extended_time.h"
 #include "external_interface/isense/isense_extended_txradio.h"
 #include "external_interface/isense/isense_extended_txradio_isensestyle.h"
@@ -89,6 +92,7 @@ namespace wiselib
       typedef iSenseRandModel<iSenseOsModel> Rand;
       typedef iSenseTimerModel<iSenseOsModel> Timer;
       typedef iSenseSerialComUartModel<iSenseOsModel> Uart;
+      typedef iSenseDistanceModel<iSenseOsModel> Distance;
       typedef iSenseSerialComBufferUartModel<iSenseOsModel> B_Uart;
       typedef iSenseDutyCycling<iSenseOsModel> DutyCycling;
 
