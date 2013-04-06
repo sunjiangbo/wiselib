@@ -4,6 +4,7 @@
 #include <external_interface/external_interface.h>
 //#include "../doms/external_stack.hpp" //TODO
 #include <algorithms/block_memory/buffered_stack.h>
+#include <assert.h>
 
 //#define DEBUG
 //#define BDMMU_DEBUG
@@ -21,9 +22,9 @@ SD card to administer, within which there is exactly one virtual block size. The
 do all their communication with the SD-Card (Erase, Read, Write) via their BDMMU, which is handed to 
 them as a parameter.*/
 
-//TODO: It is assumed that a block is at least ~40(?) Bytes in size. Write that in the documentation somewhere.
+//TODO: It is asserted that a block must be at least 64 Bytes in size. Write that in the documentation somewhere.
 //TODO: Use Wise_testing utils meta.h for template magic with data types to ensure they are as small as possible for the given range
-//TODO: Change the design so that generic block sizes are possible
+//TODO: Change the design so that generic virtual block sizes are possible (both smaller and larger than a given block)
 //TODO: Write a stack which doesn't have its own buffer, but just writes everything to the SD directly
 
 using namespace wiselib;
@@ -79,7 +80,7 @@ struct BDMMU_Template_Wrapper {
 				stack(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore)
 
 			{ 
-
+				assert(BlockMemory::BLOCK_SIZE >= 64);
 				if(restore) {
 					debug_->debug("restore\n");
 					uint32_t checkvalue = 42;

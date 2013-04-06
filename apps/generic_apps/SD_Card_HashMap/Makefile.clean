@@ -2,8 +2,7 @@
 # Environment variable WISELIB_PATH needed
 # ----------------------------------------
 
-all: pc
-# all: shawn
+all: shawn
 # all: scw_msb
 # all: contiki_msb
 # all: contiki_micaz
@@ -11,7 +10,7 @@ all: pc
 # all: tinyos-tossim
 # all: tinyos-micaz
 
-export APP_SRC=block_device_mmu_test_app.cpp
-export BIN_OUT=block_device_mmu_test_app
+export APP_SRC=hash_map_test.cpp
+export BIN_OUT=hashMapTest
 
 include ../Makefile

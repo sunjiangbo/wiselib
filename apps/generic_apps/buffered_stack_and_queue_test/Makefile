@@ -10,7 +10,7 @@ all: shawn
 # all: tinyos-tossim
 # all: tinyos-micaz
 
-export APP_SRC=doms_test.cpp
-export BIN_OUT=doms_test
+export APP_SRC=buffered_stack_and_queue_test.cpp
+export BIN_OUT=buffered_stack_and_queue_test
 
 include ../Makefile
