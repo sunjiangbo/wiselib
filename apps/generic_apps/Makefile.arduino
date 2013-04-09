@@ -46,15 +46,14 @@ ifeq ($(ARDUINO_USE_SD),1)
 endif
 LIBS += -Wl,--end-group
 
-
 #BOARD=mega2560
 PARTNO=$(subst mega,m,$(ARDUINO_BOARD))
 ifeq ($(PARTNO),uno)
 	PARTNO=m328p
 endif
 
-
-CXXFLAGS=-mmcu=$(MCU) -DF_CPU=$(CPU_SPEED) -DARDUINO_WIRING_DIGITAL -DARDUINO_LITE -Os -w \
+CXXFLAGS=-mmcu=$(MCU) -DF_CPU=$(CPU_SPEED) -DARDUINO_WIRING_DIGITAL -DARDUINO_LITE -Os \
+	-DNDEBUG -w \
 	-funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums $(INCLUDE) $(LIBS) $(FLAGS) \
 	-DOSMODEL=ArduinoOsModel -DARDUINO -fno-exceptions
 

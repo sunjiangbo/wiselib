@@ -4,7 +4,6 @@
 #include <external_interface/external_interface.h>
 //#include "../doms/external_stack.hpp" //TODO
 #include <algorithms/block_memory/buffered_stack.h>
-#include <assert.h>
 
 //#define DEBUG
 //#define BDMMU_DEBUG
@@ -15,8 +14,6 @@
 	#endif
 #endif
 
-
-
 /* One BDMMU administers as many data structures as you want. It is assigned a fixed section of the 
 SD card to administer, within which there is exactly one virtual block size. The actual data-structures 
 do all their communication with the SD-Card (Erase, Read, Write) via their BDMMU, which is handed to 
@@ -26,6 +23,8 @@ them as a parameter.*/
 //TODO: Use Wise_testing utils meta.h for template magic with data types to ensure they are as small as possible for the given range
 //TODO: Change the design so that generic virtual block sizes are possible (both smaller and larger than a given block)
 //TODO: Write a stack which doesn't have its own buffer, but just writes everything to the SD directly
+/*TODO: Clean up the code to get rid of all that really explicit output after thorough testing. You may want to wait until
+you've written an unboffered stack and switched to that though...*/
 
 using namespace wiselib;
 	
@@ -80,7 +79,8 @@ struct BDMMU_Template_Wrapper {
 				stack(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore)
 
 			{ 
-				assert(BlockMemory::BLOCK_SIZE >= 64);
+				assert(BlockMemory::BLOCK_SIZE >= 64); //TODO: Just do this using a static assert instead? Do static asserts work on all platforms?
+
 				if(restore) {
 					debug_->debug("restore\n");
 					uint32_t checkvalue = 42;

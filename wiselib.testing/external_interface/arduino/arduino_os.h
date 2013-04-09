@@ -27,6 +27,11 @@
 
 #include "util/serialization/endian.h"
 
+/*routes the assert() error message into STDERR, TODO: route STDERR to the 
+serial port so that you can actually output the messages*/
+#define __ASSERT_USE_STDERR 
+#include <assert.h>
+
 namespace wiselib
 {
 
