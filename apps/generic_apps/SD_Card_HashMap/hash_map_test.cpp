@@ -3,14 +3,17 @@
 
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
+#include <stdio.h>
+
 #include "hash_map.h"
 #include "block.h"
 #include "block_iterator.h"
-#include "stopwatch.h"
 #include "hash_map_iterator.h"
-#include "hash_function_provider.h"
-#include <stdio.h>
 
+#include "hash_function_provider.h"
+#include "stopwatch.h"
+
+//TODO: make a macro which blends in the method fillWithGoethe() only if the platform is PC
 
 typedef wiselib::OSMODEL Os;
 
@@ -128,10 +131,10 @@ public:
 		sd->init();
 //		generateGNUPLOTData();
 //		generateFillupAnimation();
-		fillWithGoethe();
+//		fillWithGoethe();
 
-//		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
-//		if(!blockTest()) debug_->debug("blockTest failed!");
+		if(!stupidSDCardTest()) debug_->debug("stupidSDCardTest failed!");
+		if(!blockTest()) debug_->debug("blockTest failed!");
 //		if(!blockIteratorTest()) debug_->debug("blockIteratorTest failed!");
 //		if(!hashMapTest()) debug_->debug("hashMapTest failed!");
 //		if(!hashMapIteratorTest()) debug_->debug("hashMapTestIterator failed!");
@@ -1028,7 +1031,7 @@ public:
 		}
 	};
 
-	void fillWithGoethe()
+	/*void fillWithGoethe()
 	{
 		wiselib::HashMap<uint16_t, goetheline> linesHM(debug_, sd, &wiselib::HashFunctionProvider<Os, uint16_t>::fnv, 0, 2000);
 		wiselib::HashMap<goetheword, uint16_t> wordsHM(debug_, sd, &wiselib::HashFunctionProvider<Os, goetheword>::fnv, 2000, 20000);
@@ -1104,7 +1107,7 @@ public:
 
 
 //		sd->printASCIIOutputBytes(0, 1);
-	}
+	}*/
 
 	void lookForWord(char* word, wiselib::HashMap<uint16_t, goetheline> linesHM, wiselib::HashMap<goetheword, uint16_t> wordsHM)
 	{
