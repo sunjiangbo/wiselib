@@ -2,7 +2,7 @@
 # Environment variable WISELIB_PATH needed
 # ----------------------------------------
 
-all: shawn
+# all: shawn
 # all: scw_msb
 # all: contiki_msb
 # all: contiki_micaz
@@ -10,17 +10,26 @@ all: shawn
 # all: tinyos-tossim
 # all: tinyos-micaz
 
-export APP_SRC=buffered_stack_and_queue_test.cpp
-export BIN_OUT=buffered_stack_and_queue_test
-
+export APP_SRC=debug_data_alignment_problem_demo_app.cpp
+export BIN_OUT=debug_data_alignment_problem_demo_app
 
 include ../Makefile
+
+both_: pc_ ar_
+
+ar_: compile flash run
+
+pc_: pc
+	out/pc/./debug_data_alignment_problem_demo_app
 
 compile:
 	make arduino BOARD=mega2560
 
-write:
+flash:
 	killall screen; make flash-arduino BOARD=mega2560 PORT=/dev/ttyACM0
 
-show:
-	make monitor-arduino BOARD=mega2560 PORT=/dev/ttyACM0	
+run:
+	killall screen; make monitor-arduino BOARD=mega2560 PORT=/dev/ttyACM0
+
+clean4git:
+	rm -f *~; rm -rf out;
