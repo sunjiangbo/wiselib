@@ -12,10 +12,10 @@
 #include "util/serialization/simple_types.h"
 #include <util/meta.h>
 
-#include "hash_map_block_iterator.h"
+#include <algorithms/block_memory/hash_map/hash_map_block_iterator.h>
 
 #ifdef SPEED_MEASUREMENT
-#include "hash_map_stopwatch.h"
+#include <algorithms/block_memory/hash_map/hash_map_stopwatch.h>
 #endif
 
 namespace wiselib {

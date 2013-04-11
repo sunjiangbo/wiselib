@@ -13,8 +13,8 @@
 #include <util/serialization/serialization.h>
 #include <algorithms/hash/fnv.h>
 
-#include "hash_map_block.h"
-#include "hash_map_iterator.h"
+#include <algorithms/block_memory/hash_map/hash_map_block.h>
+#include <algorithms/block_memory/hash_map/hash_map_iterator.h>
 
 namespace wiselib {
 
