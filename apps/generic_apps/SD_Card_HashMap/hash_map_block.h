@@ -5,17 +5,17 @@
  *      Author: Maximilian Ernestus
  */
 
-#ifndef BLOCK_H_
-#define BLOCK_H_
+#ifndef HASH_MAP_BLOCK_H_
+#define HASH_MAP_BLOCK_H_
 
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"
 #include <util/meta.h>
 
-#include "block_iterator.h"
+#include "hash_map_block_iterator.h"
 
 #ifdef SPEED_MEASUREMENT
-#include "stopwatch.h"
+#include "hash_map_stopwatch.h"
 #endif
 
 namespace wiselib {
@@ -413,4 +413,4 @@ private:
 
 }// NS WISELIB
 
-#endif /* BLOCK_H_ */
+#endif /* HASH_MAP_BLOCK_H_ */

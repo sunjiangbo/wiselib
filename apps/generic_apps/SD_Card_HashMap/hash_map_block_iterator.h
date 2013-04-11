@@ -5,8 +5,8 @@
  *      Author: maximilian
  */
 
-#ifndef BLOCKITERATOR_H_
-#define BLOCKITERATOR_H_
+#ifndef HASH_MAP_BLOCKITERATOR_H_
+#define HASH_MAP_BLOCKITERATOR_H_
 
 namespace wiselib {
 
@@ -62,4 +62,4 @@ private:
 
 }  // namespace wiselib
 
-#endif /* BLOCKITERATOR_H_ */
+#endif /* HASH_MAP_BLOCKITERATOR_H_ */

@@ -5,8 +5,8 @@
  *      Author: maximilian
  */
 
-#ifndef STOPWATCH_H_
-#define STOPWATCH_H_
+#ifndef HASH_MAP_STOPWATCH_H_
+#define HASH_MAP_STOPWATCH_H_
 
 class Stopwatch
 {
@@ -68,4 +68,4 @@ private:
 //Stopwatch allStopwatch;
 
 
-#endif /* STOPWATCH_H_ */
+#endif /* HASH_MAP_STOPWATCH_H_ */

@@ -6,12 +6,12 @@
 #include <stdio.h>
 
 #include "hash_map.h"
-#include "block.h"
-#include "block_iterator.h"
+#include "hash_map_block.h"
+#include "hash_map_block_iterator.h"
 #include "hash_map_iterator.h"
 
 #include "hash_function_provider.h"
-#include "stopwatch.h"
+#include "hash_map_stopwatch.h"
 
 //TODO: make a macro which blends in the method fillWithGoethe() only if the platform is PC
 
