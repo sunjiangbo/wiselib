@@ -10,7 +10,9 @@
 
 namespace wiselib {
 
-template<typename OsModel_P, typename BDMMU_P, typename KeyType_P, 
+template<typename OsModel_P, 
+	typename BDMMU_P, 
+	typename KeyType_P, 
 	typename ValueType_P, 
 	bool loadFromDisk = false,
 	typename OsModel_P::size_t buffersize = 1,
@@ -64,21 +66,21 @@ class List{
 		  getting element i in a block is at position 0 + int_size + 2 * ptr_size + i * value_size
 		*/
 		enum {
-		 ptr_size = sizeof(block_address_t),
-		 cnt_size = sizeof(CounterType),
-		value_size = sizeof(ValueType),
-		//all
-		offsetForward = cnt_size,
-		offsetBackward = offsetForward + ptr_size,
-		//data only
-		offsetData = offsetBackward + ptr_size,
-		//head only
-		offsetTotalCounter = offsetBackward + ptr_size,
-		offsetMax = offsetTotalCounter + sizeof(uint32_t),
-		offsetUseKey = offsetMax + cnt_size,
-		offsetKeySize = offsetUseKey + sizeof(bool),
-		offsetValueSize = offsetKeySize + cnt_size,
-		offsetBlockSize = offsetValueSize + cnt_size
+			ptr_size = sizeof(block_address_t),
+			cnt_size = sizeof(CounterType),
+			value_size = sizeof(ValueType),
+			//all
+			offsetForward = cnt_size,
+			offsetBackward = offsetForward + ptr_size,
+			//data only
+			offsetData = offsetBackward + ptr_size,
+			//head only
+			offsetTotalCounter = offsetBackward + ptr_size,
+			offsetMax = offsetTotalCounter + sizeof(uint32_t),
+			offsetUseKey = offsetMax + cnt_size,
+			offsetKeySize = offsetUseKey + sizeof(bool),
+			offsetValueSize = offsetKeySize + cnt_size,
+			offsetBlockSize = offsetValueSize + cnt_size
 		};
 
 

@@ -7,10 +7,10 @@
 //#define LIST_DEBUG
 #include "List.h"
 
-#include "../block_device_mmu/block_device_mmu.hpp"
+#include <algorithms/block_memory/block_memory_management_unit.h>
 #define NR_OF_BLOCKS_TO_TEST 8
 
-#include <time.h>
+//#include <time.h>
 #include <stdlib.h> 
 using namespace wiselib;
 
@@ -37,20 +37,20 @@ class App {
 		debug_ = &FacetProvider<Os, Os::Debug>::get_facet(value);
 		sd = &FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 		sd->init();
-		//debug_->debug("sd = %x", sd);
-		//testAdd();
-		//testInsertByIndex();
-		//testRemoveIndex();
-		//testPersistenz();  //list itself works!
-		//testGetKeyIndexBothWays();
-		generateFillupAnimation();
-//testKeyUse (on all tests)
-	//debug_->debug("About to exit");
+		debug_->debug("sd = %x", sd);
+		testAdd();
+		/*testInsertByIndex();
+		testRemoveIndex();
+		testPersistenz();  //list itself works!
+		testGetKeyIndexBothWays();*/
+		//generateFillupAnimation();
+		//testKeyUse (on all tests)
+		//debug_->debug("About to exit");
 		
 		exit(0);
 	}
 
-	void generateFillupAnimation()
+	/*void generateFillupAnimation()
 	{
 		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 1> MMU_0_t;
 		MMU_0_t mmu_0(sd, debug_, false, true);
@@ -100,7 +100,7 @@ class App {
 				fclose(file);
 			}
 		}
-	}
+	}*/
 
 
 	Message makeMessage(const char* string)
@@ -116,14 +116,14 @@ class App {
 		debug_->debug("%d", m.pi);
 	}
 
-	/*void testAdd(){ //Test assumes getValueByIndex works fine - works!
+	void testAdd(){ //Test assumes getValueByIndex works fine - works!
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Add");
 		
-		typedef BDMMU<Os, 0, 10, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t;
-		MMU_0_t mmu_0(debug_, sd, false, true);
+		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 11, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		MMU_0_t mmu_0(sd, debug_, false, true);
 		
-		List<Os, MMU_0_t, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, &mmu_0);
+		List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
 			
 		//this list saves numbers
 		debug_->debug("List created, filling with numbers");		
@@ -135,15 +135,15 @@ class App {
 			int j = list.getValueByIndex(i);
 			if (j != i)
 			{
-				debug_->debug("But there is a mistake with number %d - it says %d instead", i, j);		
-				debug_->debug("Aborting");		return;
-			
+				debug_->debug("But there is a mistake with number %d - it says %d instead", (int) i, (int) j);		
+				debug_->debug("Aborting");
+				return;
 			}
 		}
 	
 		debug_->debug("Test finished succesfully");		
-	}*/
- 	void testPersistenz(){ 
+	}
+ 	/*void testPersistenz(){ 
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Persistenz");
 		
@@ -254,7 +254,7 @@ class App {
 		list.sync();
 	}
 
-	/*void testInsertByIndex(){ //Test assumes add & getValueByIndex works fine - works!
+	void testInsertByIndex(){ //Test assumes add & getValueByIndex works fine - works!
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Insert");
 	
@@ -281,9 +281,9 @@ class App {
 		}
 
 		debug_->debug("Test finished succesfully");
-	}*/
+	}
 
-	/*void testGetKeyIndexBothWays(){ //assumes add works as it should
+	void testGetKeyIndexBothWays(){ //assumes add works as it should
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Add");
 		List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
@@ -313,9 +313,9 @@ class App {
 			}
 		}
 		debug_->debug("Test finished succesfully");	
-	}*/
+	}
 	
-	/*void test(){
+	void test(){
 		debug_->debug("Official Test start here");
 		List<Os, int, Message, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
 

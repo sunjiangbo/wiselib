@@ -79,7 +79,7 @@ namespace wiselib {
 			typedef ComISenseRadioModel<PCOsModel, ISenseUart> Radio;
 			
 #if USE_RAM_BLOCK_MEMORY
-			typedef VirtualSD<PCOsModel, 20000> BlockMemory;
+			typedef VirtualSD<PCOsModel, 30000> BlockMemory;
 #endif
 #if USE_FILE_BLOCK_MEMORY
 			typedef FileBlockMemory<PCOsModel> BlockMemory;
