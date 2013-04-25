@@ -19,13 +19,18 @@ namespace concepts {
 			typedef ... address_t;
 			
 			enum {
-				SIZE = ..., ///< in blocks
 				BLOCK_SIZE = 512, ///< size of block in byte (usable payload)
 				BUFFER_SIZE = 512, ///< size of buffers to pass to methods. Might be larger than BLOCK_SIZE for some implementations
 			};
 			
 			enum {
-				NO_ADDRSESS = ..., ///< address_t value denoting an invalid address
+				NO_ADDRESS = ..., ///< address_t value denoting an invalid address
+			};
+			
+			enum {
+				SUCCESS = OsModel::SUCCESS, 
+				ERR_IO = OsModel::ERR_IO, ///< for IO errors with the block memory device
+				ERR_UNSPEC = OsModel::ERR_UNSPEC,
 			};
 			
 			/**
@@ -43,7 +48,10 @@ namespace concepts {
 			 */
 			int erase(address_t addr, address_t blocks = 1);
 			
-			
+			/**
+			 *@return size of the block memory device in blocks
+			 */
+			address_t size();
 	}
 
 
