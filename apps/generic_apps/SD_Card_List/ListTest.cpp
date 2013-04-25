@@ -20,7 +20,22 @@ typedef OSMODEL Os;
 class App {
      public:
 
+/*	TODO:
+	When you set the block virtualization to 1, then it works fine on the PC
+	with uint32_t. Other datatypes / platforms not yet testet. Find out if it's
+	the List which can't deal with virtualized blocks, or if your mmu is to blaim
+	due to some weird padding / alignment effects or whatever.
 	
+	Old:
+	NOTE!!!!! THERE IS DEFINITELY A BUG IN THE LIST IMPLEMENTATION SOMEHWERE.
+	testAdd() works fine with 8-bit and 16-bit datatypes, but not with 32-bit
+	datatypes. With 32-bits you get an error in element 126, which is the first
+	element of the second block. testGetKeyIndexBothWays doesn't work at all,
+	whetehr with 16 or 32-bit datatypes...
+
+	
+
+*/	
 
 	struct Message
 	{
@@ -29,20 +44,21 @@ class App {
 	};
 
 		// NOTE: this uses up a *lot* of RAM, way too much for uno!
-	enum {
+	/*enum {
 		BlOCK_SIZE = 512, BLOCKS_IN_1GB = 2097152
-	};
+	};*/
 
 	void init(Os::AppMainParameter& value) {
 		debug_ = &FacetProvider<Os, Os::Debug>::get_facet(value);
 		sd = &FacetProvider<Os, Os::BlockMemory>::get_facet(value);
 		sd->init();
-		debug_->debug("sd = %x", sd);
+		//debug_->debug("sd = %x", sd);
+		
 		testAdd();
 		/*testInsertByIndex();
 		testRemoveIndex();
-		testPersistenz();  //list itself works!
-		testGetKeyIndexBothWays();*/
+		testPersistenz();  //list itself works!*/
+		testGetKeyIndexBothWays(); //TODO
 		//generateFillupAnimation();
 		//testKeyUse (on all tests)
 		//debug_->debug("About to exit");
@@ -120,19 +136,19 @@ class App {
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Add");
 		
-		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 11, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
-		List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
+		List<Os, MMU_0_t, int32_t, int32_t, false> list(debug_, &mmu_0);
 			
 		//this list saves numbers
 		debug_->debug("List created, filling with numbers");		
-		for (int i = 0; i < 200; i++){
+		for (int32_t i = 0; i < 200; i++){
 			list.add(i, i); //key a number with itself
 		}
 		debug_->debug("List should contain the first 1000 numbers (0-999)");		
-		for (int i = 0; i < 200; i++){
-			int j = list.getValueByIndex(i);
+		for (int32_t i = 0; i < 200; i++){
+			int32_t j = (int32_t) list.getValueByIndex(i);
 			if (j != i)
 			{
 				debug_->debug("But there is a mistake with number %d - it says %d instead", (int) i, (int) j);		
@@ -141,7 +157,7 @@ class App {
 			}
 		}
 	
-		debug_->debug("Test finished succesfully");		
+		debug_->debug("Test finished successfully");		
 	}
  	/*void testPersistenz(){ 
 		debug_->debug("Official Test start here");
@@ -185,7 +201,7 @@ class App {
 				}
 			}
 		}
-		debug_->debug("Persistence Test finished succesfully.");
+		debug_->debug("Persistence Test finished successfully.");
 		
 	}
 
@@ -233,7 +249,7 @@ class App {
 			}
 		}
 	
-		debug_->debug("RM Test finished succesfully. Inserting numbers again");
+		debug_->debug("RM Test finished successfully. Inserting numbers again");
 		for (int i = 0; i < 250; i++){
 			
 			list.insertByIndex(2 * i + 500, 2 * i + 500, i * 2); //insert all back in
@@ -250,51 +266,63 @@ class App {
 				
 			}
 		}
-		debug_->debug("insert Test finished succesfully.");
+		debug_->debug("insert Test finished successfully.");
 		list.sync();
-	}
+	}*/
 
-	void testInsertByIndex(){ //Test assumes add & getValueByIndex works fine - works!
+	/*void testInsertByIndex(int insert_test_amount = 10000){ //Test assumes add & getValueByIndex works fine - works!
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Insert");
-	
-		List<Os, unsigned int, int, int, int, 100, 200, 512, false> list(debug_, sd);
+		
+		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 11, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		MMU_0_t mmu_0(sd, debug_, false, true);
+		
+		List<Os, MMU_0_t, int16_t, int16_t, false> list(debug_, &mmu_0);		
+			
+		//List<Os, unsigned int, int, int, int, 100, 200, 512, false> list(debug_, sd);
 
 		debug_->debug("List created, filling with numbers");
-	#define INSERT_TEST_AMOUNT 10000
-		for ( int i = 0; i < INSERT_TEST_AMOUNT; i++){
-			list.insertByIndex(i + INSERT_TEST_AMOUNT, i + INSERT_TEST_AMOUNT, i); //key a number with itself
+	//#define INSERT_TEST_AMOUNT 10000 TODO
+		for ( int i = 0; i < insert_test_amount; i++){
+			list.insertByIndex(i + insert_test_amount, i + insert_test_amount, i); //key a number with itself
 	//debug_->debug("List Filled, %d, %d, %d", list.last_read, list.last_id, list.totalCount);
 	
 		}
 		debug_->debug("List Filled, %d, %d, %d", list.last_read, list.last_id, list.totalCount);
 		//should look <100, 0, 101, 1, ...>
-		for ( int i = 0; i < INSERT_TEST_AMOUNT; i++){
+		for ( int i = 0; i < insert_test_amount; i++){
 			 int j = list.getValueByIndex(i);
-			if (j != i + INSERT_TEST_AMOUNT)
+			if (j != i + insert_test_amount)
 			{
 				debug_->debug("But there is a mistake with index %d - it says %d instead of %d", i, j, i);		
 				debug_->debug("Aborting");debug_->debug("LR %d, LID %d", list.last_read, list.last_id);
 				return;
 			
-			}//else debug_->debug("Correct: index %d - it says %d instead of %d", 2 * i, j, i + INSERT_TEST_AMOUNT);
+			}//else debug_->debug("Correct: index %d - it says %d instead of %d", 2 * i, j, i + insert_test_amount);
 		}
 
-		debug_->debug("Test finished succesfully");
-	}
+		debug_->debug("Test finished successfully");
+	}*/
 
 	void testGetKeyIndexBothWays(){ //assumes add works as it should
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Add");
-		List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
+		//List<Os, int, int, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
 			//this list saves numbers
+			
+			
+		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 200, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		MMU_0_t mmu_0(sd, debug_, false, true);
+		
+		List<Os, MMU_0_t, int32_t, int32_t, false> list(debug_, &mmu_0);
+			
 		debug_->debug("List created, filling with numbers");		
-		for (int i = 0; i < 10000; i++){
+		for (int32_t i = 0; i < 10000; i++){
 			list.add(i * 2, i); //use numbers twice as large as the keys
 		}
 		debug_->debug("List should contain 10000 keys (0-19998)");		
-		for (int i = 0; i < 10000; i++){
-			int j = list.getKeyByIndex(i);
+		for (int32_t i = 0; i < 10000; i++){
+			int32_t j = list.getKeyByIndex(i);
 			if (j != i * 2)
 			{
 				debug_->debug("But there is a mistake with key number %d - it says %d instead of %", i, j, i * 2);		
@@ -303,8 +331,8 @@ class App {
 			}
 		}
 		debug_->debug("Now looking at indices belonging to keys");		
-		for (int i = 0; i < 10000; i++){
-			int j = list.getIndexByKey(i * 2);
+		for (int32_t i = 0; i < 10000; i++){
+			int32_t j = list.getIndexByKey(i * 2);
 			if (j != i)
 			{
 				debug_->debug("But there is a mistake with key %d - it says it has index %d instead of %", i * 2, j, i);		
@@ -312,9 +340,9 @@ class App {
 			
 			}
 		}
-		debug_->debug("Test finished succesfully");	
+		debug_->debug("Test finished successfully");	
 	}
-	
+	/*
 	void test(){
 		debug_->debug("Official Test start here");
 		List<Os, int, Message, Os::size_t, Os::size_t, 100, 200, 512, false> list(debug_, sd);
