@@ -12,19 +12,18 @@ namespace concepts {
 		: public BasicReturnValues_concept {
 			
 		public:
-			typedef ... block_data_t;
-			typedef ... size_type;
+			typedef ... OsModel;
 			typedef ... self_type;
 			typedef ... self_pointer_t;
-			typedef ... address_t;
+			typedef ... block_data_t;
+			typedef ... address_t;  /// always refers to a block number or an amount of blocks
 			
 			enum {
 				BLOCK_SIZE = 512, ///< size of block in byte (usable payload)
-				BUFFER_SIZE = 512, ///< size of buffers to pass to methods. Might be larger than BLOCK_SIZE for some implementations
 			};
 			
-			enum {
-				NO_ADDRESS = ..., ///< address_t value denoting an invalid address
+			enum { 
+				NO_ADDRESS = (address_t)(-1), ///< address_t value denoting an invalid address
 			};
 			
 			enum {
@@ -33,12 +32,25 @@ namespace concepts {
 				ERR_UNSPEC = OsModel::ERR_UNSPEC,
 			};
 			
+			/* 
+			 * Required to start block_memory. May be an empty method in some implementations.
+			 */
+			void init();
+			
 			/**
+			 * Reads data from multiple sucessive blocks at once and stores it into a buffer.
+			 * @param buffer The buffer to store the data into. It is assumed to be of lenth length*blocksize
+			 * @param addr The number of the block where to start reading from.
+			 * @param blocks the number of blocks to read.
 			 * @return SUCCESS iff the block was read successfully
 			 */
 			int read(block_data_t* buffer, address_t addr, address_t blocks = 1);
 			
 			/**
+			 * Writes data from a big array into multiple successive blocks.
+			 * @param buffer The array of data to be written. The array is assumed to be of size blocks*blocksize.
+			 * @addr The number of the block where to start writing the data.
+			 * @blocks The numer of blocks to write into.
 			 * @return SUCCESS iff the block was written successfully
 			 */
 			int write(block_data_t* buffer, address_t addr, address_t blocks = 1);

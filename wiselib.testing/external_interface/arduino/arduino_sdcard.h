@@ -42,19 +42,22 @@ namespace wiselib {
 	class ArduinoSdCard {
 		public:
 			typedef OsModel_P OsModel;
-			typedef typename OsModel::block_data_t block_data_t;
-			typedef typename OsModel::size_t size_type;
-			typedef size_type address_t; /// always refers to a block number
 			typedef ArduinoSdCard<OsModel> self_type;
 			typedef self_type* self_pointer_t;
+			typedef typename OsModel::block_data_t block_data_t;
+			typedef typename OsModel::size_t address_t;
 			
 			enum {
 				BLOCK_SIZE = 512,
-				SIZE = (1024UL * 1024UL * 1024UL / 512UL), ///< #blocks for 1GB 
+			};
+			
+			enum { 
+				NO_ADDRESS = (address_t)(-1),
 			};
 			
 			enum {
 				SUCCESS = OsModel::SUCCESS,
+				ERR_IO = OsModel::ERR_IO,
 				ERR_UNSPEC = OsModel::ERR_UNSPEC
 			};
 			
@@ -70,20 +73,11 @@ namespace wiselib {
 #endif
 			}
 			
-			int erase(address_t start_block, address_t blocks) {
-				bool r;
-				//delay(3);
-				r = card_.erase(start_block, start_block + blocks);
-				if(!r) return ERR_UNSPEC;
-				//delay(50);
-				return SUCCESS;
-			}
-			
 			/**
 			 */
 			int read(block_data_t* buffer, address_t start_block, address_t blocks = 1) {
 				bool r;
-				for(size_type written = 0; written < blocks; written++) {
+				for(address_t written = 0; written < blocks; written++) {
 					//delay(3);
 					r = card_.readBlock(start_block + written, buffer + written * BLOCK_SIZE);
 					if(!r) return ERR_UNSPEC;
@@ -101,7 +95,7 @@ namespace wiselib {
 					DBG("write(%p, st=%d, count=%d) start fail", buffer, start_block, blocks);
 					return ERR_UNSPEC;
 				}
-				for(size_type written = 0; written < blocks; written++) {
+				for(address_t written = 0; written < blocks; written++) {
 					//delay(3);
 					r = card_.writeData(buffer + written * BLOCK_SIZE);
 					if(!r) {
@@ -117,6 +111,19 @@ namespace wiselib {
 					return ERR_UNSPEC;
 				}
 				return SUCCESS;
+			}
+			
+			int erase(address_t start_block, address_t blocks) {
+				bool r;
+				//delay(3);
+				r = card_.erase(start_block, start_block + blocks);
+				if(!r) return ERR_UNSPEC;
+				//delay(50);
+				return SUCCESS;
+			}
+			
+			address_t size() {
+				return (address_t) (1024UL * 1024UL * 1024UL / 512UL); ///< #blocks for 1GB
 			}
 			
 		private:

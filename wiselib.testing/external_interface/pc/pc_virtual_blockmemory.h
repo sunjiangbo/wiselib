@@ -8,6 +8,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "pc_os_model.h"
 
 namespace wiselib {
@@ -29,14 +30,23 @@ class VirtualSD {
 public:
 
 	typedef OsModel_P OsModel;
-	typedef typename OsModel::block_data_t block_data_t;
-	typedef typename OsModel::size_t size_t;
-	typedef size_t address_t; /// always refers to a block number
 	typedef VirtualSD self_type;
 	typedef self_type* self_pointer_t;
+	typedef typename OsModel::block_data_t block_data_t;
+	typedef typename OsModel::size_t address_t;
+	
 	enum {
-		SUCCESS = OsModel::SUCCESS, ERR_UNSPEC = OsModel::ERR_UNSPEC,
-		BLOCK_SIZE = blocksize
+		BLOCK_SIZE = blocksize, ///< size of block in byte (usable payload)
+	};
+			
+	enum { 
+		NO_ADDRESS = (address_t)(-1), ///< address_t value denoting an invalid address
+	};
+	
+	enum {
+		SUCCESS = OsModel::SUCCESS, 
+		ERR_IO = OsModel::ERR_IO,
+		ERR_UNSPEC = OsModel::ERR_UNSPEC,
 	};
 
 
@@ -50,71 +60,16 @@ public:
 		resetStats();
 	}
 
-	int erase(address_t start_block, address_t blocks) {
-		for(unsigned int i = 0; i < blocks; i++)
-		{
-			for(unsigned int j = 0; j < blocksize; j++)
-				memory[i + start_block][j] = 0;
-		}
-
-		return SUCCESS;
-	}
-
-	/*
-	 * Does nothing, just to comply with the other sd card interface
-	 */
-	void init()
-	{
-
-	}
-
-	/*
-	 * Writes some data to a block.
-	 * @param x An array of data to be written. The array is assumed to be of size *blocksize*.
-	 * @param block the number of the block to write into.
-	 */
-	int write(block_data_t* x, address_t block) {
-		++ios_;
-		++blocksWritten_;
-		duration_ += 8;
-		if (block < 0 || block >= nrOfBlocks) {
-			printf("OVERFLOW VIRTUAL SD: Stupid people trying to access block %u\n", block);
-			return ERR_UNSPEC;
-		}
-		for (int i = 0; i < blocksize; i++)
-		{
-			memory[block][i] = x[i];
-			isWritten[block] = true;
-		}
-		return SUCCESS;
-	}
-
-	/*
-	 * Writes data from a big array into multiple sucessive blocks.
-	 * @param x The array of data to be written. The array is assumed to be of size blocks*blocksize.
-	 * @start_block The number of the block where to start writing the data.
-	 * @blocks The numer of blocks to write into.
-	 */
-	int write(block_data_t* x, address_t start_block, address_t blocks) {
-		++ios_;
-		duration_ += 4;
-
-		for (unsigned int i = 0; i < blocks; i++) {
-			write(x + blocksize * i, start_block + i);
-			duration_ -= 6;
-			--ios_;
-		}
-		return SUCCESS;
-	}
+private:
 
 	/*
 	 * Reads some data from a block and stores it into a buffer.
 	 * @param buffer a pointer to a buffer to place the data into.
 	 * @param block the block to read from.
 	 */
-	int read(block_data_t* buffer, address_t block) {
-		if (block < 0 || block >= nrOfBlocks) {
-			printf("OVERFLOW VIRTUAL SD\n");
+	int read(block_data_t* buffer, address_t addr) {
+		if (addr < 0 || addr >= nrOfBlocks || addr == NO_ADDRESS) {
+			printf("OVERFLOW VIRTUAL SD.  Attempted to access block %ju\n", (uintmax_t) addr);
 			return ERR_UNSPEC;
 		}
 		++ios_;
@@ -123,27 +78,92 @@ public:
 		//else if(!isWritten[block]) std::cerr << "READING EMPTY BLOCK" << std::endl;
 
 		for (int i = 0; i < blocksize; i++)
-			buffer[i] = memory[block][i];
+			buffer[i] = memory[addr][i];
 		return SUCCESS;
 	}
-
+	
 	/*
-	 * Reads data from multiple sucessive blocks at once and stores it into a buffer.
-	 * @param buffer The buffer to store the data into. It is assumed to be of lenth length*blocksize
-	 * @param block The number of the block where to start reading from.
-	 * @param length the number of blocks to read.
+	 * Writes some data to a block.
+	 * @param buffer An array of data to be written. The array is assumed to be of size *blocksize*.
+	 * @param addr the number of the block to write into.
 	 */
-	int read(block_data_t* buffer, address_t block, address_t length) {
+	int write(block_data_t* buffer, address_t addr) {
+		++ios_;
+		++blocksWritten_;
+		duration_ += 8;
+		if (addr < 0 || addr >= nrOfBlocks || addr == NO_ADDRESS) {
+			printf("OVERFLOW VIRTUAL SD. Attempted to access block %ju\n", (uintmax_t) addr);
+			return ERR_UNSPEC;
+		}
+		for (int i = 0; i < blocksize; i++)
+		{
+			memory[addr][i] = buffer[i];
+			isWritten[addr] = true;
+		}
+		return SUCCESS;
+	}
+	
+	
+public: 	
+	//BLOCK MEMORY CONCEPT
+	
+	/*
+	 * No special initilization of hardware required. 
+	 */
+	void init(){}
+	
+	/* Wraps the read method from above*/
+	int read(block_data_t* buffer, address_t addr, address_t blocks) {
 		++ios_;
 		duration_ += 2;
 
-		for (unsigned int i = 0; i < length; i++) {
-			read(buffer + blocksize * i, block + i);
+		for (address_t i = 0; i < blocks; i++) {
+			read(buffer + blocksize * i, addr + i);
 			duration_ -= 2;
 			--ios_;
 		}
 		return SUCCESS;
 	}
+
+	/* Wraps the write method from above*/
+	int write(block_data_t* buffer, address_t addr, address_t blocks) {
+		++ios_;
+		duration_ += 4;
+
+		for (address_t i = 0; i < blocks; i++) {
+			write(buffer + blocksize * i, addr + i);
+			duration_ -= 6;
+			--ios_;
+		}
+		return SUCCESS;
+	}
+
+	int erase(address_t addr, address_t blocks) {
+		for(address_t i = 0; i < blocks; i++)
+		{			
+			if ( addr + i >= nrOfBlocks ) {
+				printf("OVERFLOW VIRTUAL SD. Attempted to access block %ju\n", (uintmax_t) addr + i);
+				return ERR_UNSPEC;
+			}
+			
+			for(address_t j = 0; j < blocksize; j++)
+				memory[i + addr][j] = 0;
+		}
+
+		return SUCCESS;
+	}
+	
+	address_t size() {
+		return nrOfBlocks;
+	}
+
+	
+
+
+
+
+
+	//EXTRA FUNCTIONALITY
 
 	/*
 	 * Resets all the counters that keep track of the IO's
@@ -260,10 +280,10 @@ public:
 		printf("|\n");
 	}
 
-	void printGNUPLOTOutputBytes(size_t fromBlock, size_t toBlock, FILE* f)
+	void printGNUPLOTOutputBytes(address_t fromBlock, address_t toBlock, FILE* f)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
-		for(size_t block = fromBlock; block < toBlock; ++block)
+		for(address_t block = fromBlock; block < toBlock; ++block)
 			{
 				for(int j = 0; j < blocksize; j++)
 				{
@@ -274,13 +294,13 @@ public:
 			}
 	}
 
-	typedef int (*colorfunc)(size_t, int, int);
+	typedef int (*colorfunc)(address_t, int, int);
 
-	void printGNUPLOTOutputBytes(size_t fromBlock, size_t toBlock, FILE* f, colorfunc colorize)
+	void printGNUPLOTOutputBytes(address_t fromBlock, address_t toBlock, FILE* f, colorfunc colorize)
 	{
 		if(fromBlock < 0 || toBlock > nrOfBlocks) return;
 
-		for(size_t block = fromBlock; block < toBlock; ++block)
+		for(address_t block = fromBlock; block < toBlock; ++block)
 			{
 				for(int j = 0; j < blocksize; j++)
 				{
@@ -293,7 +313,7 @@ public:
 
 	void reset()
 	{
-		for (int unsigned i = 0; i < nrOfBlocks; i++)
+		for (address_t i = 0; i < nrOfBlocks; i++)
 			isWritten[i] = false;
 		resetStats();
 
