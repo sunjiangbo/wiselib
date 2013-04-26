@@ -153,7 +153,12 @@ namespace wiselib {
 			//
 			// Block operations
 			//
-
+			
+			int read(block_data_t* buffer, address_t a) {
+				memcpy(buffer, get(a), BLOCK_SIZE);
+				return SUCCESS;
+			}
+			
 			int write(block_data_t* buffer, address_t a) {
 				update(buffer, a);
 				if(WRITE_THROUGH) {
@@ -165,10 +170,9 @@ namespace wiselib {
 				return SUCCESS;
 			}
 
-			int read(block_data_t* buffer, address_t a) {
-				memcpy(buffer, get(a), BLOCK_SIZE);
-				return SUCCESS;
-			}
+			
+			
+			//TODO: erase
 			
 			block_data_t* get(address_t a) {
 				size_type i = find(a);

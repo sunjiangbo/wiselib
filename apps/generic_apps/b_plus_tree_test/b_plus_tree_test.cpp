@@ -1,3 +1,4 @@
+#define PC_USE_RAM_BLOCK_MEMORY 1
 
 #ifdef ISENSE
 	#define DEBUG_ISENSE 1

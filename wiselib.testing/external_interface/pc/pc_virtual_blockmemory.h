@@ -59,7 +59,7 @@ public:
 		}
 		resetStats();
 	}
-
+/*
 private:
 
 	/*
@@ -67,7 +67,7 @@ private:
 	 * @param buffer a pointer to a buffer to place the data into.
 	 * @param block the block to read from.
 	 */
-	int read(block_data_t* buffer, address_t addr) {
+	/*int read(block_data_t* buffer, address_t addr) {
 		if (addr < 0 || addr >= nrOfBlocks || addr == NO_ADDRESS) {
 			printf("OVERFLOW VIRTUAL SD.  Attempted to access block %ju\n", (uintmax_t) addr);
 			return ERR_UNSPEC;
@@ -80,14 +80,14 @@ private:
 		for (int i = 0; i < blocksize; i++)
 			buffer[i] = memory[addr][i];
 		return SUCCESS;
-	}
+	}*/
 	
 	/*
 	 * Writes some data to a block.
 	 * @param buffer An array of data to be written. The array is assumed to be of size *blocksize*.
 	 * @param addr the number of the block to write into.
 	 */
-	int write(block_data_t* buffer, address_t addr) {
+	/*int write(block_data_t* buffer, address_t addr) {
 		++ios_;
 		++blocksWritten_;
 		duration_ += 8;
@@ -101,7 +101,7 @@ private:
 			isWritten[addr] = true;
 		}
 		return SUCCESS;
-	}
+	}*/
 	
 	
 public: 	
@@ -118,7 +118,25 @@ public:
 		duration_ += 2;
 
 		for (address_t i = 0; i < blocks; i++) {
-			read(buffer + blocksize * i, addr + i);
+			//read(buffer + blocksize * i, addr + i);
+			
+			if (addr + i < 0 || addr + i >= nrOfBlocks || addr + i == NO_ADDRESS) {
+				printf("OVERFLOW VIRTUAL SD.  Attempted to access block %ju\n", (uintmax_t) (addr + i));
+				return ERR_UNSPEC;
+			}
+			++ios_;
+			++blocksRead_;
+			duration_ += 4;
+			//else if(!isWritten[block]) std::cerr << "READING EMPTY BLOCK" << std::endl;
+
+			for (int j = 0; j < blocksize; j++)
+				(buffer + blocksize * i)[j] = memory[addr+i][j];
+			//return SUCCESS;
+			
+			
+			
+			
+			
 			duration_ -= 2;
 			--ios_;
 		}
@@ -131,7 +149,25 @@ public:
 		duration_ += 4;
 
 		for (address_t i = 0; i < blocks; i++) {
-			write(buffer + blocksize * i, addr + i);
+			//write(buffer + blocksize * i, addr + i);
+			
+			
+			++ios_;
+			++blocksWritten_;
+			duration_ += 8;
+			if (addr + i < 0 || addr + i >= nrOfBlocks || addr + i == NO_ADDRESS) {
+				printf("OVERFLOW VIRTUAL SD. Attempted to access block %ju\n", (uintmax_t) (addr + i));
+				return ERR_UNSPEC;
+			}
+			for (int j = 0; j < blocksize; j++)
+			{
+				memory[addr + i][j] = (buffer + blocksize * i)[j];
+				isWritten[addr + i] = true;
+			}
+			//return SUCCESS;
+			
+			
+			
 			duration_ -= 6;
 			--ios_;
 		}
@@ -142,7 +178,7 @@ public:
 		for(address_t i = 0; i < blocks; i++)
 		{			
 			if ( addr + i >= nrOfBlocks ) {
-				printf("OVERFLOW VIRTUAL SD. Attempted to access block %ju\n", (uintmax_t) addr + i);
+				printf("OVERFLOW VIRTUAL SD. Attempted to access block %ju\n", (uintmax_t) (addr + i));
 				return ERR_UNSPEC;
 			}
 			
