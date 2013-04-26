@@ -168,11 +168,10 @@ namespace wiselib {
 					assert(cache_[find(a)].used() && cache_[find(a)].address() == a);
 				}
 				return SUCCESS;
-			}
-
+			}			
 			
+			//TODO: int erase(address_t addr, address_t blocks = 1) {}
 			
-			//TODO: erase
 			
 			block_data_t* get(address_t a) {
 				size_type i = find(a);
@@ -279,13 +278,6 @@ namespace wiselib {
 				return lowest_idx;
 			}
 
-			int physical_write(block_data_t* data, address_t a) {
-				DBG("write %ld", a);
-				writes_++;
-				if(writes_ % 100 == 0) { print_stats();	}
-				return BlockMemory::write(data, a);
-			}
-
 			int physical_read(block_data_t* data, address_t a) {
 				DBG("read %ld", a);
 				reads_++;
@@ -293,6 +285,17 @@ namespace wiselib {
 				return BlockMemory::read(data, a);
 			}
 
+			int physical_write(block_data_t* data, address_t a) {
+				DBG("write %ld", a);
+				writes_++;
+				if(writes_ % 100 == 0) { print_stats();	}
+				return BlockMemory::write(data, a);
+			}
+
+			//TODO: physical_erase
+
+
+			
 
 			void print_stats() {
 				DBG("CBM phys reads: %ld phys writes: %ld", reads_, writes_);
