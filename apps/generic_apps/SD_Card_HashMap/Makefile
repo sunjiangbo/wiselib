@@ -14,3 +14,22 @@ export APP_SRC=hash_map_test.cpp
 export BIN_OUT=hashMapTest
 
 include ../Makefile
+
+both_: pc_ ar_
+
+ar_: compile flash run
+
+pc_: pc
+	out/pc/./hashMapTest
+
+compile:
+	make arduino BOARD=mega2560
+
+flash:
+	killall screen; make flash-arduino BOARD=mega2560 PORT=/dev/ttyACM0
+
+run:
+	killall screen; make monitor-arduino BOARD=mega2560 PORT=/dev/ttyACM0
+
+clean4git:
+	rm -f *~; rm -rf out;

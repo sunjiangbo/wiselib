@@ -1,5 +1,6 @@
 //define DEBUG
-#define USE_FILE_BLOCK_MEMORY 1
+//#define USE_FILE_BLOCK_MEMORY 1
+#define USE_RAM_BLOCK_MEMORY 1
 
 #include <external_interface/external_interface.h>
 #include "util/serialization/simple_types.h"

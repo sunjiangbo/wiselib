@@ -113,7 +113,7 @@ public:
 	void init(){}
 	
 	/* Wraps the read method from above*/
-	int read(block_data_t* buffer, address_t addr, address_t blocks) {
+	int read(block_data_t* buffer, address_t addr, address_t blocks = 1) {
 		++ios_;
 		duration_ += 2;
 
@@ -126,7 +126,7 @@ public:
 	}
 
 	/* Wraps the write method from above*/
-	int write(block_data_t* buffer, address_t addr, address_t blocks) {
+	int write(block_data_t* buffer, address_t addr, address_t blocks = 1) {
 		++ios_;
 		duration_ += 4;
 
@@ -138,7 +138,7 @@ public:
 		return SUCCESS;
 	}
 
-	int erase(address_t addr, address_t blocks) {
+	int erase(address_t addr, address_t blocks = 1) {
 		for(address_t i = 0; i < blocks; i++)
 		{			
 			if ( addr + i >= nrOfBlocks ) {
