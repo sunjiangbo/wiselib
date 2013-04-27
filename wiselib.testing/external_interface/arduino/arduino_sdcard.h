@@ -58,6 +58,7 @@ namespace wiselib {
 			enum {
 				SUCCESS = OsModel::SUCCESS,
 				ERR_IO = OsModel::ERR_IO,
+				ERR_NOMEM = OsModel::ERR_NOMEM,
 				ERR_UNSPEC = OsModel::ERR_UNSPEC
 			};
 			

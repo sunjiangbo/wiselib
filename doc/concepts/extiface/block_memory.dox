@@ -29,6 +29,7 @@ namespace concepts {
 			enum {
 				SUCCESS = OsModel::SUCCESS, 
 				ERR_IO = OsModel::ERR_IO, ///< for IO errors with the block memory device
+				ERR_NOMEM = OsModel::ERR_NOMEM,
 				ERR_UNSPEC = OsModel::ERR_UNSPEC,
 			};
 			
