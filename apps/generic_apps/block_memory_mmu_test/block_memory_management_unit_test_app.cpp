@@ -55,35 +55,26 @@ class BDMMUTestApp
 	template <typename MMU>
 	bool test_batch_block_alloc(MMU mmu, size_t* allocated_blocks, size_t number_tries, size_t number_expected) {
 		
+		debug_->debug("test_batch_block_alloc = ");
+		
 		size_t number_successes = 0;
+		int status = -2;
 		
 		for (size_t i = 0; i < number_tries; i++) {
 
-			if (mmu.block_alloc(&allocated_blocks[i]) == SUCCESS) {
-			
-				#ifdef DEF_TEST_EXPLICIT_OUTPUT
-				debug_->debug("Allocated virtual block: %u.", allocated_blocks[i]);
-				debug_->debug("Its real block number is: %u.\n", mmu.vr(allocated_blocks[i]));
-				#endif //DEF_TEST_EXPLICIT_OUTPUT
-				
+			status = mmu.block_alloc(&allocated_blocks[i]);
+
+			if (status == SUCCESS) {				
 				++number_successes;
+			} else if (i >= number_expected && status == ERR_NOMEM) {
+				allocated_blocks[i] = NO_ADDRESS;
 			} else {
 				allocated_blocks[i] = NO_ADDRESS;
-				
-				#ifdef DEF_TEST_EXPLICIT_OUTPUT
-				debug_->debug("Virtual block could not be allocated.\n");
-				#endif //DEF_TEST_EXPLICIT_OUTPUT
-
+				return error_code(status, true);
 			}
 		}
 		
-		bool success = (number_successes == number_expected) ? true : false; 
-		
-		#ifdef DEF_TEST_MINIMAL_OUTPUT
-		debug_->debug("test_batch_block_alloc = %d", success);
-		#endif //DEF_TEST_MINIMAL_OUTPUT
-		
-		return success;
+		return (number_successes == number_expected ? error_code(SUCCESS, true) : error_code(-2, true)); 
 	}
 	
 	/* Read 'number' virtual block numbers from 'allocated_blocks' and free those blocks. NO_ADDRESS is interpreted
@@ -91,38 +82,26 @@ class BDMMUTestApp
 	template <typename MMU>
 	bool test_batch_block_free(MMU mmu, size_t* allocated_blocks, size_t number_tries, size_t number_expected) {
 	
+		debug_->debug("test_batch_block_free = ");
+		
 		size_t number_successes = 0;
+		int status = -2;
 	
 		for (size_t i = 0; i < number_tries; i++) {
 		
 			if (allocated_blocks[i] != NO_ADDRESS) {
 		
-				if (mmu.block_free(allocated_blocks[i]) == SUCCESS) {
-					
-					#ifdef DEF_TEST_EXPLICIT_OUTPUT
-					debug_->debug("Freed virtual block: %u", allocated_blocks[i]);
-					#endif //DEF_TEST_EXPLICIT_OUTPUT
-					
+				status = mmu.block_free(allocated_blocks[i]);
+		
+				if (status == SUCCESS) {
 					++number_successes;
 				} else {
-					#ifdef DEF_TEST_EXPLICIT_OUTPUT
-					debug_->debug("Virtual block %u could not be freed.", allocated_blocks[i]);
-					#endif //DEF_TEST_EXPLICIT_OUTPUT
+					return error_code(status, true);
 				}
-			} else {
-				#ifdef DEF_TEST_EXPLICIT_OUTPUT
-				debug_->debug("No virtual block to free.");
-				#endif //DEF_TEST_EXPLICIT_OUTPUT
 			}
 		}
 		
-		bool success = (number_successes == number_expected) ? true : false; 
-		
-		#ifdef DEF_TEST_MINIMAL_OUTPUT
-		debug_->debug("test_batch_block_free = %d", success);
-		#endif //DEF_TEST_MINIMAL_OUTPUT
-		
-		return success;
+		return (number_successes == number_expected ? error_code(SUCCESS, true) : error_code(-2, true));
 	}
 	
 	template <typename MMU>
@@ -179,12 +158,6 @@ class BDMMUTestApp
 		debug_->debug("\n\n >>> Launching application! <<< \n\n" );
 		sd_ = &wiselib::FacetProvider<OsModel, OsModel::BlockMemory>::get_facet(value);
 		sd_->init();
-		
-		bool all_tests_successful = true;
-		bool test0 = true;
-		bool test1 = true;
-		bool test2 = true;
-		bool test3 = true;
 	
 		//MMU SETUP
 		MMU_0_t mmu_0(sd_, debug_, false, true);
@@ -197,7 +170,12 @@ class BDMMUTestApp
 		debug_->debug("Stack size = %d", mmu_0.STACK_SIZE);
 		debug_->debug("MMU administers %d virtual block(s).", mmu_0.TOTAL_VBLOCKS);
 		debug_->debug("Reserved %d virtual block(s) for special purposes. (Starting from virtual block address 0.)\n", mmu_0.get_reserved());
-
+		
+		bool all_tests_successful = true;
+		bool test0 = true;
+		bool test1 = true;
+		bool test2 = true;
+		
 		//TESTING
 		size_t number_of_blocks = 5;
 		size_t allocated_blocks[number_of_blocks];
@@ -206,7 +184,7 @@ class BDMMUTestApp
 		test1 = test_batch_block_free<MMU_0_t>(mmu_0, allocated_blocks, number_of_blocks, 5);
 		test2 = test_erase_write_read<MMU_0_t>(mmu_0, 0, MMU_0_t::BLOCK_SIZE);
 		
-		all_tests_successful = test0 && test1 && test2 && test3;
+		all_tests_successful = test0 && test1 && test2;
 		
 		//PRINT OVERALL RESULT
 		debug_->debug("all_tests_successful = %d", all_tests_successful);

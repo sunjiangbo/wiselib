@@ -376,10 +376,11 @@ struct BDMMU_Template_Wrapper {
 		public:
 			/* These constants were not placed into an enum because an enum uses only int values, 
 			which may overflow if values from a larger datatype are used*/
-			static const size_t BLOCKS = HI - LO + 1;			// Total number of virtual blocks available in this MMU
+			static const size_t BLOCKS = HI - LO + 1;	// Total number of virtual blocks available in this MMU
 			static const size_t MMU_DATA_SIZE = 1; 		// size (in real blocks) of the MMU on the block device
 			
-			/* Size of Stack in real blocks. Note that the STACK_SIZE is about 1% larger 
+			/* 
+			 * Size of Stack in real blocks. Note that the STACK_SIZE is about 1% larger 
 			 * than it needs to be. +1 is added for the stack's metadata, another +1 is added 
 			 * as a kind of manual rounding up of the value produced by the division, and +2 
 			 * is for the BUFFERSIZE of the stack
