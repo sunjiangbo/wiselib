@@ -18,7 +18,7 @@ typedef wiselib::OSMODEL OsModel;
 class BDMMUTestApp
 {
    public:
-	typedef typename BDMMU_Template_Wrapper<OsModel, OsModel::BlockMemory, OsModel::Debug>::BDMMU<0, 11, 1, 1> MMU_0_t;
+	typedef typename BDMMU<OsModel, OsModel::BlockMemory, OsModel::Debug>::BDMMU_i<0, 11, 1, 1> MMU_0_t;
 	typedef typename OsModel::size_t size_t;
 	typedef typename MMU_0_t::address_t address_t;
 	
@@ -31,7 +31,9 @@ class BDMMUTestApp
 	};
 	
 	bool error_code(int code, bool print = false) {
+		
 		switch (code) {
+			
 			case SUCCESS:
 				if(print) debug_->debug("SUCCESS \n");
 				return true;

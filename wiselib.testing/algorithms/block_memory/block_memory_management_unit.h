@@ -33,14 +33,14 @@ template <typename OsModel_P,
 	typename BlockMemory_P = typename OsModel_P::BlockMemory,
 	typename Debug_P = typename OsModel_P::Debug>
 	
-struct BDMMU_Template_Wrapper {
-			
+class BDMMU {
+   public:		
 	template <typename BlockMemory_P::address_t LO, 
 		typename BlockMemory_P::address_t HI,
 		typename OsModel_P::size_t reserved = 0, 
 		typename OsModel_P::size_t BLOCK_VIRTUALIZATION=1>
 
-	class BDMMU {
+	class BDMMU_i {
 
 		public:
 			typedef OsModel_P OsModel;
@@ -48,7 +48,7 @@ struct BDMMU_Template_Wrapper {
 			typedef Debug_P Debug;
 			typedef BlockMemory_P BlockMemory;
 			
-			typedef BDMMU<LO, HI, reserved, BLOCK_VIRTUALIZATION> self_type;
+			typedef BDMMU_i<LO, HI, reserved, BLOCK_VIRTUALIZATION> self_type;
 			typedef self_type* self_pointer_t;
 			typedef typename BlockMemory::block_data_t block_data_t;
 			typedef typename BlockMemory::address_t address_t;
@@ -74,7 +74,7 @@ struct BDMMU_Template_Wrapper {
 
 			
 			
-			BDMMU(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, int *restoreSuccess = 0) : 		
+			BDMMU_i(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, int *restoreSuccess = 0) : 		
 
 				bm_(bm_), 
 				debug_(debug_),
@@ -108,7 +108,7 @@ struct BDMMU_Template_Wrapper {
 				}
 			}
 
-			~BDMMU() {
+			~BDMMU_i() {
 				#ifdef BDMMU_DEBUG
 					debug_->debug("\n BDMMU destructor...");
 				#endif
@@ -197,7 +197,8 @@ struct BDMMU_Template_Wrapper {
 				}
 
 			}
-
+			
+			//TODO: Should you set the vBlockNo to NO_ADDRESS when you are done? Otherwise make a block_free() const
 			int block_free(address_t vBlockNo) {
 				if(vBlockNo >= 0 && vBlockNo < TOTAL_VBLOCKS) {
 	
