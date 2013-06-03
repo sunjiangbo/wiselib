@@ -54,64 +54,37 @@ public:
 	/*
 	 * Generates
 	 */
-	VirtualSD() {
+	/*VirtualSD() {
 		for (int i = 0; i < nrOfBlocks; i++) {
 			isWritten[i] = false;
 		}
 		resetStats();
-	}
-/*
-private:
-
-	/*
-	 * Reads some data from a block and stores it into a buffer.
-	 * @param buffer a pointer to a buffer to place the data into.
-	 * @param block the block to read from.
-	 */
-	/*int read(block_data_t* buffer, address_t addr) {
-		if (addr < 0 || addr >= nrOfBlocks || addr == NO_ADDRESS) {
-			printf("OVERFLOW VIRTUAL SD.  Attempted to access block %ju\n", (uintmax_t) addr);
-			return ERR_UNSPEC;
-		}
-		++ios_;
-		++blocksRead_;
-		duration_ += 4;
-		//else if(!isWritten[block]) std::cerr << "READING EMPTY BLOCK" << std::endl;
-
-		for (int i = 0; i < blocksize; i++)
-			buffer[i] = memory[addr][i];
-		return SUCCESS;
-	}*/
-	
-	/*
-	 * Writes some data to a block.
-	 * @param buffer An array of data to be written. The array is assumed to be of size *blocksize*.
-	 * @param addr the number of the block to write into.
-	 */
-	/*int write(block_data_t* buffer, address_t addr) {
-		++ios_;
-		++blocksWritten_;
-		duration_ += 8;
-		if (addr < 0 || addr >= nrOfBlocks || addr == NO_ADDRESS) {
-			printf("OVERFLOW VIRTUAL SD. Attempted to access block %ju\n", (uintmax_t) addr);
-			return ERR_UNSPEC;
-		}
-		for (int i = 0; i < blocksize; i++)
-		{
-			memory[addr][i] = buffer[i];
-			isWritten[addr] = true;
-		}
-		return SUCCESS;
 	}*/
 	
 	
-public: 	
+//public: 	
 	//BLOCK MEMORY CONCEPT
 	
 	/*
 	 * No special initilization of hardware required. 
 	 */
-	void init(){}
+	int init(){
+		printf("\n\n INIT VIRTUAL SD HERE !!!! :) \n\n");
+		
+		for (int i = 0; i < nrOfBlocks; i++) {
+			isWritten[i] = false;
+		}
+		//memset(isWritten, false, nrOfBlocks); //TODO: Cleaner, just check that it's right
+		
+		resetStats();
+		return SUCCESS;
+		printf("this = %x\n", this);
+	}
+	
+	/*void init(typename OsModel::AppMainParameter& value){ //TODO: This ok like this?
+	
+		this->init();
+	}*/
 	
 	/* Wraps the read method from above*/
 	int read(block_data_t* buffer, address_t addr, address_t blocks = 1) {
@@ -145,17 +118,29 @@ public:
 	}
 
 	/* Wraps the write method from above*/
-	int write(block_data_t* buffer, address_t addr, address_t blocks = 1) {
+	int write(block_data_t* buffer, address_t addr, address_t blocks = 1) { //TODO: Clean up these printfs
+printf("VIRT WRITE\n"); //segfault happens after this line
+
+printf("buffer = %x\n", static_cast<unsigned char *>(buffer));
+printf("addr = %u\n", static_cast<uint64_t>(addr));
+printf("blocks = %u\n", blocks );
+
+	printf("blocksWritten_ = %d\n", this->blocksWritten_);
+	printf("blocksRead_ = %d\n", this->blocksRead_);
+	printf("ios_ = %d\n", this->ios_);
+	printf("duration_ = %d\n", this->duration_);
+	
+printf("VIRT WRITE - foo\n"); //segfault happens before this line
 		++ios_;
 		duration_ += 4;
-
+printf("VIRT WRITE - bar\n");
 		for (address_t i = 0; i < blocks; i++) {
 			//write(buffer + blocksize * i, addr + i);
-			
-			
+					
 			++ios_;
 			++blocksWritten_;
 			duration_ += 8;
+			
 			if (addr + i < 0 || addr + i >= nrOfBlocks || addr + i == NO_ADDRESS) {
 				printf("OVERFLOW VIRTUAL SD. Attempted to access block %ju\n", (uintmax_t) (addr + i));
 				return ERR_UNSPEC;

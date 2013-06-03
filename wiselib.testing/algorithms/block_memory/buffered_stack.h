@@ -32,7 +32,9 @@ using namespace wiselib;
   *
   * ACHTUNG: Der zugeteilte Speicherbereich muss innerhalb des zulaessigen Bereichs des Blockmemorys liegen. Andernfalls kann es zu undefinierten Verhalten (Auch Datenverlust auf dem kompletten Speicher) kommen!
   */
-template<typename Type_P, uint8_t BUFFERSIZE=2, bool PERSISTENT=true>
+  
+//TODO: The type of BlockMemory should be a template parameter...
+template<typename Type_P, uint8_t BUFFERSIZE=2, bool PERSISTENT=true> 
 class BufferedStack{
     public:
 	typedef wiselib::OSMODEL Os;
@@ -51,8 +53,8 @@ class BufferedStack{
 
 	address_t blocksOnSd_;
 
-	const address_t minBlock_;
-	const address_t maxBlock_;
+	/*const*/ address_t minBlock_; //TODO : Would be nice to make these back into const
+	/*const*/ address_t maxBlock_;
 
 	uint8_t cleanBlocks_;
 	uint8_t unmodBlocks_;
@@ -60,7 +62,56 @@ class BufferedStack{
 	Os::Debug::self_pointer_t debug_;
 	Os::BlockMemory::self_pointer_t sd_;
     public:
-	BufferedStack(Os::BlockMemory::self_pointer_t sd, address_t beginMem, address_t endMem, bool forceNew=false): sd_(sd), minBlock_(beginMem+1), maxBlock_(endMem){
+	int init(Os::BlockMemory::self_pointer_t sd, address_t beginMem, address_t endMem, bool forceNew=false) {
+		this->sd_ = sd_;
+		this->minBlock_ = beginMem+1;
+		this->maxBlock_ = endMem;
+		
+		if(BUFFERSIZE<1){ //da buffersize konstant=>kein Rechenaufwand
+			debug_->debug("EXTERNAL STACK ERROR: buffersize has to be at least 1!");
+			exit(1);
+			// ERROR buffer muss mindestens 1 sein
+	    	}
+	    	
+		if(!PERSISTENT || forceNew){
+			initNewStack();
+		} else {
+			/**
+			 * Wiederherstellen des Stacks aus persistenten Daten der SD
+			 */
+			sd_->read(buffer_, minBlock_-1, 1);
+
+			blockRead<uint16_t>(buffer_,0,&itemsInBuffer_);
+			uint64_t tmpBlocksOnSd=0; blockRead<uint64_t>(buffer_,1,&tmpBlocksOnSd); blocksOnSd_=(address_t)tmpBlocksOnSd;
+
+			uint64_t tmpMinBlock=0;   blockRead<uint64_t>(buffer_,2,&tmpMinBlock);
+			uint64_t tmpMaxBlock=0;   blockRead<uint64_t>(buffer_,3,&tmpMaxBlock);
+			uint64_t tmpSizeof=0;     blockRead<uint64_t>(buffer_,4,&tmpSizeof);
+			uint64_t tmpValcode=0;    blockRead<uint64_t>(buffer_,5,&tmpValcode);
+
+			address_t valCode = itemsInBuffer_+blocksOnSd_;
+			if(tmpMinBlock!= minBlock_ || tmpMaxBlock != maxBlock_ || tmpSizeof != sizeof(T) || tmpValcode != valCode){
+				//INKONSISTENT => Neuen Stack erstellen
+				initNewStack();
+			} else {
+				//KONSISTENT => Buffer wiederherstellen
+				if(itemsInBuffer_>0){
+					sd_->read(buffer_,minBlock_+blocksOnSd_, 1);
+				}
+#ifdef DEBUG
+				debug_->debug("EXTERNAL_QUEUE INFO: reloaded old stack");
+#endif
+			}
+
+		}
+		cleanBlocks_=0;
+		unmodBlocks_=0;
+	
+	}
+	
+	BufferedStack() {}
+	
+	/*BufferedStack(Os::BlockMemory::self_pointer_t sd, address_t beginMem, address_t endMem, bool forceNew=false): sd_(sd), minBlock_(beginMem+1), maxBlock_(endMem){
 	    if(BUFFERSIZE<1){ //da buffersize konstant=>kein Rechenaufwand
 		debug_->debug("EXTERNAL STACK ERROR: buffersize has to be at least 1!");
 		exit(1);
@@ -69,9 +120,9 @@ class BufferedStack{
 	    if(!PERSISTENT || forceNew){
 		initNewStack();
 	    } else {
-		/**
-		 * Wiederherstellen des Stacks aus persistenten Daten der SD
-		 */
+
+		//Wiederherstellen des Stacks aus persistenten Daten der SD
+
 		sd_->read(buffer_, minBlock_-1, 1);
 
 		blockRead<uint16_t>(buffer_,0,&itemsInBuffer_);
@@ -99,16 +150,16 @@ class BufferedStack{
 	    }
 	    cleanBlocks_=0;
 	    unmodBlocks_=0;
-	}
+	}*/
 
 
-	~BufferedStack(){
+	~BufferedStack(){/*
 	    if(PERSISTENT){
 		flush(buffer_);
 	    }
 #ifdef DEBUG
 	    debug_->debug("EXTERNAL_STACK INFO: destroyed stack");
-#endif
+#endif*/
 	}
 
 	/**

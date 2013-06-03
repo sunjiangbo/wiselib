@@ -69,12 +69,41 @@ class BDMMU {
 				ERR_UNSPEC = BlockMemory::ERR_UNSPEC,
 			};
 			
-			
-			//typedef self_pointer_t MMU_ptr;
+			int init(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, int *restoreSuccess = 0) {
+				bm_ = bm_;
+				debug_ = debug_;
+				next_vblock = reserved;
 
+				persistent = persistent;	
+
+				stack.init(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
+				
+				assert(BlockMemory::BLOCK_SIZE >= 64); //TODO: Just do this using a static assert instead? Do static asserts work on all platforms?
+
+				if(restore) {
+					debug_->debug("restore\n");
+					uint32_t checkvalue = 42;
+					uint32_t data[BlockMemory::BLOCK_SIZE/sizeof(uint32_t)];
+
+					bm_->read((block_data_t*) data, LO, 1);
+
+					//if stored data matches the given parameters then the data is ok
+					if(data[0] == checkvalue && data[1] == checkvalue && data[2] == BLOCK_VIRTUALIZATION 
+					&& data[3] == TOTAL_VBLOCKS && data[4] == BlockMemory::BLOCK_SIZE && data[5] == MMU_DATA_SIZE 
+					&& data[6] == STACK_SIZE && data[7] == next_vblock && data[8] == FIRST_VBLOCK_AT 
+					&& data[9] == HI) {
+	
+						if (restoreSuccess != 0) *restoreSuccess = SUCCESS;
+					} else {
+						if (restoreSuccess != 0) *restoreSuccess = ERR_UNSPEC;
+					}
+
+				}
+				return SUCCESS;
+			}
 			
 			
-			BDMMU_i(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, int *restoreSuccess = 0) : 		
+			/*BDMMU_i(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, int *restoreSuccess = 0) : 		
 
 				bm_(bm_), 
 				debug_(debug_),
@@ -82,7 +111,7 @@ class BDMMU {
 
 				persistent(persistent),	
 
-				stack(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore)
+				stack.init(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
 
 			{ 
 				assert(BlockMemory::BLOCK_SIZE >= 64); //TODO: Just do this using a static assert instead? Do static asserts work on all platforms?
@@ -106,13 +135,16 @@ class BDMMU {
 					}
 
 				}
-			}
+			}*/
+			
+			//TODO: You have to create a method to shut the MMU down with data persistence..
 
-			~BDMMU_i() {
+			/*~BDMMU_i() {
 				#ifdef BDMMU_DEBUG
 					debug_->debug("\n BDMMU destructor...");
 				#endif
-
+				
+				
 				address_t checkvalue = 42;
 				address_t data[BlockMemory::BLOCK_SIZE/sizeof(address_t)]; // = {0};
 
@@ -137,13 +169,13 @@ class BDMMU {
 					}
 
 				}
-
+debug_->debug("foo");
 				#ifdef BDMMU_DEBUG
 				int x = 
 				#endif
 
 				bm_->write((block_data_t *) data, 0, 1);
-
+debug_->debug("bar");
 				#ifdef BDMMU_DEBUG
 					if (x == SUCCESS) {
 						debug_->debug("BDMMU Destructor: Write to block memory device successful.\n");
@@ -152,7 +184,7 @@ class BDMMU {
 					}
 				#endif
 
-			}
+			}*/
 			
 			int block_alloc(address_t *vBlockNo) {
 				address_t p;

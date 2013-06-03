@@ -15,11 +15,25 @@ export BIN_OUT=block_memory_management_unit_test_app
 
 include ../Makefile
 
+# all: pc_
+
 both_: pc_ ar_
 
 ar_: compile flash run
 
 pc_: pc
+	out/pc/./block_memory_management_unit_test_app
+
+debug: 
+	make pc PC_COMPILE_DEBUG=1
+
+debug_: debug
+	gdb out/pc/./block_memory_management_unit_test_app 
+
+gdb:	
+	gdb out/pc/./block_memory_management_unit_test_app
+
+runpc:
 	out/pc/./block_memory_management_unit_test_app
 
 compile:

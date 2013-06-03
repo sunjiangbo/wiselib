@@ -16,14 +16,14 @@ namespace concepts {
 			typedef ... self_type;
 			typedef ... self_pointer_t;
 			typedef ... block_data_t;
-			typedef ... address_t;  /// always refers to a block number or an amount of blocks
+			typedef ... address_t;  /// always refers to a block number, or an amount of blocks
 			
 			enum {
 				BLOCK_SIZE = 512, ///< size of block in byte (usable payload)
 			};
 			
 			enum { 
-				NO_ADDRESS = (address_t)(-1), ///< address_t value denoting an invalid address
+				NO_ADDRESS = (address_t)(-1), ///< address_t value denoting an invalid address, essentially a NULL-Value
 			};
 			
 			enum {
@@ -34,15 +34,17 @@ namespace concepts {
 			};
 			
 			/* 
-			 * Required to start block_memory. May be an empty method in some implementations.
+			 * Any setup / initialization needed to get the block memory device initialized. This may be an empty 
+			 * method in some implementations.
+			 * @return SUCCESS iff the block memory device was initialized successfully
 			 */
-			void init();
+			int init();
 			
 			/**
 			 * Reads data from multiple sucessive blocks at once and stores it into a buffer.
 			 * @param buffer The buffer to store the data into. It is assumed to be of lenth length*blocksize
 			 * @param addr The number of the block where to start reading from.
-			 * @param blocks the number of blocks to read.
+			 * @param blocks the number of blocks to read. (blocks==0 allowed)
 			 * @return SUCCESS iff the block was read successfully
 			 */
 			int read(block_data_t* buffer, address_t addr, address_t blocks = 1);
@@ -50,13 +52,15 @@ namespace concepts {
 			/**
 			 * Writes data from a big array into multiple successive blocks.
 			 * @param buffer The array of data to be written. The array is assumed to be of size blocks*blocksize.
-			 * @addr The number of the block where to start writing the data.
-			 * @blocks The numer of blocks to write into.
+			 * @param addr The number of the block where to start writing the data.
+			 * @param blocks The number of blocks to write into. (blocks==0 allowed)
 			 * @return SUCCESS iff the block was written successfully
 			 */
 			int write(block_data_t* buffer, address_t addr, address_t blocks = 1);
 			
 			/**
+			 * @param addr The number of the first block to be erased.
+			 * @param blocks The number of blocks to erase. (blocks==0 allowed)
 			 * @return SUCCESS iff the block was erased successfully
 			 */
 			int erase(address_t addr, address_t blocks = 1);

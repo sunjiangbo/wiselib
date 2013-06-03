@@ -3,7 +3,7 @@
  */
 
 #define USE_RAM_BLOCK_MEMORY 1 //TODO: Get rid of this once you've fixed the PC_OsModel's Block memory
-//#define DEBUG
+#define DEBUG
 
 #include <external_interface/external_interface.h>
 #include <algorithms/block_memory/block_memory_management_unit.h>
@@ -143,15 +143,7 @@ class BDMMUTestApp
 		
 		return error_code(SUCCESS, true);
 	}
-	
-	/* 1024 byte array
-	unsigned char txt_in[] = "1000000 1000001 1000002 1000003 1000004 1000005 1000006 1000007 1000008 1000009 1000010 1000011 1000012 1000013 1000014 1000015 1000016 1000017 1000018 1000019 1000020 1000021 1000022 1000023 1000024 1000025 1000026 1000027 1000028 1000029 1000030 1000031 1000032 1000033 1000034 1000035 1000036 1000037 1000038 1000039 1000040 1000041 1000042 1000043 1000044 1000045 1000046 1000047 1000048 1000049 1000050 1000051 1000052 1000053 1000054 1000055 1000056 1000057 1000058 1000059 1000060 1000061 1000062 1000063 1000064 1000065 1000066 1000067 1000068 1000069 1000070 1000071 1000072 1000073 1000074 1000075 1000076 1000077 1000078 1000079 1000080 1000081 1000082 1000083 1000084 1000085 1000086 1000087 1000088 1000089 1000090 1000091 1000092 1000093 1000094 1000095 1000096 1000097 1000098 1000099 1000100 1000101 1000102 1000103 1000104 1000105 1000106 1000107 1000108 1000109 1000110 1000111 1000112 1000113 1000114 1000115 1000116 1000117 1000118 1000119 1000120 1000121 1000122 1000123 1000124 1000125 1000126 ENDMES.";
-	512 byte array
-	unsigned char txt_in[] = "1000000 1000001 1000002 1000003 1000004 1000005 1000006 1000007 1000008 1000009 1000010 1000011 1000012 1000013 1000014 1000015 1000016 1000017 1000018 1000019 1000020 1000021 1000022 1000023 1000024 1000025 1000026 1000027 1000028 1000029 1000030 1000031 1000032 1000033 1000034 1000035 1000036 1000037 1000038 1000039 1000040 1000041 1000042 1000043 1000044 1000045 1000046 1000047 1000048 1000049 1000050 1000051 1000052 1000053 1000054 1000055 1000056 1000057 1000058 1000059 1000060 1000061 1000062 ENDMES.";
-	*/
-	
-	
-	
+
 	
 	void init( OsModel::AppMainParameter& value )
 	{
@@ -159,10 +151,13 @@ class BDMMUTestApp
 		debug_ = &wiselib::FacetProvider<OsModel, OsModel::Debug>::get_facet( value );
 		debug_->debug("\n\n >>> Launching application! <<< \n\n" );
 		sd_ = &wiselib::FacetProvider<OsModel, OsModel::BlockMemory>::get_facet(value);
+		printf("sd_ = %x\n", sd_);
 		sd_->init();
 	
 		//MMU SETUP
-		MMU_0_t mmu_0(sd_, debug_, false, true);
+//		MMU_0_t mmu_0(sd_, debug_, false, true);
+//		MMU_0_t mmu_0();
+		mmu_0.init(sd_, debug_, false, true);
 		
 		//PRINT MMU PROPERTIES
 			/*debug_->debug("sd_ = %x", sd_);
@@ -181,7 +176,7 @@ class BDMMUTestApp
 		//TESTING
 		size_t number_of_blocks = 5;
 		size_t allocated_blocks[number_of_blocks];
-
+	
 		test0 = test_batch_block_alloc<MMU_0_t>(mmu_0, allocated_blocks, number_of_blocks, 5);
 		test1 = test_batch_block_free<MMU_0_t>(mmu_0, allocated_blocks, number_of_blocks, 5);
 		test2 = test_erase_write_read<MMU_0_t>(mmu_0, 0, MMU_0_t::BLOCK_SIZE);
@@ -204,6 +199,7 @@ class BDMMUTestApp
 
 	OsModel::Debug::self_pointer_t debug_;
 	OsModel::BlockMemory::self_pointer_t sd_;
+	MMU_0_t mmu_0;
 };
 // --------------------------------------------------------------------------
 wiselib::WiselibApplication<OsModel, BDMMUTestApp> mmu_test;
