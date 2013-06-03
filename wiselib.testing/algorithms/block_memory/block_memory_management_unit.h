@@ -70,13 +70,13 @@ class BDMMU {
 			};
 			
 			int init(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, int *restoreSuccess = 0) {
-				bm_ = bm_;
-				debug_ = debug_;
-				next_vblock = reserved;
+				this->bm_ = bm_;
+				this->debug_ = debug_;
+				next_vblock_ = reserved;
 
-				persistent = persistent;	
+				this->persistent_ = persistent;	
 
-				stack.init(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
+				stack_.init(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
 				
 				assert(BlockMemory::BLOCK_SIZE >= 64); //TODO: Just do this using a static assert instead? Do static asserts work on all platforms?
 
@@ -90,7 +90,7 @@ class BDMMU {
 					//if stored data matches the given parameters then the data is ok
 					if(data[0] == checkvalue && data[1] == checkvalue && data[2] == BLOCK_VIRTUALIZATION 
 					&& data[3] == TOTAL_VBLOCKS && data[4] == BlockMemory::BLOCK_SIZE && data[5] == MMU_DATA_SIZE 
-					&& data[6] == STACK_SIZE && data[7] == next_vblock && data[8] == FIRST_VBLOCK_AT 
+					&& data[6] == STACK_SIZE && data[7] == next_vblock_ && data[8] == FIRST_VBLOCK_AT 
 					&& data[9] == HI) {
 	
 						if (restoreSuccess != 0) *restoreSuccess = SUCCESS;
@@ -107,11 +107,11 @@ class BDMMU {
 
 				bm_(bm_), 
 				debug_(debug_),
-				next_vblock(reserved), 
+				next_vblock_(reserved), 
 
-				persistent(persistent),	
+				persistent_(persistent),	
 
-				stack.init(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
+				stack_.init(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
 
 			{ 
 				assert(BlockMemory::BLOCK_SIZE >= 64); //TODO: Just do this using a static assert instead? Do static asserts work on all platforms?
@@ -126,7 +126,7 @@ class BDMMU {
 					//if stored data matches the given parameters then the data is ok
 					if(data[0] == checkvalue && data[1] == checkvalue && data[2] == BLOCK_VIRTUALIZATION 
 					&& data[3] == TOTAL_VBLOCKS && data[4] == BlockMemory::BLOCK_SIZE && data[5] == MMU_DATA_SIZE 
-					&& data[6] == STACK_SIZE && data[7] == next_vblock && data[8] == FIRST_VBLOCK_AT 
+					&& data[6] == STACK_SIZE && data[7] == next_vblock_ && data[8] == FIRST_VBLOCK_AT 
 					&& data[9] == HI) {
 	
 						if (restoreSuccess != 0) *restoreSuccess = SUCCESS;
@@ -152,7 +152,7 @@ class BDMMU {
 					data[i] = (address_t) 0;
 				}
 
-				if(persistent) {
+				if(persistent_) {
 					data[0] = checkvalue;
 					data[1] = checkvalue;
 					data[2] = BLOCK_VIRTUALIZATION;
@@ -160,7 +160,7 @@ class BDMMU {
 					data[4] = BlockMemory::BLOCK_SIZE;
 					data[5] = MMU_DATA_SIZE;
 					data[6] = STACK_SIZE;
-					data[7] = next_vblock;
+					data[7] = next_vblock_;
 					data[8] = FIRST_VBLOCK_AT;
 					data[9] = HI;
 				} else {
@@ -188,7 +188,7 @@ debug_->debug("bar");
 			
 			int block_alloc(address_t *vBlockNo) {
 				address_t p;
-				int r = stack.pop(&p);
+				int r = stack_.pop(&p);
 
 				if (r == SUCCESS) { // The stack contains a free memory block
 					*vBlockNo = p;
@@ -201,11 +201,11 @@ debug_->debug("bar");
 				//The BlockDevice is funtioning correctly, but there are no block numbers of free blocks on the stack
 				else {
 	
-					if(stack.isEmpty()) {
+					if(stack_.isEmpty()) {
 						// The stack doesn't contain a free memory block, but memory space which has never been used yet, is available
-						if (next_vblock < TOTAL_VBLOCKS) { 
-							*vBlockNo = next_vblock;
-							next_vblock++;
+						if (next_vblock_ < TOTAL_VBLOCKS) { 
+							*vBlockNo = next_vblock_;
+							next_vblock_++;
 							
 							#ifdef BDMMU_DEBUG
 								debug_->debug("block_alloc: success(%u)", *vBlockNo);
@@ -234,7 +234,7 @@ debug_->debug("bar");
 			int block_free(address_t vBlockNo) {
 				if(vBlockNo >= 0 && vBlockNo < TOTAL_VBLOCKS) {
 	
-					int r = stack.push(vBlockNo);
+					int r = stack_.push(vBlockNo);
 	
 					if (r == SUCCESS) {
 						#ifdef BDMMU_DEBUG
@@ -385,11 +385,11 @@ debug_->debug("bar");
 			}
 
 			void setPeristent(bool p) {
-				this->persistent = p;
+				this->persistent_ = p;
 			}
 
 			bool isPeristent() {
-				return this->persistent;
+				return this->persistent_;
 			}
 
 			int sizeofStack() {
@@ -401,10 +401,10 @@ debug_->debug("bar");
 			BlockMem_ptr bm_;		// pointer to this MMU's BlockMemory object
 			Debug_ptr debug_; 		// Pointer to a debug object for debug messages
 			
-			address_t next_vblock; 		// virtual block number denoting highest block number which has ever been used
-			bool persistent;
+			address_t next_vblock_; 		// virtual block number denoting highest block number which has ever been used
+			bool persistent_;
 
-			BufferedStack<address_t, 1> stack;
+			BufferedStack<address_t, 1> stack_;
 			
 		public:
 			/* These constants were not placed into an enum because an enum uses only int values, 
