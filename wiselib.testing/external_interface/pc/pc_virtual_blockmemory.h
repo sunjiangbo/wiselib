@@ -1,5 +1,6 @@
 #ifndef __VIRTSDCARD_H__
 #define	__VIRTSDCARD_H__
+
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,7 @@ namespace wiselib {
  * @brief A virtual bock memory for the PC os model. It implements the block memory interface.
  * @author Dominik Krupke
  * @author Maximilian Ernestus
+ * @author Marco Nikander
  * 
  * This is an implementation of a virtual SD-Card for PCs, for testing of external memory algorithms and 
  * applications. The data is stored in a array in ram; though inefficient this is acceptable for test purposes. 
@@ -56,13 +58,19 @@ public:
 	//BLOCK MEMORY CONCEPT
 	
 	int init(){
-		memset(isWritten, false, nrOfBlocks);
-		memset(memory, 0, sizeof(memory[0][0]) * nrOfBlocks * blocksize);
+		static bool initialized = false;
+		
+		if(initialized == false) {
+			memset(isWritten, false, nrOfBlocks);
+			memset(memory, 0, sizeof(memory[0][0]) * nrOfBlocks * blocksize);
+			initialized = true;
+		}
+
 		resetStats();
 		return SUCCESS;
 	}
 	
-	int init(typename OsModel::AppMainParameter& value){ //TODO: This ok like this?
+	int init(typename OsModel::AppMainParameter& value){ 
 	
 		return init();
 	}
