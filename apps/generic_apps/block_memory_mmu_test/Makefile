@@ -27,6 +27,9 @@ pc_: pc
 debug: 
 	make pc PC_COMPILE_DEBUG=1
 
+#debug:
+#	LANG=C make debugCompile 2>&1|/home/marco/IBR_HiWi/wiselib/util/compile/detemplate -w -t0 -a0
+
 debug_: debug
 	gdb out/pc/./block_memory_management_unit_test_app 
 

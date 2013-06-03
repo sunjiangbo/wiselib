@@ -2,7 +2,7 @@
  * Test application for BDMMU
  */
 
-#define USE_RAM_BLOCK_MEMORY 1 //TODO: Get rid of this once you've fixed the PC_OsModel's Block memory
+//#define USE_RAM_BLOCK_MEMORY 1 //TODO: Get rid of this once you've fixed the PC_OsModel's Block memory
 #define DEBUG
 
 #include <external_interface/external_interface.h>

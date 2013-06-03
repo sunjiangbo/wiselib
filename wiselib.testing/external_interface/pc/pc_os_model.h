@@ -42,13 +42,13 @@
 #include "pc_com_uart.h"
 #include "util/serialization/endian.h"
 
-#if USE_RAM_BLOCK_MEMORY
+//#if USE_RAM_BLOCK_MEMORY
 #include "pc_virtual_blockmemory.h"
-#endif
+//#endif
 
-#if USE_FILE_BLOCK_MEMORY
+/*#if USE_FILE_BLOCK_MEMORY
 #include "algorithms/block_memory/file_block_memory.h"
-#endif
+#endif*/
 
 namespace wiselib {
 	class PCOsModel
@@ -78,12 +78,12 @@ namespace wiselib {
 			typedef PCComUartModel<PCOsModel, false> Uart;
 			typedef ComISenseRadioModel<PCOsModel, ISenseUart> Radio;
 			
-#if USE_RAM_BLOCK_MEMORY
+//#if USE_RAM_BLOCK_MEMORY
 			typedef VirtualSD<PCOsModel, 30000> BlockMemory;
-#endif
-#if USE_FILE_BLOCK_MEMORY
-			typedef FileBlockMemory<PCOsModel> BlockMemory;
-#endif
+//#endif
+//#if USE_FILE_BLOCK_MEMORY
+//			typedef FileBlockMemory<PCOsModel> BlockMemory;
+//#endif
 
 			static const Endianness endianness = WISELIB_ENDIANNESS;
 	};
