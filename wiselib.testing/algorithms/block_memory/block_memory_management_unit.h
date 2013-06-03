@@ -2,7 +2,6 @@
 #define BLOCK_MEMORY_MANAGEMENT_UNIT_H
 
 #include <external_interface/external_interface.h>
-//#include "../doms/external_stack.hpp" //TODO
 #include <algorithms/block_memory/buffered_stack.h>
 
 //#define DEBUG
@@ -69,14 +68,13 @@ class BDMMU {
 				ERR_UNSPEC = BlockMemory::ERR_UNSPEC,
 			};
 			
-			int init(BlockMem_ptr bm_, Debug_ptr debug_, bool restore=true, bool persistent=true, int *restoreSuccess = 0) {
-				this->bm_ = bm_;
-				this->debug_ = debug_;
-				next_vblock_ = reserved;
-
+			int init(BlockMem_ptr bm, Debug_ptr debug, bool restore=true, bool persistent=true) {
+				this->bm_ = bm;
+				this->debug_ = debug;
+				this->next_vblock_ = reserved;
 				this->persistent_ = persistent;	
 
-				stack_.init(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
+				stack_.init(bm_, debug_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
 				
 				assert(BlockMemory::BLOCK_SIZE >= 64); //TODO: Just do this using a static assert instead? Do static asserts work on all platforms?
 
@@ -93,9 +91,9 @@ class BDMMU {
 					&& data[6] == STACK_SIZE && data[7] == next_vblock_ && data[8] == FIRST_VBLOCK_AT 
 					&& data[9] == HI) {
 	
-						if (restoreSuccess != 0) *restoreSuccess = SUCCESS;
+						return SUCCESS;
 					} else {
-						if (restoreSuccess != 0) *restoreSuccess = ERR_UNSPEC;
+						return ERR_UNSPEC;
 					}
 
 				}
@@ -111,7 +109,7 @@ class BDMMU {
 
 				persistent_(persistent),	
 
-				stack_.init(bm_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
+				stack_.init(bm_, debug_, LO + MMU_DATA_SIZE, LO + MMU_DATA_SIZE + (STACK_SIZE-1), !restore);
 
 			{ 
 				assert(BlockMemory::BLOCK_SIZE >= 64); //TODO: Just do this using a static assert instead? Do static asserts work on all platforms?

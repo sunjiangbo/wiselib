@@ -1,8 +1,3 @@
-/*
- * Dies ist eine Implementierung einer virtuellen SD-Karte fuer Linux-Systeme (Eigentlich fuer alle) zum testen von externen Speicheralgorithmen.
- * Die Stats werden aus, auf meinen Erinnerungen von Messergebnissen basierenden, Daten berechnet, wobei die Peaks nicht beruecksichtigt werden.
- * Das Interface ist dem der Wiselib nachempfunden. Die Benutzung sollte selbsterklaerend sein.
- */
 #ifndef __VIRTSDCARD_H__
 #define	__VIRTSDCARD_H__
 #include <iostream>
@@ -14,16 +9,24 @@
 namespace wiselib {
 
 /*
-* @brief A virtual bock memory for the PC os model. It implements the block memory interface.
-* @author Dominik Krupke
-* @author Maximilian Ernestus
-*
-* The data is stored in the ram (huge waste but who cares, it is just used for debugging)
-* It was written to debug programs, that
-* @tparam OsModel_P specifies the os model to use (pc os model in this case)
-* @tparam nrOfBlocks specifies the number of blocks we want to use (default 1000)
-* @tparam blocksize the size of the blocks you want to use (deault 512)
-*/
+ * @brief A virtual bock memory for the PC os model. It implements the block memory interface.
+ * @author Dominik Krupke
+ * @author Maximilian Ernestus
+ * 
+ * This is an implementation of a virtual SD-Card for PCs, for testing of external memory algorithms and 
+ * applications. The data is stored in a array in ram; though inefficient this is acceptable for test purposes. 
+ * The stats (in milliseconds) are calculated using test-data collected during testing of various SD-Cards on 
+ * Arduino µCs over SPI.
+ * 
+ * @tparam OsModel_P specifies the os model to use (pc os model in this case)
+ * @tparam nrOfBlocks specifies the number of blocks we want to use (default 1000)
+ * @tparam blocksize the size of the blocks you want to use (deault 512)
+ */
+
+//TODO: use memcopy in read, write erase instead of for loops to clean up code a bit
+/*TODO: Redo IO & IO-time calculations. Make an enum for the seperate times and values, and use the enum 
+to calc the stats*/
+
 template<typename OsModel_P, int nrOfBlocks = 1000, int blocksize = 512>
 class VirtualSD {
 
@@ -49,44 +52,21 @@ public:
 		ERR_NOMEM = OsModel::ERR_NOMEM,
 		ERR_UNSPEC = OsModel::ERR_UNSPEC,
 	};
-
-
-	/*
-	 * Generates
-	 */
-	/*VirtualSD() {
-		for (int i = 0; i < nrOfBlocks; i++) {
-			isWritten[i] = false;
-		}
-		resetStats();
-	}*/
 	
-	
-//public: 	
 	//BLOCK MEMORY CONCEPT
 	
-	/*
-	 * No special initilization of hardware required. 
-	 */
 	int init(){
-		printf("\n\n INIT VIRTUAL SD HERE !!!! :) \n\n");
-		
-		for (int i = 0; i < nrOfBlocks; i++) {
-			isWritten[i] = false;
-		}
-		//memset(isWritten, false, nrOfBlocks); //TODO: Cleaner, just check that it's right
-		
+		memset(isWritten, false, nrOfBlocks);
+		memset(memory, 0, sizeof(memory[0][0]) * nrOfBlocks * blocksize);
 		resetStats();
 		return SUCCESS;
-		printf("this = %x\n", this);
 	}
 	
-	/*void init(typename OsModel::AppMainParameter& value){ //TODO: This ok like this?
+	int init(typename OsModel::AppMainParameter& value){ //TODO: This ok like this?
 	
-		this->init();
-	}*/
-	
-	/* Wraps the read method from above*/
+		return init();
+	}
+
 	int read(block_data_t* buffer, address_t addr, address_t blocks = 1) {
 		++ios_;
 		duration_ += 2;
@@ -107,33 +87,16 @@ public:
 				(buffer + blocksize * i)[j] = memory[addr+i][j];
 			//return SUCCESS;
 			
-			
-			
-			
-			
 			duration_ -= 2;
 			--ios_;
 		}
 		return SUCCESS;
 	}
 
-	/* Wraps the write method from above*/
-	int write(block_data_t* buffer, address_t addr, address_t blocks = 1) { //TODO: Clean up these printfs
-printf("VIRT WRITE\n"); //segfault happens after this line
-
-printf("buffer = %x\n", static_cast<unsigned char *>(buffer));
-printf("addr = %u\n", static_cast<uint64_t>(addr));
-printf("blocks = %u\n", blocks );
-
-	printf("blocksWritten_ = %d\n", this->blocksWritten_);
-	printf("blocksRead_ = %d\n", this->blocksRead_);
-	printf("ios_ = %d\n", this->ios_);
-	printf("duration_ = %d\n", this->duration_);
-	
-printf("VIRT WRITE - foo\n"); //segfault happens before this line
+	int write(block_data_t* buffer, address_t addr, address_t blocks = 1) { 
 		++ios_;
 		duration_ += 4;
-printf("VIRT WRITE - bar\n");
+		
 		for (address_t i = 0; i < blocks; i++) {
 			//write(buffer + blocksize * i, addr + i);
 					

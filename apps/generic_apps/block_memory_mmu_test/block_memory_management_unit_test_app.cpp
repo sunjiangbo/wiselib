@@ -14,6 +14,7 @@
 typedef wiselib::OSMODEL OsModel;
 
 //TODO: How about some Doxygen Documentation?
+//TODO: Write a persistence test to ensure data is stored in a persistent manner when shutting down datastruct
 
 class BDMMUTestApp
 {

@@ -62,8 +62,9 @@ class BufferedStack{
 	Os::Debug::self_pointer_t debug_;
 	Os::BlockMemory::self_pointer_t sd_;
     public:
-	int init(Os::BlockMemory::self_pointer_t sd, address_t beginMem, address_t endMem, bool forceNew=false) {
-		this->sd_ = sd_;
+	int init(Os::BlockMemory::self_pointer_t sd, Os::Debug::self_pointer_t debug, address_t beginMem, address_t endMem, bool forceNew=false) {
+		this->sd_ = sd;
+		this->debug_ = debug;
 		this->minBlock_ = beginMem+1;
 		this->maxBlock_ = endMem;
 		

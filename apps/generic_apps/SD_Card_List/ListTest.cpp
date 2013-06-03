@@ -14,28 +14,13 @@
 #include <stdlib.h> 
 using namespace wiselib;
 
+//TODO: refactor code so that member variables have an _ at the end of their name
+//TODO: Test the commented out bit of the code which are meant to be included, and delete those which aren't
 
 typedef OSMODEL Os;
 
 class App {
      public:
-
-/*	TODO:
-	When you set the block virtualization to 1, then it works fine on the PC
-	with uint32_t. Other datatypes / platforms not yet testet. Find out if it's
-	the List which can't deal with virtualized blocks, or if your mmu is to blaim
-	due to some weird padding / alignment effects or whatever.
-	
-	Old:
-	NOTE!!!!! THERE IS DEFINITELY A BUG IN THE LIST IMPLEMENTATION SOMEHWERE.
-	testAdd() works fine with 8-bit and 16-bit datatypes, but not with 32-bit
-	datatypes. With 32-bits you get an error in element 126, which is the first
-	element of the second block. testGetKeyIndexBothWays doesn't work at all,
-	whetehr with 16 or 32-bit datatypes...
-
-	
-
-*/	
 
 	struct Message
 	{
@@ -68,7 +53,7 @@ class App {
 
 	/*void generateFillupAnimation()
 	{
-		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 1> MMU_0_t;
+		typedef typename BDMMU<Os, Os::BlockMemory, Os::Debug>::BDMMU_i<0, 50, 1, 1> MMU_0_t;
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		List<Os, MMU_0_t, int, int, false> list(debug_, &mmu_0);
 
@@ -136,7 +121,7 @@ class App {
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Add");
 		
-		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		typedef typename BDMMU<Os, Os::BlockMemory, Os::Debug>::BDMMU_i<0, 50, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
 		List<Os, MMU_0_t, int32_t, int32_t, false> list(debug_, &mmu_0);
@@ -166,7 +151,7 @@ class App {
 		//typedef BDMMU<Os, 0, 20, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t; //Old signature
 		
 
-		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 1> MMU_0_t;
+		typedef typename BDMMU<Os, Os::BlockMemory, Os::Debug>::BDMMU_i<0, 50, 1, 1> MMU_0_t;
 		{
 			MMU_0_t mmu_0(sd, debug_, false, true);
 			{
@@ -212,7 +197,7 @@ class App {
 		//typedef BDMMU<Os, 0, 50, 1, 1, 512, Os::Debug, Os::BlockMemory> MMU_0_t; //Old signature
 		
 
-		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 50, 1, 1> MMU_0_t;
+		typedef typename BDMMU<Os, Os::BlockMemory, Os::Debug>::BDMMU_i<0, 50, 1, 1> MMU_0_t;
 
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
@@ -274,7 +259,7 @@ class App {
 		debug_->debug("Official Test start here");
 		debug_->debug("Testing: Insert");
 		
-		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 11, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		typedef typename BDMMU<Os, Os::BlockMemory, Os::Debug>::BDMMU_i<0, 11, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
 		List<Os, MMU_0_t, int16_t, int16_t, false> list(debug_, &mmu_0);		
@@ -311,7 +296,7 @@ class App {
 			//this list saves numbers
 			
 			
-		typedef typename BDMMU_Template_Wrapper<Os, Os::BlockMemory, Os::Debug>::BDMMU<0, 200, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
+		typedef typename BDMMU<Os, Os::BlockMemory, Os::Debug>::BDMMU_i<0, 200, 1, 2> MMU_0_t; //typedef BDMMU<OsModel, 0, 11, 1, 2, 512, OsModel::Debug, OsModel::BlockMemory> MMU_0_t;
 		MMU_0_t mmu_0(sd, debug_, false, true);
 		
 		List<Os, MMU_0_t, int32_t, int32_t, false> list(debug_, &mmu_0);
