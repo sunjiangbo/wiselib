@@ -186,7 +186,9 @@ class BDMMUTestApp
 		
 		//PRINT OVERALL RESULT
 		debug_->debug("all_tests_successful = %d", all_tests_successful);
-		
+	
+		sd_->printStats();
+	
 		//SHUTDOWN
 		exit(0);
 		

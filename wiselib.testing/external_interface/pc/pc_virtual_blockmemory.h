@@ -17,9 +17,19 @@ namespace wiselib {
  * 
  * This is an implementation of a virtual SD-Card for PCs, for testing of external memory algorithms and 
  * applications. The data is stored in a array in ram; though inefficient this is acceptable for test purposes. 
- * The stats (in milliseconds) are calculated using test-data collected during testing of various SD-Cards on 
+ * The IO-stats are collect calculated using test-data collected during testing of various SD-Cards on 
  * Arduino µCs over SPI.
  * 
+Reads, writes, and Erase-Block erase 
+operations, which are required when performing an erase or 
+when writing to a new block, are counted. The assumption is 
+made that the erase block which is erased is empty (other 
+than the data to be erased), so that no additional write 
+operations are needed. In reality once the card starts 
+getting a bit fuller this is not the case, so the results 
+obtained from this counting scheme should be viewed as a 
+lower bound where IOs are concerned.
+
  * @tparam OsModel_P specifies the os model to use (pc os model in this case)
  * @tparam nrOfBlocks specifies the number of blocks we want to use (default 1000)
  * @tparam blocksize the size of the blocks you want to use (deault 512)
@@ -29,7 +39,7 @@ namespace wiselib {
 /*TODO: Redo IO & IO-time calculations. Make an enum for the seperate times and values, and use the enum 
 to calc the stats*/
 
-template<typename OsModel_P, int nrOfBlocks = 1000, int blocksize = 512>
+template<typename OsModel_P, unsigned int nrOfBlocks = 1000, unsigned int blocksize = 512, unsigned int eraseBlockSize = 128>
 class VirtualSD {
 
 public:
@@ -39,7 +49,9 @@ public:
 	typedef self_type* self_pointer_t;
 	typedef typename OsModel::block_data_t block_data_t;
 	typedef typename OsModel::size_t address_t;
-	
+
+	typedef unsigned int io_t;
+
 	enum {
 		BLOCK_SIZE = blocksize, ///< size of block in byte (usable payload)
 	};
@@ -62,7 +74,7 @@ public:
 		
 		if(initialized == false) {
 			memset(isWritten, false, nrOfBlocks);
-			memset(memory, 0, sizeof(memory[0][0]) * nrOfBlocks * blocksize);
+			memset(memory, 0, sizeof(memory[0][0]) * BLOCK_SIZE * nrOfBlocks);
 			initialized = true;
 		}
 
@@ -76,78 +88,49 @@ public:
 	}
 
 	int read(block_data_t* buffer, address_t addr, address_t blocks = 1) {
-		++ios_;
-		duration_ += 2;
 
-		for (address_t i = 0; i < blocks; i++) {
-			//read(buffer + blocksize * i, addr + i);
+		if(checkInputRange(addr, blocks) == SUCCESS) {
 			
-			if (addr + i < 0 || addr + i >= nrOfBlocks || addr + i == NO_ADDRESS) {
-				printf("OVERFLOW VIRTUAL SD.  Attempted to access block %ju\n", (uintmax_t) (addr + i));
-				return ERR_UNSPEC;
-			}
-			++ios_;
-			++blocksRead_;
-			duration_ += 4;
-			//else if(!isWritten[block]) std::cerr << "READING EMPTY BLOCK" << std::endl;
-
-			for (int j = 0; j < blocksize; j++)
-				(buffer + blocksize * i)[j] = memory[addr+i][j];
-			//return SUCCESS;
-			
-			duration_ -= 2;
-			--ios_;
+			memcpy(buffer, memory + TRUE_BLOCK_SIZE * addr, TRUE_BLOCK_SIZE * blocks);
+			reads_ += blocks;
+			ioCalls_++;
+			return SUCCESS;
+		
+		} else {
+			printf("READ: ");
+			return checkInputRange(addr, blocks, true);
 		}
-		return SUCCESS;
 	}
 
 	int write(block_data_t* buffer, address_t addr, address_t blocks = 1) { 
-		++ios_;
-		duration_ += 4;
-		
-		for (address_t i = 0; i < blocks; i++) {
-			//write(buffer + blocksize * i, addr + i);
-					
-			++ios_;
-			++blocksWritten_;
-			duration_ += 8;
+
+		if(checkInputRange(addr, blocks) == SUCCESS) {
+			memcpy(memory + TRUE_BLOCK_SIZE * addr, buffer, TRUE_BLOCK_SIZE * blocks);
+			writes_ += blocks;
 			
-			if (addr + i < 0 || addr + i >= nrOfBlocks || addr + i == NO_ADDRESS) {
-				printf("OVERFLOW VIRTUAL SD. Attempted to access block %ju\n", (uintmax_t) (addr + i));
-				return ERR_UNSPEC;
-			}
-			for (int j = 0; j < blocksize; j++)
-			{
-				memory[addr + i][j] = (buffer + blocksize * i)[j];
-				isWritten[addr + i] = true;
-			}
-			//return SUCCESS;
-			
-			
-			
-			duration_ -= 6;
-			--ios_;
+			/*Note that for a normal SD card, in order for a write of one or more blocks to be done, 
+			an entire erase block must first be erased and the bytes then set to their respective 
+			values, hence the eraseBlockErases counter is also incremented here.*/
+			eraseBlockErases_ += (blocks % eraseBlockSize == 0 ? blocks/eraseBlockSize : blocks/eraseBlockSize + 1); 
+			ioCalls_++;
+			return SUCCESS;	
+		} else {
+			printf("WRITE: ");
+			return checkInputRange(addr, blocks, true);
 		}
-		return SUCCESS;
 	}
 
 	int erase(address_t addr, address_t blocks = 1) {
-		for(address_t i = 0; i < blocks; i++)
-		{			
-			if ( addr + i >= nrOfBlocks ) {
-				printf("OVERFLOW VIRTUAL SD. Attempted to access block %ju\n", (uintmax_t) (addr + i));
-				return ERR_UNSPEC;
-			}
-			
-			for(address_t j = 0; j < blocksize; j++)
-				memory[i + addr][j] = 0;
+		
+		if(checkInputRange(addr, blocks) == SUCCESS) {
+			memset(memory + TRUE_BLOCK_SIZE * addr, 0u, TRUE_BLOCK_SIZE * blocks);
+			eraseBlockErases_ += (blocks % eraseBlockSize == 0 ? blocks/eraseBlockSize : blocks/eraseBlockSize + 1);
+			ioCalls_++;
+			return SUCCESS;
+		} else {
+			printf("ERASE: ");
+			return checkInputRange(addr, blocks, true);
 		}
-
-		return SUCCESS;
-	}
-	
-	address_t size() {
-		return nrOfBlocks;
 	}
 
 	
@@ -158,25 +141,41 @@ public:
 
 	//EXTRA FUNCTIONALITY
 
+	int checkInputRange(address_t addr, address_t blocks, bool print = false) {
+		
+		if (addr + blocks - 1 >= nrOfBlocks) {
+			if (print) {
+				printf("Overflow virtual SD. Attempted to access blocks %ju - %ju\n", (uintmax_t) addr, (uintmax_t)(addr + blocks -1));
+			}
+			
+			return ERR_UNSPEC;
+		} else if (NO_ADDRESS - blocks < addr) {
+
+			if (print) {
+				printf("Either (1) Attempted to access invalid address (address == NO_ADDRESS) OR (2) the address datatype is overflowing!\n");
+			}
+			return ERR_UNSPEC;
+		} else return SUCCESS;
+	}
+
 	/*
 	 * Resets all the counters that keep track of the IO's
 	 */
 	void resetStats() {
-		blocksWritten_ = 0;
-		blocksRead_ = 0;
-		ios_ = 0;
-		duration_ = 0;
+		reads_ = 0;
+		writes_ = 0;
+		eraseBlockErases_ = 0;
+		ioCalls_ = 0;
 	}
 
 	/*
 	 * Prints usage statistics about the virtual sd card to the console.
 	 */
 	void printStats() {
-		printf("Blocks Written: %d \n", blocksWritten_);
-		printf("Blocks Read: %d\n", blocksRead_ );
-		printf("IOs: %d\n", ios_);
-		printf("Duration: %d\n", duration_);
-		printf("AvgIO: %d\n", duration_ / ios_);
+		printf("Blocks read: %ju\n", (uintmax_t) reads_);
+		printf("Blocks written: %ju\n", (uintmax_t) writes_);
+		printf("EraseBlock erases: %ju\n", (uintmax_t) eraseBlockErases_);
+		printf("IO Calls: %ju\n", (uintmax_t) ioCalls_);
 	}
 
 	/*
@@ -306,11 +305,9 @@ public:
 
 	void reset()
 	{
-		for (address_t i = 0; i < nrOfBlocks; i++)
-			isWritten[i] = false;
-		resetStats();
-
+		memset(0u, false, nrOfBlocks);
 		erase(0, nrOfBlocks);
+		resetStats();
 	}
 
 	void dumpToFile(FILE* f)
@@ -324,11 +321,22 @@ public:
 private:
 	block_data_t memory[nrOfBlocks][blocksize];
 	bool isWritten[nrOfBlocks];
-	int blocksWritten_;
+
+	/*Unless the datatype of memory[][] is changed (usually block_data_t of size 1), TRUE_BLOCK_SIZE
+	is equal to BLOCK_SIZE*/
+	enum {
+		TRUE_BLOCK_SIZE = sizeof(memory[0][0]) * BLOCK_SIZE, 
+	};
+
+/*	int blocksWritten_;
 	int blocksRead_;
 	int ios_;
-	int duration_;
+	int duration_;*/
 
+	io_t reads_ = 0;
+	io_t writes_ = 0;
+	io_t eraseBlockErases_ = 0;
+	io_t ioCalls_ = 0;
 };
 } //NAMESPACE
 #endif // __VIRTSDCARD_H__
