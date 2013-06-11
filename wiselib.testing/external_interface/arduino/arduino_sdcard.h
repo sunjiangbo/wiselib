@@ -25,8 +25,8 @@
 #include <Arduino.h>
 #include <Sd2Card.h>
 
-#include "arduino_debug.h"
 #include "arduino_os.h"
+#include "arduino_debug.h"
 
 namespace wiselib { class ArduinoOsModel; }
 
@@ -66,14 +66,19 @@ namespace wiselib {
 				//card_.init();
 			//}
 			
-			void init() {
+			int init() {
 #if ARDUINO_USE_ETHERNET
                 card_.init();
 #else
                 card_.init(0,4);
 #endif
+			return SUCCESS;
 			}
 			
+			int init(typename OsModel::AppMainParameter& value) {
+				return init();
+			}
+
 			/**
 			 */
 			int read(block_data_t* buffer, address_t start_block, address_t blocks = 1) {
@@ -123,8 +128,9 @@ namespace wiselib {
 				return SUCCESS;
 			}
 			
-			address_t size() {
-				return (address_t) (1024UL * 1024UL * 1024UL / 512UL); ///< #blocks for 1GB
+			address_t size() { 
+				assert(sizeof(address_t) >= sizeof(uint32_t));
+				return card_.cardSize(); //cardSize() returns a uint32_t
 			}
 			
 		private:

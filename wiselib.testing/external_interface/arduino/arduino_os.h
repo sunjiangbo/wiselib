@@ -19,6 +19,8 @@
 #ifndef __ARDUINO_OS_MODEL_H__
 #define __ARDUINO_OS_MODEL_H__
 
+#include <assert.h>
+
 #include "external_interface/default_return_values.h"
 #include "external_interface/arduino/arduino_debug.h"
 #include "external_interface/arduino/arduino_clock.h"
@@ -30,7 +32,6 @@
 /*routes the assert() error message into STDERR, TODO: route STDERR to the 
 serial port so that you can actually output the messages*/
 #define __ASSERT_USE_STDERR 
-#include <assert.h>
 
 namespace wiselib
 {
