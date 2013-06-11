@@ -119,7 +119,7 @@ namespace wiselib {
 				return SUCCESS;
 			}
 			
-			int erase(address_t start_block, address_t blocks) {
+			int erase(address_t start_block, address_t blocks = 1) {
 				bool r;
 				//delay(3);
 				r = card_.erase(start_block, start_block + blocks);
